@@ -1,0 +1,16 @@
+#app{
+    margin:auto;
+    text-align: left;
+    font-size: larger;
+    position:fixed;
+    top :50%;
+    left:42%;
+    
+}
+
+#headline{
+    top:40%;
+    text-align: center;
+    font-weight: 800;
+    font-size: 25px;
+}
