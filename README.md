@@ -10,7 +10,7 @@
 
 QQ：506356719
 
-打开  https://github.com/taylor-swift-13/taylor-swift-13.github.io 即可预览效果 
+打开  https://taylor-swift-13.github.io 即可预览效果 
 
 
 ### 1.MVVM原理
