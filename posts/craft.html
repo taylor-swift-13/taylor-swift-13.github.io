@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f5f7">
+  <meta name="description" content="CRAFT 项目笔记：从执行轨迹构造训练信号，生成并验证 ACSL 循环不变式。">
+  <title>CRAFT：从执行轨迹到可验证的循环不变式 — Y / Notes</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="../js/blog.js" defer></script>
+</head>
+<body class="article-page" id="top">
+  <header class="site-header"><div class="header-inner"><a class="brand" href="../index.html"><span class="brand-mark">Y</span><span>Notes<span class="brand-sub"> / Tech Journal</span></span></a><nav aria-label="主导航"><a href="../index.html">首页</a><a class="current" href="../index.html#writing">文章</a><a href="../index.html#about">关于</a><a href="https://github.com/taylor-swift-13" target="_blank" rel="noopener noreferrer">GitHub ↗</a></nav></div></header>
+  <main class="article-container"><a class="back-link" href="../index.html#writing">← 返回文章列表</a><div class="article-eyebrow">RESEARCH NOTE / FORMAL METHODS</div><h1>CRAFT：从执行轨迹到可验证的循环不变式</h1><p class="article-deck">记录 CRAFT 的核心思路：从循环执行中提取训练信号，让模型提出候选不变式，并交给证明工具检查。</p><div class="article-rule"></div>
+    <article class="prose"><p>循环不变式是程序验证中的关键环节。它描述循环执行前后始终成立的性质，让证明工具可以从有限的规则推断无限次迭代的行为。对真实程序而言，写出有用且可证明的不变式并不简单。CRAFT 研究如何训练模型为 C 程序生成 ACSL 循环不变式，最后用 Frama-C/WP 验证。</p>
+      <h2 id="sampler">从轨迹中学习</h2><p>采样器执行循环并记录循环头的状态。真实执行到达的状态构成正样本；负样本是有意偏离观察到的循环行为的合成轨迹。项目在构造训练信号时，按整条轨迹计数，而不是把一条长轨迹拆成许多独立状态。</p><p>负样本来自两类候选：一类在已观察到的关系附近做局部扰动，另一类从真实的退出位置继续执行循环体，观察越过退出条件后的状态。采样器会排除已经观察到的可达状态，也会避免把其他合法输入可能形成的新循环入口当作负例。</p><div class="callout">有限次执行不能证明某个状态全局不可达。轨迹负责提供训练信号，最终的候选不变式仍需由证明工具检查。</div>
+      <h2 id="pipeline">训练与推理如何衔接</h2><p>CRAFT 将采样、奖励和推理组织为可独立使用的部分。采样器提供正负轨迹；奖励服务对一组候选不变式评分；推理流程生成候选、合并结果，再进行筛选与验证。训练阶段使用奖励服务，测试阶段则运行模型并执行实际验证。</p><pre><code>执行循环 → 采样正负轨迹 → 训练信号
+模型生成 → 合并候选 → Houdini 筛选 → Frama-C/WP 验证</code></pre>
+      <h2 id="verification">让结论可验证</h2><p>一个候选式在采样数据上表现良好，并不意味着它已经是正确的不变式。项目在推理阶段使用 Houdini 和 Frama-C/WP 过滤、证明候选，区分经验性的轨迹检查与形式化证明。</p><p>项目源码、运行入口与更详细的实现说明见 <a href="https://github.com/taylor-swift-13/CRAFT" target="_blank" rel="noopener noreferrer">CRAFT 仓库</a>。这篇笔记介绍系统结构；具体实验结果以仓库中的当前数据和论文为准。</p>
+    </article><div class="article-end"><a class="back-link" href="../index.html#writing">← 返回所有文章</a></div>
+  </main><footer class="site-footer"><div class="container footer-inner"><span>© <span id="year">2026</span> Y / Notes</span><span>Built for ideas worth verifying.</span><a href="#top">回到顶部 ↑</a></div></footer>
+</body>
+</html>

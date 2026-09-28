@@ -1,34 +1,31 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-     <meta charset="UTF-8">
-     <meta name="viewport" content="width=device-width,initial-scale=1.0">
-     <meta http-equiv="X-UA-Compatible" content="ie-edge">
-     <link rel="styleSheet" type="text/css" href="./css/style.css">
-<title>Document</title>
-  </head>
-  <body>
-    <div id="headline">MVVM</div>
-      <div id="app">        
-        <div>双向绑定: <input type="text" v-model="message"></div>
-        <div>单向绑定: <span v-text="message"></span></div>
-        <div>model: {{message}}</div>
-        </div>
-    <script src="./js/Watcher.js"></script>
-    <script src="./js/Observer.js"></script>
-    <script src="./js/Compile.js"></script>
-    <script src="./js/MVVM.js"></script>
-    <script>
-        let vm =new MVVM({
-            el:'#app',
-            data:{
-                message:'hello',
-
-            }
-        })
-    </script>  
-    
-  </body>
-
-
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f5f7">
+  <meta name="description" content="Y / Notes 技术博客：程序分析、形式化验证与工程实践。">
+  <title>Y / Notes — 技术博客</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/blog.js" defer></script>
+</head>
+<body id="top">
+  <div class="ambient ambient-one" aria-hidden="true"></div><div class="ambient ambient-two" aria-hidden="true"></div>
+  <header class="site-header"><div class="header-inner"><a class="brand" href="index.html" aria-label="首页"><span class="brand-mark">Y</span><span>Notes<span class="brand-sub"> / Tech Journal</span></span></a><nav aria-label="主导航"><a class="current" href="index.html">首页</a><a href="#writing">文章</a><a href="#about">关于</a><a href="https://github.com/taylor-swift-13" target="_blank" rel="noopener noreferrer">GitHub <span aria-hidden="true">↗</span></a></nav></div></header>
+  <main>
+    <section class="hero container"><div class="hero-copy"><div class="eyebrow"><span class="pulse"></span> 研究 · 工程 · 思考</div><h1>以代码探索问题。<br><span>以验证建立确信。</span></h1><p>这里记录程序分析、形式化验证与软件工程中的问题、方法和实践。</p><div class="hero-actions"><a class="button button-primary" href="#writing">阅读文章 <span aria-hidden="true">↘</span></a><a class="button button-secondary" href="https://github.com/taylor-swift-13/CRAFT" target="_blank" rel="noopener noreferrer">查看研究项目 <span aria-hidden="true">↗</span></a></div></div><div class="hero-visual" aria-hidden="true"><div class="visual-grid"></div><div class="visual-orbit orbit-one"></div><div class="visual-orbit orbit-two"></div><div class="visual-orbit orbit-three"></div><div class="visual-core"><span class="core-glyph">∀</span><span class="core-label">REASONING / 001</span></div><div class="visual-chip chip-top">{ invariant: true }</div><div class="visual-chip chip-bottom">verified ✓</div></div></section>
+    <div class="ticker"><div class="container ticker-inner"><span>当前关注</span><span>Formal Verification</span><span class="ticker-dot"></span><span>Program Analysis</span><span class="ticker-dot"></span><span>AI for Code</span></div></div>
+    <section class="writing container" id="writing">
+      <div class="section-heading"><div><span class="overline">THE JOURNAL</span><h2>文章与笔记<span class="heading-period">.</span></h2></div><span class="section-aside">把复杂问题，写得清楚一些。</span></div>
+      <div class="featured-card"><a class="featured-link" href="posts/cross-entropy-kl.html">
+        <div class="feature-art" aria-hidden="true"><div class="feature-code"><span>01&nbsp;&nbsp;X ∼ P</span><span>02&nbsp;&nbsp;H(P,Q) = E[−log Q(X)]</span><span>03&nbsp;&nbsp;D_KL(P∥Q)</span><span>04&nbsp;&nbsp;= E[log P(X)/Q(X)]</span><span>05&nbsp;&nbsp;log: natural</span></div><span class="feature-symbol">∑</span></div>
+        <div class="feature-content"><div class="feature-meta"><span class="pill">第一篇 · 草稿</span><span>信息论</span></div><h3>交叉熵与 KL 散度</h3><p>给出有限样本空间中交叉熵和 KL 散度的期望形式与求和形式，并明确零概率情形的约定。</p><div class="feature-bottom"><span>概率分布 <i>·</i> 信息论</span><span class="round-arrow" aria-hidden="true">↗</span></div></div>
+      </a></div>
+      <div class="more-heading"><h3>其他文章</h3><span>02 / 文章</span></div>
+      <a class="archive-card" href="posts/craft.html"><span class="archive-index">02 / RESEARCH NOTE</span><span class="archive-main"><strong>CRAFT：从执行轨迹到可验证的循环不变式</strong><small>项目笔记 · 程序分析</small></span><span class="round-arrow" aria-hidden="true">↗</span></a>
+    </section>
+    <section class="about-band" id="about"><div class="container about-grid"><div><span class="overline">ABOUT</span><h2>好奇心驱动探索，<br><span>严谨让答案站得住。</span></h2></div><div class="about-text"><p>我关注程序分析、形式化方法与 AI 辅助编程。写博客是为了把研究中的方法和工程中的取舍沉淀下来，让每个结论都能回到可检查的依据。</p><a href="https://github.com/taylor-swift-13" target="_blank" rel="noopener noreferrer">在 GitHub 找到我 <span aria-hidden="true">↗</span></a></div></div></section>
+  </main>
+  <footer class="site-footer"><div class="container footer-inner"><span>© <span id="year">2026</span> Y / Notes</span><span>Built for ideas worth verifying.</span><a href="#top">回到顶部 ↑</a></div></footer>
+</body>
 </html>

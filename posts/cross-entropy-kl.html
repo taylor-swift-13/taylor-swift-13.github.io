@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f5f7">
+  <meta name="description" content="交叉熵与 KL 散度：离散概率分布下的期望形式、求和形式与零概率约定。">
+  <title>交叉熵与 KL 散度 — Y / Notes</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <script src="../js/blog.js" defer></script>
+</head>
+<body class="article-page" id="top">
+  <header class="site-header"><div class="header-inner"><a class="brand" href="../index.html"><span class="brand-mark">Y</span><span>Notes<span class="brand-sub"> / Tech Journal</span></span></a><nav aria-label="主导航"><a href="../index.html">首页</a><a class="current" href="../index.html#writing">文章</a><a href="../index.html#about">关于</a><a href="https://github.com/taylor-swift-13" target="_blank" rel="noopener noreferrer">GitHub ↗</a></nav></div></header>
+  <main class="article-container"><a class="back-link" href="../index.html#writing">← 返回文章列表</a><div class="article-eyebrow">信息论 / 草稿</div><h1>交叉熵与 KL 散度</h1><p class="article-deck">离散概率分布下的定义。</p><div class="article-rule"></div>
+    <article class="prose">
+      <p>设 <span class="math-inline">𝒳</span> 为有限样本空间，<span class="math-inline">P</span> 和 <span class="math-inline">Q</span> 是其上的概率分布，分别表示数据分布和模型分布。令 <span class="math-inline">X∼P</span>，并统一使用自然对数。交叉熵与 KL 散度既可写为期望，也可展开为求和：</p>
+      <div class="equation equation-stack" role="math" aria-label="交叉熵等于 X 服从 P 时负对数 Q(X) 的期望，也等于在 P(x) 大于零的点上负 P(x) log Q(x) 的和"><span>H(P,Q) = E<sub>X∼P</sub>[−log Q(X)]</span><span>= −∑<sub>x∈𝒳:P(x)&gt;0</sub> P(x) log Q(x)。</span></div>
+      <div class="equation equation-stack" role="math" aria-label="KL 散度等于 X 服从 P 时 log P(X) 除以 Q(X) 的期望，也等于在 P(x) 大于零的点上 P(x) log P(x) 除以 Q(x) 的和"><span>D<sub>KL</sub>(P∥Q) = E<sub>X∼P</sub>[log(P(X)/Q(X))]</span><span>= ∑<sub>x∈𝒳:P(x)&gt;0</sub> P(x) log(P(x)/Q(x))。</span></div>
+      <p>求和仅对满足 <span class="math-inline">P(x)&gt;0</span> 的 <span class="math-inline">x</span> 进行。若其中存在 <span class="math-inline">Q(x)=0</span> 的点，则交叉熵和 KL 散度定义为 <span class="math-inline">+∞</span>。</p>
+    </article><div class="article-end"><a class="back-link" href="../index.html#writing">← 返回所有文章</a></div>
+  </main><footer class="site-footer"><div class="container footer-inner"><span>© <span id="year">2026</span> Y / Notes</span><span>Built for ideas worth verifying.</span><a href="#top">回到顶部 ↑</a></div></footer>
+</body>
+</html>
