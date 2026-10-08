@@ -165,10 +165,12 @@ D_{\mathrm{KL}}(P\|Q)
 -\sum_{x\in\operatorname{supp}(P)}P(x)\log Q(x).
 $$
 
-优化 $Q$ 时，相关部分就是交叉熵 $-\mathbb E_{X\sim P}[\log Q(X)]$。在 $P(x)>0$、$Q(x)>0$ 的位置，暂时把 $Q(x)$ 视为独立变量，其偏导为
+优化 $Q$ 时，相关部分就是交叉熵 $-\mathbb E_{X\sim P}[\log Q(X)]$。固定一个满足 $P(x)>0,Q(x)>0$ 的位置，记 $p=P(x)$、$q=Q(x)$，暂时固定其他坐标。与 $q$ 有关的求和项为 $p\log(p/q)=p\log p-p\log q$。其中 $p$ 是常数，所以对 $q$ 求导只剩下一项：
 
 $$
 \frac{\partial D_{\mathrm{KL}}(P\|Q)}{\partial Q(x)}
+=\frac{\mathrm d}{\mathrm dq}\bigl(p\log p-p\log q\bigr)
+=-\frac{p}{q}
 =-\frac{P(x)}{Q(x)}.
 $$
 
@@ -176,13 +178,24 @@ $$
 
 ### Reverse KL：在 $Q$ 下取期望
 
-反向散度按 $Q$ 加权。在 $P(x)>0$、$Q(x)>0$ 的位置，暂时把 $Q(x)$ 视为独立变量，其偏导为
+反向散度按 $Q$ 加权。在同样的正概率位置，与 $q$ 有关的求和项为 $q\log(q/p)=q\log q-q\log p$。乘积求导给出 $(q\log q)'=\log q+1$；由于 $p$ 固定，$(q\log p)'=\log p$。因此
 
 $$
 \frac{\partial D_{\mathrm{KL}}(Q\|P)}{\partial Q(x)}
+=\frac{\mathrm d}{\mathrm dq}\bigl(q\log q-q\log p\bigr)
+=\log q+1-\log p
 =\log\frac{Q(x)}{P(x)}+1.
 $$
 
 若 $Q$ 把较多概率放在 $P$ 很小的区域，对应的对数比值很大；若 $P(x)=0$ 而 $Q(x)>0$，散度直接为 $+\infty$。因此，受限的 $Q$ 往往倾向于避开 $P$ 的低概率区域。这是 **mode seeking** 或 **zero forcing** 的来源之一。
 
-不能根据单个求和项直接决定怎样调整 $Q(x)$：当 $0<Q(x)<P(x)$ 时，$Q(x)\log(Q(x)/P(x))$ 本身是负数。KL 散度的非负性属于**求和结果**。此外，$\sum_xQ(x)=1$ 使各位置耦合；上述偏导只表示暂时忽略归一化约束时的局部变化。若允许 $Q=P$，两个方向均在 $Q=P$ 时取最小值零。mode covering 与 mode seeking 描述的是模型族受限时可能出现的倾向。
+不能根据单个求和项直接决定怎样调整 $Q(x)$：当 $0<Q(x)<P(x)$ 时，$Q(x)\log(Q(x)/P(x))$ 本身是负数。KL 散度的非负性属于**求和结果**。
+
+上述偏导暂时把 $Q(x)$ 当作独立坐标；实际还要满足 $\sum_xQ(x)=1$。把任一个 KL 目标记为 $F(Q)$。若从位置 $y$ 向位置 $x$ 转移少量概率 $\varepsilon$，其一阶变化率是
+
+$$
+\left.\frac{\mathrm d F}{\mathrm d\varepsilon}\right|_{\varepsilon=0}
+=\frac{\partial F}{\partial Q(x)}-\frac{\partial F}{\partial Q(y)}.
+$$
+
+因此，在 $Q=P$ 且这些概率严格为正的坐标上，forward KL 的偏导虽然都是 $-1$，reverse KL 的偏导虽然都是 $+1$，但任何这类概率转移的变化率都为零。这与 $Q=P$ 是最小值并不矛盾。mode covering 与 mode seeking 描述的是模型族受限时可能出现的倾向。
