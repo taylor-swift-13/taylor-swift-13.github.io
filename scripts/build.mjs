@@ -18,8 +18,8 @@ const articles = [
   {
     slug: 'cross-entropy-kl',
     title: '交叉熵与 KL 散度',
-    description: '有限样本空间中的期望形式、求和形式与零概率约定。',
-    category: '信息论 · 草稿',
+    description: '有限离散分布下的定义、支撑集、零概率约定与数值算例。',
+    category: '信息论',
   },
 ];
 
