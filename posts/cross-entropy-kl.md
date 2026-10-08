@@ -230,7 +230,40 @@ $$
 \end{aligned}
 $$
 
-因此，MSE 的概率误差还要经过 softmax 的导数才能传到 logit；交叉熵的梯度则直接是 $Q_j-P_j$。例如真实类别为 $y$ 时，$P_y=1$。若模型对它给出 $Q_y\to0$，则 $\partial L_{\mathrm{CE}}/\partial z_y=Q_y-1\to-1$；上式中 MSE 对 $z_y$ 的梯度却因前面的 $Q_y$ 因子趋于 $0$。这解释了为什么 softmax 后接 MSE 在高置信错误处可能产生很小的 logit 梯度。比较的是这两种**具体组合**的梯度；它不意味着 MSE 在其他任务中不适用。
+因此，MSE 的概率误差还要经过 softmax 的导数才能传到 logit；交叉熵的梯度则直接是 $Q_j-P_j$。两者的区别在目标类别概率很小时尤其清楚。
+
+设真实类别为 $y$，即 $P_y=1$，其他类别的 $P_i$ 均为 $0$。如果模型给真实类别的概率 $Q_y\to0$，交叉熵对该类别 logit 的梯度满足
+
+$$
+\frac{\partial L_{\mathrm{CE}}}{\partial z_y}=Q_y-P_y=Q_y-1\longrightarrow-1.
+$$
+
+负号表示增大 $z_y$ 可以降低损失；即使 $Q_y$ 已经很小，这个梯度的大小仍趋于 $1$。
+
+对 MSE，先把单一类别标签代入求和项：因为只有 $P_y=1$，
+
+$$
+\sum_iQ_i(Q_i-P_i)=\sum_iQ_i^2-Q_y.
+$$
+
+于是其对同一个 logit 的梯度为
+
+$$
+\begin{aligned}
+\frac{\partial L_{\mathrm{MSE}}}{\partial z_y}
+&=Q_y\left[(Q_y-1)-\left(\sum_iQ_i^2-Q_y\right)\right]\\
+&=Q_y\left(2Q_y-1-\sum_iQ_i^2\right).
+\end{aligned}
+$$
+
+由于 $0\leq Q_i\leq1$ 且 $\sum_iQ_i=1$，有 $0\leq\sum_iQ_i^2\leq1$。括号内始终有界，所以 $Q_y\to0$ 时，整个 MSE 梯度趋于 $0$。此时 MSE 损失却满足
+
+$$
+L_{\mathrm{MSE}}=\frac12(1-Q_y)^2+\frac12\sum_{i\ne y}Q_i^2
+\geq\frac12(1-Q_y)^2,
+$$
+
+其下界趋于 $1/2$。因此，**损失仍大，传到真实类别 logit 的梯度却可以很小**。在 softmax 概率上使用 MSE 时，这种现象可能使错误预测的修正变慢；上述结论只比较这里定义的两种损失组合。
 
 ## KL 散度的参数顺序
 
