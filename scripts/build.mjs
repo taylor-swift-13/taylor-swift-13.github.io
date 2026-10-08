@@ -41,7 +41,7 @@ function articleHtml(article) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#faf9f6">
   <meta name="description" content="${description}">
-  <title>${title} — Y / Notes</title>
+  <title>${title} — Notes</title>
   <link rel="stylesheet" href="../css/style.css">
   <link rel="stylesheet" href="../assets/katex/katex.min.css">
   <script src="../js/blog.js" defer></script>
@@ -49,10 +49,9 @@ function articleHtml(article) {
 <body class="article-page" id="top">
   <header class="site-header">
     <div class="shell header-inner">
-      <a class="brand" href="../index.html" aria-label="Y / Notes 首页">Y <span>/</span> Notes</a>
+      <a class="brand" href="../index.html" aria-label="Notes 首页">Notes</a>
       <nav aria-label="主导航">
         <a href="../index.html#writing">文章</a>
-        <a href="../index.html#about">关于</a>
         <a href="https://github.com/taylor-swift-13" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
       </nav>
     </div>
@@ -68,7 +67,7 @@ function articleHtml(article) {
 ${body}    </article>
     <div class="article-end"><a class="back-link" href="../index.html#writing">← 返回文章列表</a></div>
   </main>
-  <footer class="site-footer"><div class="shell footer-inner"><span>© <span id="year">2026</span> Y / Notes</span><a href="#top">返回顶部 ↑</a></div></footer>
+  <footer class="site-footer"><div class="shell footer-inner"><span>© <span id="year">2026</span> Notes</span><a href="#top">返回顶部 ↑</a></div></footer>
 </body>
 </html>
 `;

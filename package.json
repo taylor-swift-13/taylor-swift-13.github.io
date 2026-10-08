@@ -1,5 +1,5 @@
 {
-  "name": "y-notes-site",
+  "name": "notes-site",
   "private": true,
   "scripts": {
     "build": "node scripts/build.mjs",
