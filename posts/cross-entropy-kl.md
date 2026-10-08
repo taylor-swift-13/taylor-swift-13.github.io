@@ -83,24 +83,51 @@ $$
 
 这正是该样本的负对数似然。对多个样本取平均，便得到常用的分类交叉熵损失。这里每个样本可以有不同的模型预测分布；前面的 $H(P,Q)$ 定义讨论的是一对固定分布。
 
-## 交换 KL 的参数
+## KL 散度的参数顺序
 
-设 $P$ 是要拟合的目标分布，$Q$ 是模型给出的分布。**写在 KL 第一个位置的分布决定求和权重。** 因此，交换参数不只是把分数倒过来：
+设 $P$ 为目标分布，$Q$ 为待优化的模型分布。KL 散度第一个参数同时决定取期望的分布、求和的权重与对数比值的分子：
 
 $$
 \begin{aligned}
 D_{\mathrm{KL}}(P\|Q)
+&=\mathbb E_{X\sim P}\!\left[\log\frac{P(X)}{Q(X)}\right] \\
 &=\sum_{x\in\operatorname{supp}(P)}P(x)\log\frac{P(x)}{Q(x)}, \\
 D_{\mathrm{KL}}(Q\|P)
+&=\mathbb E_{X\sim Q}\!\left[\log\frac{Q(X)}{P(X)}\right] \\
 &=\sum_{x\in\operatorname{supp}(Q)}Q(x)\log\frac{Q(x)}{P(x)}.
 \end{aligned}
 $$
 
-第一式按 $P(x)$ 加权，称为 **forward KL**；第二式按 $Q(x)$ 加权，称为 **reverse KL**。相应地，前者在 $P(x)>0,Q(x)=0$ 时为 $+\infty$，后者在 $Q(x)>0,P(x)=0$ 时为 $+\infty$。两者的顺序通常不能交换。
+因此，一般有 $D_{\mathrm{KL}}(P\|Q)\ne D_{\mathrm{KL}}(Q\|P)$。若 $P(x)>0$ 而 $Q(x)=0$，前者为 $+\infty$；若 $Q(x)>0$ 而 $P(x)=0$，后者为 $+\infty$。
 
-固定 $P$ 并优化 $Q$，可以先记住两种失配：
+### Forward KL：在 $P$ 下取期望
 
-- **$P(x)$ 大、$Q(x)$ 小：** forward KL 在该位置的项 $P(x)\log(P(x)/Q(x))$ 很大。增加该处的 $Q(x)$ 可以缓解这种失配。
-- **$Q(x)$ 大、$P(x)$ 小：** reverse KL 在该位置的项 $Q(x)\log(Q(x)/P(x))$ 很大。减少该处的 $Q(x)$ 可以缓解这种失配。
+固定 $P$ 后，$D_{\mathrm{KL}}(P\|Q)$ 中第一项与 $Q$ 无关：
 
-$Q$ 的总概率必须为 $1$；增大一处的 $Q(x)$，就必须从别处移走概率质量。因此，“补小的 $Q$”和“压大的 $Q$”是理解目标函数的局部直觉，并非两个可以逐点独立执行的规则。
+$$
+D_{\mathrm{KL}}(P\|Q)
+=\sum_{x\in\operatorname{supp}(P)}P(x)\log P(x)
+-\sum_{x\in\operatorname{supp}(P)}P(x)\log Q(x).
+$$
+
+优化 $Q$ 时，相关部分就是交叉熵 $-\mathbb E_{X\sim P}[\log Q(X)]$。在 $P(x)>0$、$Q(x)>0$ 的位置，暂时把 $Q(x)$ 视为独立变量，其偏导为
+
+$$
+\frac{\partial D_{\mathrm{KL}}(P\|Q)}{\partial Q(x)}
+=-\frac{P(x)}{Q(x)}.
+$$
+
+当 $P(x)>0$ 且 $Q(x)$ 相对于 $P(x)$ 很小时，偏导的绝对值很大；当 $Q(x)=0$ 时，散度为 $+\infty$。因此，在受限模型族中最小化 forward KL，通常不愿漏掉 $P$ 赋予概率质量的区域。这是 **mode covering** 的来源。
+
+### Reverse KL：在 $Q$ 下取期望
+
+反向散度按 $Q$ 加权。在 $P(x)>0$、$Q(x)>0$ 的位置，暂时把 $Q(x)$ 视为独立变量，其偏导为
+
+$$
+\frac{\partial D_{\mathrm{KL}}(Q\|P)}{\partial Q(x)}
+=\log\frac{Q(x)}{P(x)}+1.
+$$
+
+若 $Q$ 把较多概率放在 $P$ 很小的区域，对应的对数比值很大；若 $P(x)=0$ 而 $Q(x)>0$，散度直接为 $+\infty$。因此，受限的 $Q$ 往往倾向于避开 $P$ 的低概率区域。这是 **mode seeking** 或 **zero forcing** 的来源之一。
+
+不能根据单个求和项直接决定怎样调整 $Q(x)$：当 $0<Q(x)<P(x)$ 时，$Q(x)\log(Q(x)/P(x))$ 本身是负数。KL 散度的非负性属于**求和结果**。此外，$\sum_xQ(x)=1$ 使各位置耦合；上述偏导只表示暂时忽略归一化约束时的局部变化。若允许 $Q=P$，两个方向均在 $Q=P$ 时取最小值零。mode covering 与 mode seeking 描述的是模型族受限时可能出现的倾向。
