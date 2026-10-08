@@ -21,12 +21,6 @@ const articles = [
     description: '有限样本空间中的期望形式、求和形式与零概率约定。',
     category: '信息论 · 草稿',
   },
-  {
-    slug: 'craft',
-    title: 'CRAFT：从执行轨迹到可验证的循环不变式',
-    description: '从轨迹采样、候选生成到形式化验证的项目笔记。',
-    category: '程序分析 · 项目笔记',
-  },
 ];
 
 function escapeHtml(value) {

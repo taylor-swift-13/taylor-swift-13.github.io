@@ -9,8 +9,3 @@
 ## 文章与笔记
 
 - [交叉熵与 KL 散度](https://taylor-swift-13.github.io/posts/cross-entropy-kl.html)：有限样本空间中的期望形式、求和形式与零概率约定。草稿。
-- [CRAFT：从执行轨迹到可验证的循环不变式](https://taylor-swift-13.github.io/posts/craft.html)：从轨迹采样、候选生成到形式化验证的项目笔记。
-
-## 项目
-
-- [CRAFT](https://github.com/taylor-swift-13/CRAFT)：研究如何为 C 程序生成并验证循环不变式。
