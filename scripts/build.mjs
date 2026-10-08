@@ -18,7 +18,7 @@ const articles = [
   {
     slug: 'cross-entropy-kl',
     title: '交叉熵与 KL 散度',
-    description: '交叉熵的最小性证明，以及 KL 方向与模式选择的交互可视化。',
+    description: '交叉熵的最小性证明与 KL 散度参数顺序的区别。',
     category: '信息论',
   },
 ];
@@ -33,7 +33,6 @@ function articleHtml(article) {
   let body = markdown.render(source);
   for (const [marker, fragment] of [
     ['log', 'log-inequality.html'],
-    ['kl', 'kl-direction.html'],
   ]) {
     const placeholder = `<p>@@viz-${marker}@@</p>`;
     if (body.includes(placeholder)) {

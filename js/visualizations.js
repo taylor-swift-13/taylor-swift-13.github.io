@@ -30,35 +30,4 @@
     updateLog();
   }
 
-  const klFigure = document.querySelector('[data-viz="kl-direction"]');
-  if (klFigure) {
-    const buttons = [...klFigure.querySelectorAll('[data-direction]')];
-    const weight = klFigure.querySelector('#kl-weight');
-    const explanation = klFigure.querySelector('#kl-explanation');
-    const chart = klFigure.querySelector('.abstract-distribution');
-    const candidateBars = [...klFigure.querySelectorAll('.shape-candidate')];
-    const shapes = {
-      forward: [30, 60, 45, 36, 45, 60, 30],
-      reverse: [18, 90, 55, 18, 6, 3, 2],
-    };
-    let direction = 'forward';
-    const updateKl = () => {
-      buttons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.direction === direction)));
-      candidateBars.forEach((bar, i) => { bar.style.height = `${shapes[direction][i]}%`; });
-      if (direction === 'forward') {
-        weight.textContent = 'P(x)';
-        chart.setAttribute('aria-label', '目标 P 有两个高概率区域；示意 Q 向两边铺开，覆盖两个区域');
-        explanation.textContent = 'P 的高概率区域决定权重。漏掉其中一个区域会受到较大惩罚；受限的 Q 可能向两边铺开。';
-      } else {
-        weight.textContent = 'Q(x)';
-        chart.setAttribute('aria-label', '目标 P 有两个高概率区域；示意 Q 主要集中在左侧一个区域');
-        explanation.textContent = 'Q 放置概率质量的位置决定权重。若两峰之间的 P 很小，Q 可能避开中间，只集中在一个高概率区域。';
-      }
-    };
-    buttons.forEach(button => button.addEventListener('click', () => {
-      direction = button.dataset.direction;
-      updateKl();
-    }));
-    updateKl();
-  }
 })();
