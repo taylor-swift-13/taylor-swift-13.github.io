@@ -50,7 +50,11 @@ $$
 
 等价地，$H(P,Q)=H(P)+D_{\mathrm{KL}}(P\|Q)$。如果 $Q$ 在 $\operatorname{supp}(P)$ 上取零，交叉熵和 KL 散度都是 $+\infty$，而 $H(P)$ 有限，因此上述关系在扩展实数意义下仍成立。
 
-下面证明：**当且仅当 $Q=P$ 时，交叉熵 $H(P,Q)$ 取得最小值。** 若 $Q(x)>0$ 对所有 $x\in\operatorname{supp}(P)$ 成立，由 $\log t\leq t-1$，令 $t=Q(x)/P(x)$，可得
+下面证明：**当且仅当 $Q=P$ 时，交叉熵 $H(P,Q)$ 取得最小值。** 证明用到 $\log t\leq t-1$（$t>0$）。令 $g(t)=t-1-\log t$，则 $g'(t)=1-1/t$；它在 $0<t<1$ 时为负，在 $t>1$ 时为正。因此 $g$ 在 $t=1$ 处取得唯一最小值 $g(1)=0$。拖动下图的 $t$ 可以查看两条函数曲线及其差值。
+
+@@viz-log@@
+
+若 $Q(x)>0$ 对所有 $x\in\operatorname{supp}(P)$ 成立，令 $t=Q(x)/P(x)$，逐项使用上述不等式，可得
 
 $$
 \begin{aligned}
@@ -78,3 +82,35 @@ H(P,Q)=-\log Q(y).
 $$
 
 这正是该样本的负对数似然。对多个样本取平均，便得到常用的分类交叉熵损失。这里每个样本可以有不同的模型预测分布；前面的 $H(P,Q)$ 定义讨论的是一对固定分布。
+
+## KL 的方向与模式选择
+
+交换 KL 散度的两个参数，会同时改变期望所用的分布与对数比值。前面已定义 $D_{\mathrm{KL}}(P\|Q)$；反向的定义是
+
+$$
+\begin{aligned}
+D_{\mathrm{KL}}(Q\|P)
+&=\mathbb E_{X\sim Q}\!\left[\log\frac{Q(X)}{P(X)}\right] \\
+&=\sum_{x\in\operatorname{supp}(Q)}Q(x)\log\frac{Q(x)}{P(x)}.
+\end{aligned}
+$$
+
+$D_{\mathrm{KL}}(P\|Q)$ 又称 forward KL，$D_{\mathrm{KL}}(Q\|P)$ 又称 reverse KL。它们一般不相等。前者在 $P(x)>0$ 且 $Q(x)=0$ 时为 $+\infty$；后者在 $Q(x)>0$ 且 $P(x)=0$ 时为 $+\infty$。若固定目标分布 $P$，并且可选的 $Q$ 受到模型族限制，两种优化目标可能选择不同的 $Q$。如果模型族包含 $P$，则 $Q=P$ 同时使两种 KL 散度为零。
+
+考虑三点空间 $\mathcal X=\{-1,0,1\}$，令目标分布 $P=(0.49,0.02,0.49)$。模型族只允许以下三个候选：
+
+$$
+\begin{aligned}
+Q_{\mathrm{cover}}&=(0.30,0.40,0.30), \\
+Q_{\mathrm{left}}&=(0.95,0.025,0.025), \\
+Q_{\mathrm{right}}&=(0.025,0.025,0.95).
+\end{aligned}
+$$
+
+在下图切换 KL 的方向或候选分布，可以比较每一项的概率质量与散度数值。所有数值均由上面的定义直接求和得到。
+
+@@viz-kl@@
+
+在这个受限模型族中，最小化 $D_{\mathrm{KL}}(P\|Q)$ 选择 $Q_{\mathrm{cover}}$：它给 $P$ 的两个峰都分配了质量，尽管也给低概率的中点分配了过多质量。最小化 $D_{\mathrm{KL}}(Q\|P)$ 则选择 $Q_{\mathrm{left}}$ 或 $Q_{\mathrm{right}}$：它主要落在一个峰上，避免把大量质量放在 $P(0)=0.02$ 的位置。这分别称为 **mode covering（覆盖多个峰）** 和 **mode seeking（偏向一个峰）**。
+
+这些名称描述的是受限模型族下可能出现的优化行为，并不是 KL 散度本身的无条件定理。连续分布的相应讨论可见 [Jerfel 等人（2021）](https://proceedings.mlr.press/v161/jerfel21a.html)。

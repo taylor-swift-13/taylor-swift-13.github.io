@@ -1,0 +1,18 @@
+<figure class="interactive-figure" data-viz="log-inequality">
+  <figcaption>图 1 · 对任意 t &gt; 0，log t 不超过 t − 1；两曲线仅在 t = 1 相交。</figcaption>
+  <div class="figure-legend" aria-hidden="true"><span class="legend-log">log t</span><span class="legend-line">t − 1</span><span class="legend-gap">差值</span></div>
+  <svg class="log-plot" viewBox="0 0 640 300" role="img" aria-label="log t 与 t 减 1 的曲线；可用下方滑块选择 t">
+    <path class="plot-axis" d="M 48 30 V 258 H 610"></path>
+    <path class="plot-zero" id="log-zero"></path>
+    <path class="plot-one" id="log-one"></path>
+    <path class="plot-log" id="log-curve"></path>
+    <path class="plot-line" id="linear-curve"></path>
+    <path class="plot-gap" id="log-gap"></path>
+    <circle class="plot-dot-log" id="log-dot" r="5"></circle>
+    <circle class="plot-dot-line" id="line-dot" r="5"></circle>
+    <text x="47" y="282">0.1</text><text id="one-label" y="282">1</text><text x="592" y="282">3</text>
+    <text x="614" y="262">t</text>
+  </svg>
+  <div class="figure-controls"><label for="log-t-slider">调整 t</label><input id="log-t-slider" type="range" min="0.1" max="3" value="1.8" step="0.01" aria-describedby="log-values"></div>
+  <output id="log-values" for="log-t-slider" aria-live="polite"></output>
+</figure>

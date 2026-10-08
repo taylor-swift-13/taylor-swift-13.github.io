@@ -18,7 +18,7 @@ const articles = [
   {
     slug: 'cross-entropy-kl',
     title: '交叉熵与 KL 散度',
-    description: '有限离散分布下的定义、支撑集、零概率约定与最小性证明。',
+    description: '交叉熵的最小性证明，以及 KL 方向与模式选择的交互可视化。',
     category: '信息论',
   },
 ];
@@ -30,7 +30,17 @@ function escapeHtml(value) {
 
 function articleHtml(article) {
   const source = readFileSync(path.join(root, 'posts', `${article.slug}.md`), 'utf8');
-  const body = markdown.render(source);
+  let body = markdown.render(source);
+  for (const [marker, fragment] of [
+    ['log', 'log-inequality.html'],
+    ['kl', 'kl-direction.html'],
+  ]) {
+    const placeholder = `<p>@@viz-${marker}@@</p>`;
+    if (body.includes(placeholder)) {
+      body = body.replace(placeholder, readFileSync(path.join(root, 'partials', fragment), 'utf8'));
+    }
+  }
+  if (body.includes('@@viz-')) throw new Error(`Unresolved visualization in ${article.slug}.md`);
   const title = escapeHtml(article.title);
   const description = escapeHtml(article.description);
   const category = escapeHtml(article.category);
@@ -45,6 +55,7 @@ function articleHtml(article) {
   <link rel="stylesheet" href="../css/style.css">
   <link rel="stylesheet" href="../assets/katex/katex.min.css">
   <script src="../js/blog.js" defer></script>
+  <script src="../js/visualizations.js" defer></script>
 </head>
 <body class="article-page" id="top">
   <header class="site-header">
