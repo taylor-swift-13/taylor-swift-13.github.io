@@ -1,0 +1,13 @@
+{
+  "name": "y-notes-site",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "check": "node scripts/build.mjs --check"
+  },
+  "devDependencies": {
+    "katex": "^0.18.2",
+    "markdown-it": "^14.1.0",
+    "markdown-it-texmath": "^1.0.0"
+  }
+}
