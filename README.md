@@ -4,4 +4,4 @@
 
 ## 文章
 
-- [交叉熵与 KL 散度](https://taylor-swift-13.github.io/posts/cross-entropy-kl.html)：定义、支撑集、零概率约定与数值算例。
+- [交叉熵与 KL 散度](https://taylor-swift-13.github.io/posts/cross-entropy-kl.html)：定义、支撑集、零概率约定与最小性证明。

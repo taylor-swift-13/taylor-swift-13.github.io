@@ -18,7 +18,7 @@ const articles = [
   {
     slug: 'cross-entropy-kl',
     title: '交叉熵与 KL 散度',
-    description: '有限离散分布下的定义、支撑集、零概率约定与数值算例。',
+    description: '有限离散分布下的定义、支撑集、零概率约定与最小性证明。',
     category: '信息论',
   },
 ];
