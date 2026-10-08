@@ -140,37 +140,87 @@ $$
 
 ## Softmax 与交叉熵：对 logit 的梯度
 
-设有 $K$ 个类别。模型输出的原始分数 $z_1,\ldots,z_K\in\mathbb R$ 称为 **logit**。Softmax 将它们转换成概率：
+设有 $K$ 个类别。模型为每个类别输出一个实数 $z_i$，称为该类别的 **logit**。这些数本身不必非负，也不要求总和为 $1$。Softmax 用指数和归一化把它们转换为概率。记
 
 $$
-Q_i=\frac{e^{z_i}}{Z},\qquad Z=\sum_{k=1}^K e^{z_k},\qquad \sum_{i=1}^K Q_i=1.
+Z=\sum_{k=1}^K e^{z_k},\qquad Q_i=\frac{e^{z_i}}{Z}.
 $$
 
-令目标分布为 $P_1,\ldots,P_K$，其中 $P_i\geq0$ 且 $\sum_iP_i=1$；它既可以是单一类别的标签，也可以是软标签。对一个样本，交叉熵为 $L_{\mathrm{CE}}=-\sum_iP_i\log Q_i$。代入 $\log Q_i=z_i-\log Z$，可得
+每个 $e^{z_i}>0$，因此 $Q_i>0$；又因为分母正是所有分子的和，$\sum_iQ_i=Z/Z=1$。不同类别的 $Q_i$ 共用同一个 $Z$，所以改变 $z_j$ 时，其他类别的概率也会改变。
+
+令目标分布为 $P_1,\ldots,P_K$，其中 $P_i\geq0$ 且 $\sum_iP_i=1$。$P$ 可以是单一类别的标签，也可以是软标签。求导时把 $P$ 视为固定，只调整模型的 logit。一个样本的交叉熵为
 
 $$
+L_{\mathrm{CE}}=-\sum_{i=1}^K P_i\log Q_i.
+$$
+
+先将 $Q_i=e^{z_i}/Z$ 代入对数。由于 $Z>0$，
+
+$$
+\log Q_i=\log\frac{e^{z_i}}{Z}=\log e^{z_i}-\log Z=z_i-\log Z.
+$$
+
+再代回交叉熵，并将与类别 $i$ 无关的 $\log Z$ 提出求和号：
+
+$$
+\begin{aligned}
 L_{\mathrm{CE}}
-=-\sum_iP_i z_i+\left(\sum_iP_i\right)\log Z
-=\log Z-\sum_iP_i z_i.
+&=-\sum_iP_i(z_i-\log Z)\\
+&=-\sum_iP_i z_i+\left(\sum_iP_i\right)\log Z\\
+&=\log Z-\sum_iP_i z_i.
+\end{aligned}
 $$
 
-对任意 $z_j$ 求导。由于 $\partial Z/\partial z_j=e^{z_j}$，所以 $\partial\log Z/\partial z_j=e^{z_j}/Z=Q_j$；线性项的导数为 $P_j$。于是
+最后一步只用了 $\sum_iP_i=1$。现在固定一个类别 $j$，对 $z_j$ 求偏导，同时暂时固定其余 logit。先看 $\log Z$：$Z=\sum_k e^{z_k}$ 中只有 $e^{z_j}$ 随 $z_j$ 变化，所以
 
 $$
-\boxed{\frac{\partial L_{\mathrm{CE}}}{\partial z_j}=Q_j-P_j.}
+\frac{\partial Z}{\partial z_j}=e^{z_j},\qquad
+\frac{\partial\log Z}{\partial z_j}
+=\frac{1}{Z}\frac{\partial Z}{\partial z_j}
+=\frac{e^{z_j}}{Z}=Q_j.
 $$
 
-这里求导的对象是 **logit $z_j$**，不是单独的概率 $Q_j$。改变一个 logit 会经由分母 $Z$ 改变所有类别的概率，概率和仍为 $1$。交叉熵中的 $\log Q_i$ 恰好使这些相互影响的项合并为 $Q_j-P_j$。事实上，$\partial\log Q_i/\partial z_j=\mathbf 1_{i=j}-Q_j$；代回 $-\sum_iP_i\log Q_i$，同样得到 $-P_j+Q_j\sum_iP_i=Q_j-P_j$。
+再看 $-\sum_iP_i z_i$：$P_i$ 已固定，求和中只有 $-P_jz_j$ 随 $z_j$ 变化，其导数为 $-P_j$。两部分相加便得到
+
+$$
+\boxed{\frac{\partial L_{\mathrm{CE}}}{\partial z_j}
+=\frac{\partial\log Z}{\partial z_j}
+-\frac{\partial}{\partial z_j}\sum_iP_i z_i
+=Q_j-P_j.}
+$$
+
+这个结果也可以从“改变 $z_j$ 会影响所有 $Q_i$”直接验证。由 $\log Q_i=z_i-\log Z$，
+
+$$
+\frac{\partial\log Q_i}{\partial z_j}
+=\begin{cases}
+1-Q_j,&i=j,\\
+-Q_j,&i\ne j.
+\end{cases}
+$$
+
+对 $i=j$，$z_i$ 本身的导数是 $1$，同时还要减去分母带来的 $Q_j$；对 $i\ne j$，$z_i$ 不变，只有分母带来 $-Q_j$。把两类项都放回交叉熵的导数，得到
+
+$$
+\begin{aligned}
+\frac{\partial L_{\mathrm{CE}}}{\partial z_j}
+&=-P_j(1-Q_j)-\sum_{i\ne j}P_i(-Q_j)\\
+&=-P_j+Q_j\left(P_j+\sum_{i\ne j}P_i\right)\\
+&=Q_j-P_j.
+\end{aligned}
+$$
+
+因此，$Q_j-P_j$ 已经包含了**所有类别的概率随 $z_j$ 改变**所产生的影响。这里求导的对象始终是 logit，而不是把一个 $Q_j$ 当成可以独立改变的概率。由 $\partial Q_i/\partial z_j=Q_i\,\partial\log Q_i/\partial z_j$，还可得到下文使用的 softmax 导数：
+
+$$
+\frac{\partial Q_i}{\partial z_j}=Q_i(\mathbf 1_{i=j}-Q_j),
+$$
+
+其中 $\mathbf 1_{i=j}$ 在 $i=j$ 时为 $1$，否则为 $0$。
 
 ### 与概率上的 MSE 比较
 
-为使比较的输入一致，令 MSE 也作用于 softmax 概率，取损失 $L_{\mathrm{MSE}}=\tfrac12\sum_i(Q_i-P_i)^2$。这里的 $1/2$ 只为简化导数；若再除以类别数 $K$，梯度整体再乘 $1/K$。由 softmax 的导数
-
-$$
-\frac{\partial Q_i}{\partial z_j}=Q_i(\mathbf 1_{i=j}-Q_j)
-$$
-
-及链式法则，得到
+为使比较的输入一致，令 MSE 也作用于 softmax 概率，取损失 $L_{\mathrm{MSE}}=\tfrac12\sum_i(Q_i-P_i)^2$。这里的 $1/2$ 只为简化导数；若再除以类别数 $K$，梯度整体再乘 $1/K$。将上面的 softmax 导数代入链式法则，得到
 
 $$
 \begin{aligned}
