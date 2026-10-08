@@ -34,44 +34,99 @@ $$
 
 两式都以 $P$ 加权，因此一般不能交换 $P$ 与 $Q$ 的位置。若某个 $x\in\operatorname{supp}(P)$ 满足 $Q(x)=0$，则 $-\log Q(x)$ 和 $\log(P(x)/Q(x))$ 均按扩展实数约定为 $+\infty$，从而 $H(P,Q)=D_{\mathrm{KL}}(P\|Q)=+\infty$。
 
-## 与熵的关系
+## KL 非负性与交叉熵的最小值
 
-$P$ 的熵是 $H(P)=H(P,P)$。在有限样本空间中，即使 $P$ 有零概率点，$H(P)$ 仍为有限值：
+### 核心不等式
 
-$$
-H(P)=-\sum_{x\in\operatorname{supp}(P)}P(x)\log P(x).
-$$
-
-直接展开定义可得
+对任意 $t>0$，有
 
 $$
-D_{\mathrm{KL}}(P\|Q)=H(P,Q)-H(P),
+\boxed{\log t\leq t-1}.
 $$
 
-等价地，$H(P,Q)=H(P)+D_{\mathrm{KL}}(P\|Q)$。如果 $Q$ 在 $\operatorname{supp}(P)$ 上取零，交叉熵和 KL 散度都是 $+\infty$，而 $H(P)$ 有限，因此上述关系在扩展实数意义下仍成立。
-
-下面证明：**当且仅当 $Q=P$ 时，交叉熵 $H(P,Q)$ 取得最小值。** 证明用到 $\log t\leq t-1$（$t>0$）。令 $g(t)=t-1-\log t$，则 $g'(t)=1-1/t$；它在 $0<t<1$ 时为负，在 $t>1$ 时为正。因此 $g$ 在 $t=1$ 处取得唯一最小值 $g(1)=0$。拖动下图的 $t$ 可以查看两条函数曲线及其差值。
+等号当且仅当 $t=1$。令 $g(t)=t-1-\log t$，则 $g'(t)=1-1/t$；$g$ 在 $0<t<1$ 上递减，在 $t>1$ 上递增，故唯一最小值是 $g(1)=0$。下图显示两边的函数值与差距。
 
 @@viz-log@@
 
-若 $Q(x)>0$ 对所有 $x\in\operatorname{supp}(P)$ 成立，令 $t=Q(x)/P(x)$，逐项使用上述不等式，可得
+### 逐项应用到 KL 散度
+
+记 $S=\operatorname{supp}(P)$。若存在 $x\in S$ 使 $Q(x)=0$，则 $D_{\mathrm{KL}}(P\|Q)=+\infty$，非负性立即成立。以下假设 $Q(x)>0$ 对所有 $x\in S$ 成立。由定义，
+
+$$
+-D_{\mathrm{KL}}(P\|Q)
+=\sum_{x\in S}P(x)\log\frac{Q(x)}{P(x)}.
+$$
+
+对每个 $x\in S$，都有 $P(x)>0$。取 $t=Q(x)/P(x)>0$，将核心不等式两边乘以 $P(x)$，得到
+
+$$
+P(x)\log\frac{Q(x)}{P(x)}
+\leq P(x)\left(\frac{Q(x)}{P(x)}-1\right)
+=Q(x)-P(x).
+$$
+
+对 $S$ 求和。因为 $\sum_{x\in S}P(x)=1$，而 $Q$ 在整个样本空间上的概率之和为 $1$，所以 $\sum_{x\in S}Q(x)\leq1$。于是
 
 $$
 \begin{aligned}
 -D_{\mathrm{KL}}(P\|Q)
-&=\sum_{x\in\operatorname{supp}(P)}P(x)\log\frac{Q(x)}{P(x)} \\
-&\leq\sum_{x\in\operatorname{supp}(P)}\bigl(Q(x)-P(x)\bigr) \\
-&=\sum_{x\in\operatorname{supp}(P)}Q(x)-1\leq 0.
+&\leq\sum_{x\in S}\bigl(Q(x)-P(x)\bigr) \\
+&=\sum_{x\in S}Q(x)-1\leq0.
 \end{aligned}
 $$
 
-第一步不等式取等号，要求支撑集中的每个点都满足 $Q(x)=P(x)$。由于这些点的 $P$ 概率之和为 $1$，此时 $Q$ 在支撑集外只能取零，故 $Q=P$。反之，$Q=P$ 时上述不等式显然取等号。若 $Q$ 在 $P$ 的支撑集内取零，则 $D_{\mathrm{KL}}(P\|Q)=+\infty$，不可能取等号。综上，对任意概率分布 $Q$，
+因此，对任意 $P,Q$，
 
 $$
-H(P,Q)\geq H(P,P)=H(P),
+\boxed{D_{\mathrm{KL}}(P\|Q)\geq0}.
 $$
 
-且等号当且仅当 $Q=P$。因此，在固定 $P$ 并允许 $Q$ 遍历同一样本空间上所有概率分布时，交叉熵的最小值是 $H(P)$，唯一的最小化分布是 $P$。
+### 等号条件
+
+要使 $D_{\mathrm{KL}}(P\|Q)=0$，上面两层不等式都必须取等号。第一层逐项使用 $\log t\leq t-1$，而每个系数 $P(x)$ 都严格为正；因此对所有 $x\in S$ 必须有 $Q(x)/P(x)=1$，即 $Q(x)=P(x)$。这些点已经占满 $Q$ 的全部概率质量：
+
+$$
+\sum_{x\in S}Q(x)=\sum_{x\in S}P(x)=1.
+$$
+
+所以 $S$ 外的 $Q(x)$ 只能为零；那里也有 $P(x)=0$。故 $Q=P$ 在整个样本空间上成立。反过来，$Q=P$ 时 KL 散度显然为零。因此
+
+$$
+D_{\mathrm{KL}}(P\|Q)=0\quad\Longleftrightarrow\quad Q=P.
+$$
+
+### 交叉熵的最小值
+
+$P$ 的熵定义为 $H(P)=H(P,P)$。由于样本空间有限，$H(P)$ 总是有限：
+
+$$
+H(P)=-\sum_{x\in S}P(x)\log P(x).
+$$
+
+从交叉熵减去熵，直接得到
+
+$$
+\begin{aligned}
+H(P,Q)-H(P)
+&=-\sum_{x\in S}P(x)\log Q(x)
+  +\sum_{x\in S}P(x)\log P(x) \\
+&=D_{\mathrm{KL}}(P\|Q).
+\end{aligned}
+$$
+
+若 $Q$ 在 $S$ 上取零，交叉熵和 KL 散度都为 $+\infty$，而 $H(P)$ 有限，因此等式在扩展实数意义下仍成立。结合 KL 非负性及等号条件，
+
+$$
+\boxed{H(P,Q)=H(P)+D_{\mathrm{KL}}(P\|Q)\geq H(P)},
+$$
+
+且等号当且仅当 $Q=P$。固定 $P$，让 $Q$ 遍历同一样本空间上的所有概率分布，可得
+
+$$
+\boxed{\min_Q H(P,Q)=H(P)},
+$$
+
+唯一达到最小值的分布是 $Q=P$。等式中的 $H(P)$ 只由目标分布决定；$D_{\mathrm{KL}}(P\|Q)$ 是使用 $Q$ 时增加的非负项。
 
 ## 与分类损失的关系
 
