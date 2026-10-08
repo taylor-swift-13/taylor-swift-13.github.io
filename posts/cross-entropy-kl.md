@@ -138,6 +138,50 @@ $$
 
 这正是该样本的负对数似然。对多个样本取平均，便得到常用的分类交叉熵损失。这里每个样本可以有不同的模型预测分布；前面的 $H(P,Q)$ 定义讨论的是一对固定分布。
 
+## Softmax 与交叉熵：对 logit 的梯度
+
+设有 $K$ 个类别。模型输出的原始分数 $z_1,\ldots,z_K\in\mathbb R$ 称为 **logit**。Softmax 将它们转换成概率：
+
+$$
+Q_i=\frac{e^{z_i}}{Z},\qquad Z=\sum_{k=1}^K e^{z_k},\qquad \sum_{i=1}^K Q_i=1.
+$$
+
+令目标分布为 $P_1,\ldots,P_K$，其中 $P_i\geq0$ 且 $\sum_iP_i=1$；它既可以是单一类别的标签，也可以是软标签。对一个样本，交叉熵为 $L_{\mathrm{CE}}=-\sum_iP_i\log Q_i$。代入 $\log Q_i=z_i-\log Z$，可得
+
+$$
+L_{\mathrm{CE}}
+=-\sum_iP_i z_i+\left(\sum_iP_i\right)\log Z
+=\log Z-\sum_iP_i z_i.
+$$
+
+对任意 $z_j$ 求导。由于 $\partial Z/\partial z_j=e^{z_j}$，所以 $\partial\log Z/\partial z_j=e^{z_j}/Z=Q_j$；线性项的导数为 $P_j$。于是
+
+$$
+\boxed{\frac{\partial L_{\mathrm{CE}}}{\partial z_j}=Q_j-P_j.}
+$$
+
+这里求导的对象是 **logit $z_j$**，不是单独的概率 $Q_j$。改变一个 logit 会经由分母 $Z$ 改变所有类别的概率，概率和仍为 $1$。交叉熵中的 $\log Q_i$ 恰好使这些相互影响的项合并为 $Q_j-P_j$。事实上，$\partial\log Q_i/\partial z_j=\mathbf 1_{i=j}-Q_j$；代回 $-\sum_iP_i\log Q_i$，同样得到 $-P_j+Q_j\sum_iP_i=Q_j-P_j$。
+
+### 与概率上的 MSE 比较
+
+为使比较的输入一致，令 MSE 也作用于 softmax 概率，取损失 $L_{\mathrm{MSE}}=\tfrac12\sum_i(Q_i-P_i)^2$。这里的 $1/2$ 只为简化导数；若再除以类别数 $K$，梯度整体再乘 $1/K$。由 softmax 的导数
+
+$$
+\frac{\partial Q_i}{\partial z_j}=Q_i(\mathbf 1_{i=j}-Q_j)
+$$
+
+及链式法则，得到
+
+$$
+\begin{aligned}
+\frac{\partial L_{\mathrm{MSE}}}{\partial z_j}
+&=\sum_i(Q_i-P_i)\frac{\partial Q_i}{\partial z_j}\\
+&=Q_j\left[(Q_j-P_j)-\sum_iQ_i(Q_i-P_i)\right].
+\end{aligned}
+$$
+
+因此，MSE 的概率误差还要经过 softmax 的导数才能传到 logit；交叉熵的梯度则直接是 $Q_j-P_j$。例如真实类别为 $y$ 时，$P_y=1$。若模型对它给出 $Q_y\to0$，则 $\partial L_{\mathrm{CE}}/\partial z_y=Q_y-1\to-1$；上式中 MSE 对 $z_y$ 的梯度却因前面的 $Q_y$ 因子趋于 $0$。这解释了为什么 softmax 后接 MSE 在高置信错误处可能产生很小的 logit 梯度。比较的是这两种**具体组合**的梯度；它不意味着 MSE 在其他任务中不适用。
+
 ## KL 散度的参数顺序
 
 设 $P$ 为目标分布，$Q$ 为待优化的模型分布。KL 散度第一个参数同时决定取期望的分布、求和的权重与对数比值的分子：

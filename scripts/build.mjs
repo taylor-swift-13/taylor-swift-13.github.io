@@ -18,7 +18,7 @@ const articles = [
   {
     slug: 'cross-entropy-kl',
     title: '交叉熵与 KL 散度',
-    description: '交叉熵的最小性证明与 KL 散度参数顺序的区别。',
+    description: '交叉熵的最小性、softmax 梯度与 KL 散度的参数顺序。',
     category: '信息论',
   },
 ];
