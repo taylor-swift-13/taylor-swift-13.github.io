@@ -212,9 +212,9 @@ C_{\mathrm{share}}(h)=c_h+\sum_{i=1}^{K}d_i+r_h.
 <p><a href="../assets/papers/coco-table-3.png"><img src="../assets/papers/coco-table-3.png" alt="CoCo-Prover 原论文表 3：路由器、自动化和引理规划器的完整消融结果"></a></p>
 <p>路由器和引理规划器带来明显的费用与成功率收益。自动化的平均成本收益较小：CLEVER、VERINA 受益，AlgoVeri 去掉它后反而便宜 <strong>5.8%</strong>。该消融覆盖 30 条函数级题目，Vero 仓库未参与。</p>
 <p>论文还在 Gemini 上对全部 <strong>427</strong> 道函数级题运行三次：三次完成的题目集合相同，总费用均值 <strong>$969.8</strong>、标准差 <strong>$89.5</strong>（变异系数 <strong>9.2%</strong>）。30 题子集又在三个底座上各重复三次；所有重复运行都完成 30 题，费用波动集中在 AlgoVeri + Terra（变异系数 <strong>34.2%</strong>）。路由器、引理规划器约 40% 的消融费用差明显大于 Gemini 子集的运行波动；自动化的 5.8% 差值与波动量级接近。</p>
-<h3>4.5 强模型与思考强度：缺少的一格实验</h3>
-<p>对照上面的 <strong>Vero 原论文图 3</strong> 与 <strong>CoCo-Prover 原论文表 1</strong>：Codex + GPT-5.5 的 proof-only 完整解决数从 medium 的 <strong>6/43</strong> 增至 xhigh 的 <strong>25/43</strong>，每题限时 <strong>90 分钟</strong>。CoCo-Prover + GPT-5.6-Terra 完成 <strong>23/43</strong>，Gemini-3.5-Flash 组合完成 <strong>26/43</strong>，每题上限 <strong>8 小时、$60</strong>。两篇论文的模型、代理版本和预算不同；这些数字展示了思考强度的巨大影响，以及 CoCo-Prover 尚未测试的强模型对照。</p>
-<p>CoCo-Prover 把每次调用的推理强度放入配置 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>θ</mi></mrow><annotation encoding="application/x-tex">\theta</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6944em;"></span><span class="mord mathnormal" style="margin-right:0.0278em;">θ</span></span></span></span></eq>；字符串案例说引理规划使用 high-thinking、证明脚本使用 low-thinking。论文没有报告覆盖全部任务的逐次强度设置及强度扫描。OpenAI 证明底座只用了 Terra；GPT-5.6-Sol（high）只参与事先生成 CLEVER、AlgoVeri 的参考实现。<strong>方法增益与模型增强的交互</strong>因此仍是开放的实证问题。</p>
+<h3>4.5 CoCo-Prover 没超过 Vero 的强基线</h3>
+<p>Vero 的 proof-only 任务上，<strong>CoCo-Prover + GPT-5.6-Terra 解决 23/43，低于 Vero 原论文的 Codex + GPT-5.5（xhigh）解决的 25/43</strong>。前者每题上限为 <strong>8 小时、$60</strong>，后者限时 <strong>90 分钟</strong>。CoCo-Prover 连已发表的强基线都没有超过。</p>
+<p>思考强度足以改写结果：Vero 原论文中，同一 GPT-5.5 底座从 medium 的 <strong>6/43</strong> 提升到 xhigh 的 <strong>25/43</strong>。CoCo-Prover 的 OpenAI 证明实验只用了 Terra，论文没有说明整组实验的思考强度，也没有给出更强模型、更高思考强度下的方法对照。<strong>它的方法收益只在较弱且思考强度不明的模型配置上得到展示；模型和思考强度提升后，这点收益可能被直接吞噬。</strong></p>
 <h2>五、Prove2Me：费马项目为何需要证明基础设施</h2>
 <h3>5.1 论文的方法：可独立提交的定理卡片</h3>
 <p>Prove2Me 论文把形式化项目组织为 <strong>mission</strong>：一个主目标、依赖的定义、以及按证明路线排列的里程碑。每条定理是一张独立卡片，包含自然语言描述、Lean 形式陈述和固定的编译环境；提交定理时，证明位置可以先留 <code>sorry</code>。证明由另一份文件提交，必须声明一个与目标<strong>类型完全相同</strong>的 <code>solution</code>，不含 <code>sorry</code> 或新增公理。这样，两个代理可以针对同一陈述分别提交证明，陈述本身保持不变。</p>
