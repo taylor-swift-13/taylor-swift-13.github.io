@@ -2,17 +2,23 @@
 
 ### 1.1 Vero：仓库级的可验证代码生成
 
+![Vero 论文首页：标题、作者与单位](../assets/papers/vero-title-authors.png)
+
 Ye 等人的 [*Vero: Can AI Agents Build Formally Verified Software Repositories?*](https://arxiv.org/abs/2608.13522) 于 **2026 年 8 月 13 日**公开 arXiv 版本（arXiv:2608.13522）。下面紧贴摘要介绍论文原意：AI 代理越来越常被用于编程，但生成的代码没有正确性保证；可验证代码生成要求代理同时给出实现与经机器检查的规格证明。已有基准或聚焦单个函数，或只评测对给定实现的证明生成，因此尚不清楚代理能否在真实的多模块代码库中做出彼此一致的实现与证明选择。
 
 Vero 为此构建 **43 个来自真实仓库的多模块 Lean 4 实例**，覆盖 Python、Dafny、Verus、Coq 来源。每个实例有预定 API、人工整理的形式规格和参考实现，支持 proof-only 与 code-and-proof 两种模式；审计机制还允许代理形式化证明规格无解或参考实现有误。配备 Lean 工具链的最强编码代理只完整解决 **27/43** 个实例。
 
 ### 1.2 CoCo-Prover：先证什么，花多少钱
 
+![CoCo-Prover 论文首页：标题、作者与单位](../assets/papers/coco-title-authors.png)
+
 Yao 等人的 [*Cost-Efficient Theorem Proving via Agent Orchestration in Program Verification*](https://arxiv.org/abs/2610.09681) 被 **NeurIPS 2026 Workshop on AI for Verifiable Coding（VERICODEGEN）**接收为海报论文，并于 **2026 年 10 月 7 日**公开 arXiv 版本（arXiv:2610.09681）。摘要强调：现有证明器多以通过率为目标，很少计入搜索和采样花费；真实软件却可能有数百个互相依赖的证明义务，因此需要同时看成功数与成本。
 
 CoCo-Prover 把低成本证明表述为带费用的元层决策：每个声明内部用 AND/OR 证明超图，声明之间用引理依赖图；系统先按图选择开放目标，再由路由器购买有费用上限的专家调用。在 **五个 Lean 4 基准**上，论文报告它取得更好的成功率—费用前沿，并在其中两个基准达到 100% 通过率。
 
 ### 1.3 Prove2Me：把形式化变成可协作的工程
+
+![Prove2Me 论文首页：标题、作者与单位](../assets/papers/prove2me-title-authors.png)
 
 Chen 等人的 [*Prove2Me: An Open Collaborative Platform for Scaling Math Formalization*](https://arxiv.org/abs/2608.28433) 于 **2026 年 8 月**公开，本文依据 8 月 31 日的 v2 版本。摘要提出：Lean 4 让数学证明可被机器检查，但大规模形式化长期受专业门槛和证明编写时间限制；AI 编码代理降低了这些门槛，让人可以用自然语言驱动代理写复杂证明。Prove2Me 因而设计开放协作平台：用户发起形式化“任务”（mission），AI 代理为任务贡献证明；专门的协作机制和工具环境让不同代理的成果能够衔接，并重用已有结果。
 
@@ -404,9 +410,9 @@ Anthropic 的原始项目图把路线画成 **Mazur 的不可约性、Ribet 的�
 
 ## 来源与图像授权
 
-- Zhe Ye 等，Vero: Can AI Agents Build Formally Verified Software Repositories?，arXiv:2608.13522v1，2026。文中 Vero 图 1、图 3 原样转载。
-- Shuangjie Yao 等，Cost-Efficient Theorem Proving via Agent Orchestration in Program Verification，NeurIPS 2026 Workshop on AI for Verifiable Coding（VERICODEGEN）海报论文；arXiv:2610.09681v1。文中 CoCo-Prover 图 2、图 3、图 4、图 6 与表 1–3 均截自原论文。会场信息见[作者论文目录](https://cse.hkust.edu.hk/~dongdong/publications/)。
-- Shuze Chen 等，Prove2Me: An Open Collaborative Platform for Scaling Math Formalization，arXiv:2608.28433v2，2026。文中 Prove2Me 图 3、图 5 和表 1 均取自原论文。费马项目的过程与数字见 [Anthropic 项目报告](https://www.anthropic.com/news/formalizing-fermats-last-theorem)，形式证明与复核方式见[公开代码仓库](https://github.com/anthropics/fermats-last-theorem)；独立编译结果见 [Kevin Buzzard 的记录](https://xenaproject.wordpress.com/2026/09/04/flt-anthropic-has-beaten-me-to-it/)。
+- Zhe Ye 等，Vero: Can AI Agents Build Formally Verified Software Repositories?，arXiv:2608.13522v1，2026。文中 Vero 首页标题与作者截图、图 1、图 3 取自原论文。
+- Shuangjie Yao 等，Cost-Efficient Theorem Proving via Agent Orchestration in Program Verification，NeurIPS 2026 Workshop on AI for Verifiable Coding（VERICODEGEN）海报论文；arXiv:2610.09681v1。文中 CoCo-Prover 首页标题与作者截图、图 2、图 3、图 4、图 6 与表 1–3 均截自原论文。会场信息见[作者论文目录](https://cse.hkust.edu.hk/~dongdong/publications/)。
+- Shuze Chen 等，Prove2Me: An Open Collaborative Platform for Scaling Math Formalization，arXiv:2608.28433v2，2026。文中 Prove2Me 首页标题与作者截图、图 3、图 5 和表 1 均取自原论文。费马项目的过程与数字见 [Anthropic 项目报告](https://www.anthropic.com/news/formalizing-fermats-last-theorem)，形式证明与复核方式见[公开代码仓库](https://github.com/anthropics/fermats-last-theorem)；独立编译结果见 [Kevin Buzzard 的记录](https://xenaproject.wordpress.com/2026/09/04/flt-anthropic-has-beaten-me-to-it/)。
 
 费马证明路线图取自 Anthropic 项目报告原图，图片版权归 Anthropic。
 
