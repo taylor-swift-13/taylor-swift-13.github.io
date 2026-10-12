@@ -23,8 +23,8 @@ const articles = [
   },
   {
     slug: 'vero-coco-prover',
-    title: 'Vero 与 CoCo-Prover：方法增益会被模型能力吞噬吗？',
-    description: '详解仓库级证明与代理调度，并检验 CoCo-Prover 的实验结论能否超越强模型基线。',
+    title: 'Compiler in the Loop 任务的消亡：方法增益会被模型迭代吞噬吗？从 Vero 到 CoCo-Prover 再到 Prove2Me',
+    description: '从仓库级证明、成本调度到费马大定理形式化，分析模型能力与证明基础设施各自解决的问题。',
     category: '形式化验证',
   },
 ];

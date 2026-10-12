@@ -1,22 +1,28 @@
-## 一、两篇论文讲什么，问题从哪里来
+## 一、三篇论文的原意与本文的问题
 
 ### 1.1 Vero：仓库级的可验证代码生成
 
-Ye 等人的 [*Vero: Can AI Agents Build Formally Verified Software Repositories?*](https://arxiv.org/abs/2608.13522) 于 **2026 年 8 月 13 日**作为 arXiv 预印本公开（arXiv:2608.13522）。论文研究代理能否同时完成整个软件仓库的实现与机器检查证明。已有基准主要考单个函数，或固定实现后的证明生成；Vero 把接口、规格和模块依赖一起交给代理。
+Ye 等人的 [*Vero: Can AI Agents Build Formally Verified Software Repositories?*](https://arxiv.org/abs/2608.13522) 于 **2026 年 8 月 13 日**公开 arXiv 版本（arXiv:2608.13522）。下面紧贴摘要介绍论文原意：AI 代理越来越常被用于编程，但生成的代码没有正确性保证；可验证代码生成要求代理同时给出实现与经机器检查的规格证明。已有基准或聚焦单个函数，或只评测对给定实现的证明生成，因此尚不清楚代理能否在真实的多模块代码库中做出彼此一致的实现与证明选择。
 
-Vero 收录 **43 个多模块 Lean 4 仓库**，提供固定 API、人工审核的规格和参考实现。它同时考 proof-only 与 code-and-proof，并允许代理用形式化反证指出规格或参考实现的错误。最强代理在 code-and-proof 模式完整解决 **27/43** 个仓库。仓库级完整解决数成为论文的核心指标。
+Vero 为此构建 **43 个来自真实仓库的多模块 Lean 4 实例**，覆盖 Python、Dafny、Verus、Coq 来源。每个实例有预定 API、人工整理的形式规格和参考实现，支持 proof-only 与 code-and-proof 两种模式；审计机制还允许代理形式化证明规格无解或参考实现有误。配备 Lean 工具链的最强编码代理只完整解决 **27/43** 个实例。
 
 ### 1.2 CoCo-Prover：证明任务的成本调度
 
-Yao 等人的 [*Cost-Efficient Theorem Proving via Agent Orchestration in Program Verification*](https://arxiv.org/abs/2610.09681) 被 **NeurIPS 2026 Workshop on AI for Verifiable Coding（VERICODEGEN）**接收为海报论文，并于 **2026 年 10 月 7 日**公开 arXiv 版本（arXiv:2610.09681）。论文研究证明成功率与模型费用的关系。一个仓库包含大量有依赖的证明目标：有些可由 Lean 自动化直接关闭，有些需要深层归纳或共享引理。均匀分配模型预算会把钱花在容易的目标上。
+Yao 等人的 [*Cost-Efficient Theorem Proving via Agent Orchestration in Program Verification*](https://arxiv.org/abs/2610.09681) 被 **NeurIPS 2026 Workshop on AI for Verifiable Coding（VERICODEGEN）**接收为海报论文，并于 **2026 年 10 月 7 日**公开 arXiv 版本（arXiv:2610.09681）。摘要强调：现有证明器多以通过率为目标，很少计入搜索和采样花费；真实软件却可能有数百个互相依赖的证明义务，因此需要同时看成功数与成本。
 
-CoCo-Prover 用两层证明图保存进度，调度器给出当前可处理的目标，路由器决定调用哪类专家、使用多少推理预算。论文在 **五个 Lean 4 基准、三个底座模型**上比较成功率与费用，并报告了同底座下的明显提升。
+CoCo-Prover 把低成本证明表述为带费用的元层决策：每个声明内部用 AND/OR 证明超图，声明之间用引理依赖图；系统先按图选择开放目标，再由路由器购买有费用上限的专家调用。在 **五个 Lean 4 基准**上，论文报告它取得更好的成功率—费用前沿，并在其中两个基准达到 100% 通过率。
 
-### 1.3 饱和基准与反常对照
+### 1.3 Prove2Me：把形式化变成可协作的工程
+
+Chen 等人的 [*Prove2Me: An Open Collaborative Platform for Scaling Math Formalization*](https://arxiv.org/abs/2608.28433) 于 **2026 年 8 月**公开，本文依据 8 月 31 日的 v2 版本。摘要提出：Lean 4 让数学证明可被机器检查，但大规模形式化长期受专业门槛和证明编写时间限制；AI 编码代理降低了这些门槛，让人可以用自然语言驱动代理写复杂证明。Prove2Me 因而设计开放协作平台：用户发起形式化“任务”（mission），AI 代理为任务贡献证明；专门的协作机制和工具环境让不同代理的成果能够衔接，并重用已有结果。
+
+这篇平台论文写于费马大定理项目完成之前。**费马形式化的过程和结果来自 9 月公布的项目报告与代码仓库**，不能当成平台论文原有的实验。
+
+### 1.4 饱和基准与反常对照
 
 既有基准出现天花板效应：CoCo-Prover 论文引用的 Humanize 在 PutnamBench 报告 **100%**；在其函数级实验中，Humanize + GPT-5.6-Terra 完成 CLEVER 的 **97.5%**、VERINA 的 **98.9%**。Vero 转而考多模块、共享不变量和完整仓库；CoCo-Prover 也在 Vero 上测试调度效果。
 
-反常出现在 Vero proof-only 模式：CoCo-Prover + GPT-5.6-Terra 完成 **23/43**，Vero 原论文的 Codex + GPT-5.5 (xhigh) 完成 **25/43**。CoCo-Prover 的 OpenAI 底座只有 Terra；另两组实验使用 Gemini-3.5-Flash 和 DeepSeek-V4-Flash。两篇论文的每题上限分别是 8 小时/$60 与 90 分钟。**更强模型与更高思考强度，会不会吞噬 CoCo-Prover 的方法增益？**后文先拆解任务与方法，再按实验口径回答。
+反常出现在 Vero proof-only 模式：CoCo-Prover + GPT-5.6-Terra 完成 **23/43**，Vero 原论文的 Codex + GPT-5.5 (xhigh) 完成 **25/43**。CoCo-Prover 的 OpenAI 底座只有 Terra；另两组实验使用 Gemini-3.5-Flash 和 DeepSeek-V4-Flash。两篇论文的每题上限分别是 8 小时/$60 与 90 分钟。**更强模型与更高思考强度，会不会吞噬 CoCo-Prover 的方法增益？**费马项目里，Prove2Me 为何又成为完成证明的关键？后文把局部证明能力和项目级协作能力分开检验。
 
 ## 二、Vero：把验证单位从函数提升到仓库
 
@@ -297,21 +303,111 @@ CoCo-Prover 在五个 Lean 4 基准上评估：CLEVER **161** 题、VERINA **189
 
 CoCo-Prover 把每次调用的推理强度放入配置 $\theta$；字符串案例说引理规划使用 high-thinking、证明脚本使用 low-thinking。论文没有报告覆盖全部任务的逐次强度设置及强度扫描。OpenAI 证明底座只用了 Terra；GPT-5.6-Sol（high）只参与事先生成 CLEVER、AlgoVeri 的参考实现。**方法增益与模型增强的交互**因此仍是开放的实证问题。
 
-## 五、模型能力会吞噬方法增益吗
+## 五、Prove2Me：费马项目为何需要证明基础设施
 
-### 5.1 交叉实验
+### 5.1 论文的方法：可独立提交的定理卡片
 
-在同一批 Vero proof-only 实例上交叉运行**普通编码代理 / CoCo-Prover**与**不同模型 / 不同思考强度**。固定 Lean 版本、定理、检索工具、审查规则及时间和美元上限。每一格报告完整解决数、逐题成功集合、模型费用、墙钟时间和多次运行方差。
+Prove2Me 论文把形式化项目组织为 **mission**：一个主目标、依赖的定义、以及按证明路线排列的里程碑。每条定理是一张独立卡片，包含自然语言描述、Lean 形式陈述和固定的编译环境；提交定理时，证明位置可以先留 `sorry`。证明由另一份文件提交，必须声明一个与目标**类型完全相同**的 `solution`，不含 `sorry` 或新增公理。这样，两个代理可以针对同一陈述分别提交证明，陈述本身保持不变。
 
-逐题成功集合尤其关键：强模型若补上 CoCo-Prover 独有的题目，方法的成功率增益就会收缩；若 CoCo-Prover 仍能在强模型上补上新题，说明两者互补。
+用符号表示，定理卡片给出目标 $T:\mathtt{Prop}$；证明提交必须给出 $p:T$。Lean 检查的是这个精确的类型关系，而不是证明文件的标题、自然语言描述或相似的定理名称。代理也能提交 $p:\neg T$ 来反驳错误陈述。平台将 Lean / Mathlib 版本钉死在验证环境中，使不同提交在同一语义下检查。
 
-### 5.2 当前证据
+### 5.2 核心技巧：先证明连接关系，再分别填满前提
 
-现有实验清楚显示，**在同底座、同预算下，CoCo-Prover 的证明图与调度能提升成功率并降低共同成功题目的模型费用**。Vero 同时显示，GPT-5.5 从 medium 提高到 xhigh 会把 proof-only 的完整解决数由 6 提至 25。CoCo-Prover 在强推理配置下的额外增益尚未测出。下一轮实验的焦点是这两个效应如何叠加，以及更高的墙钟时间换来了多少新增证明。
+难题通常无法交给一个代理在单份文件里从头写到尾。Prove2Me 的 **proof-sketch** 允许一个目标先导入尚未完成的子定理 $L_1,\ldots,L_k$，写出无 `sorry` 的上层推导。它此时给出的逻辑承诺是
+
+$$
+L_1\land\cdots\land L_k\Longrightarrow T.
+$$
+
+这**还不是** $T$ 的最终证明；开放的子定理仍须逐一关闭。所有子定理得到 Lean 证明后，上层证明自动成为完整证明：
+
+$$
+(L_1\land\cdots\land L_k)
+\land (L_1\land\cdots\land L_k\Longrightarrow T)
+\Longrightarrow T.
+$$
+
+陈述和 proof-sketch 提交后保持不可变，于是子定理可以交给不同代理并行处理。一个子定理被证明，所有依赖它的上层节点都能复用这一结果；一个子定理被否证，依赖它的路径必须改写。**项目的全局状态由证明依赖图保存，而不是留在任何一个代理的上下文里。**
+
+论文用黄浩的敏感度猜想展开这个机制。关键路径包括 Cauchy 特征值交错定理、递归矩阵 $A_n$ 的谱，以及从矩阵特征值到图最大度的界。其中矩阵定义为
+
+$$
+A_1=\begin{bmatrix}0&1\\1&0\end{bmatrix},\qquad
+A_n=\begin{bmatrix}A_{n-1}&I\\I&-A_{n-1}\end{bmatrix};
+$$
+
+谱引理要求证明其特征值为 $\sqrt n$ 和 $-\sqrt n$，各有重数 $2^{n-1}$。上层 proof-sketch 导入这些定理，单独证明它们足以推出敏感度结论。原论文图 5 中，椭圆是定理或定义，紫色方块是连接它们的 proof-sketch；图中还显示同一已证明引理被多条路径共享。
+
+[![Prove2Me 原论文图 5：敏感度猜想的证明分解图](../assets/papers/prove2me-decomposition.png)](../assets/papers/prove2me-decomposition.png)
+
+### 5.3 编译、检索与审计分别解决什么问题
+
+**编译。**若数十个代理共同修改一套 Lean 文件，下游定义或引理一变，上游依赖就可能大面积重编译，还会出现文件冲突。Prove2Me 将陈述与证明拆开：代理可在独立环境中证明一个子定理，无须下载并重编译整个上层工程；服务端再验证提交并更新依赖图。这个收益来自构建组织方式，模型自己写出更短的 tactic 也不能替代它。
+
+**检索。**每张定理卡片附有自然语言描述。代理在创建新定理前搜索现有结果，找到合适的结论就直接导入。可复用的成果存入 Formalpedia，使另一条证明路径或另一项 mission 能用同一个已验证引理。这样减少重复形式化，也让贡献从一次性的文件改动变成可索引的证明资产。
+
+**审计。**Lean 能检查“证明是否真的推出形式陈述”，却不能自动保证该陈述忠实表达原来的数学命题。Prove2Me 要求人审核 mission 的主目标、定义与里程碑；中间引理由代理自由添加，只要最终接回这些已审核目标即可。平台还让独立代理只读 Lean 声明、反向写出普通数学描述，由人对照原始陈述。原论文图 3 展示了这一 read-back 流程：它会显式指出量词范围、空乘积、边界条件等容易被标题掩盖的内容。
+
+[![Prove2Me 原论文图 3：Lean 陈述及独立代理的数学回译](../assets/papers/prove2me-readback.png)](../assets/papers/prove2me-readback.png)
+
+### 5.4 平台论文报告了哪些项目
+
+原论文表 1 报告四项已完成的 Prove2Me mission，并以一个集中式代理群的教材形式化项目作背景对照。矩阵补全论文产生 **8.1 万行** Lean、使用 **9 个代理**、历时 **16 天**；Sipser–Gács–Lautemann 定理为 **5.5 万行、3 个代理、8 天**；《Bandit Algorithms》为 **15.1 万行、6 个代理、13 天**；《Introduction to Linear Optimization》为 **1.7 万行、4 个代理、7 天**。作为对照的《Algebraic Combinatorics》项目产生 **13 万行**、统计 **3 万次代理运行**、历时 **7 天**。正文例子中的敏感度猜想 mission 也完成了全部四个里程碑。
+
+[![Prove2Me 原论文表 1：已完成 mission 的规模、代理数、模型和时间](../assets/papers/prove2me-table-1.png)](../assets/papers/prove2me-table-1.png)
+
+表里的美元数字有两种口径：集中式项目估算按 API 用量计费，Prove2Me 的项目按参与者订阅费估算，不能直接当作成本节省倍数。论文也明确说这些是**案例**，任务难度、模型代际、工作方式同时变化，无法从表 1 单独识别平台的因果增益。费马大定理在这篇 8 月论文发表后才完成，也不在表 1 中。
+
+### 5.5 费马大定理：接入平台前后发生了什么
+
+Anthropic 的 9 月项目报告记载：Claude 代理最初已能解决一些局部任务，但随着工作累积，代理失去对项目状态的共同认识，协作和复用失败。早期尝试最终贡献了约 **7%** 的非样板代码行。切换到 Prove2Me 后，定理依赖图向所有代理显示当前开放的目标，陈述与证明分离降低 Lean 编译负担，自然语言检索帮助它们找到已有引理。随后，使用 Claude Code 多代理环境和一个内部研究模型，团队在 **11 天**内完成端到端形式化，消耗约 **60 亿输出 token**。项目写出约 **1,300 万行 Lean**，最终证明使用约 **29,500 条中间定理**；公开仓库列出 **29,511 条定理、60,475 个模块**。
+
+公开仓库把目标写成具体的 Lean 定理：
+
+```lean
+theorem fermat_last_theorem (n : ℕ) (hn : 3 ≤ n)
+    (a b c : ℕ) (ha : 0 < a) (hb : 0 < b) (hc : 0 < c) :
+    a ^ n + b ^ n ≠ c ^ n
+```
+
+仓库的 `FinalCheck.lean` 要求它只依赖 Lean 的 `propext`、`Classical.choice`、`Quot.sound` 三项标准公理，并从这条定理推出 Mathlib 自身的费马大定理陈述。项目报告还给出独立复核：全仓重新编译通过，`comparator` 检查最终陈述与 Mathlib 的定义一致，第二个内核 `nanoda` 复核导出的声明；Kevin Buzzard 也重新编译并运行 `comparator`。这检验了**形式陈述及其完整证明链**，比平台界面显示“已完成”更强。
+
+证明沿 Frey–Serre–Ribet–Wiles–Taylor–Wiles 路线，使用已有 Mathlib，以及先前 FLT 项目和正则素数项目中的部分形式化成果。其大规模主体处理高指数情形，再与已有的小指数结果接合。因而这次成果是对既有数学和形式库的快速扩展，不是代理独自发现一条新的费马证明。Buzzard 认为代码确实通过检查，同时指出它庞大、编译昂贵，和面向人阅读及 Mathlib 长期维护的形式化工程目标仍有距离。
+
+Anthropic 的原始项目图把路线画成 **Mazur 的不可约性、Ribet 的降层、Wiles 的模性**三条大分支，最后合到 Frey 曲线不存在及费马结论。每个框下方标出具体 Lean 定理或定义；它让“共享进度”落到可检查的依赖对象，而不是靠代理反复阅读整个仓库。
+
+[![Anthropic 费马大定理形式化项目原图：Mazur、Ribet、Wiles 三条证明分支](../assets/papers/prove2me-flt-dag.png)](../assets/papers/prove2me-flt-dag.png)
+
+### 5.6 为什么这次方法增益没有被模型能力吞噬
+
+费马项目的局部证明能力已经很强：同一批代理在接入 Prove2Me 前就能证明部分结果。失败发生在**三万级中间定理的协作与集成**。模型思考得更久，可以提高单个开放目标的完成率；它仍需要持久记录谁依赖谁、哪些陈述已经通过内核、哪些结果可以被另一代理导入，以及哪些核心陈述经人核对过。Prove2Me 将这些状态和操作落实为外部协议，让更强模型产出的局部证明能可靠合成。
+
+可以把全局完成条件写成一个依赖闭合问题：若主目标 $T$ 的证明图有叶子定理 $L_i$ 和依赖边 $E$，那么成功要求每个必要的 $L_i$ 有证明、每条依赖都指向匹配的陈述，最后整张图归约到 $T$。模型能力主要改变**解决叶子目标的速度和成功率**；平台同时保证**证明版本、依赖关系、跨代理共享及最后的闭合检查**。叶子产出越快，后面这些集成操作越频繁。
+
+这里有两层证据。**项目内的过程证据**是早期协作失效，切换平台后完成了完整证明；它支持平台在这次运行中起决定性作用。**跨模型的普遍结论**还不能从这次项目推出：报告没有让同一模型、同等 token 和同等时间分别运行“有 / 无 Prove2Me”的受控实验。未来更强的代理可能把相同功能纳入自己的工具环境，但定理依赖、可复用陈述、增量编译与语义审计这些工作仍要有人或系统承担。被保留下来的，是**可组合的证明基础设施所解决的问题**。
+
+## 六、Compiler in the Loop 任务的消亡：方法增益如何重新分层
+
+### 6.1 从局部反馈到全局完成
+
+在简单的 compiler in the loop 任务中，代理写一段 Lean，收到报错，修改，再次编译。模型迭代直接提高这条循环的效率，函数级基准也容易接近满分。Vero 将完成条件提升到整个仓库：43 个实例中，每个实例的所有规格都要通过。CoCo-Prover 再把目标选择和调用成本显式化；它的同底座实验显示调度有效，但强模型对照仍有空缺。Prove2Me 面对的是更大的形式化网络：局部编译只是其中一步，整个项目还需要稳定的目标、依赖、复用、并行协作和审计。
+
+三项工作的评估单位依次是**仓库完整解决数**、**成功率—费用前沿**、**跨代理的整项形式化任务完成**。标题中的“消亡”指把“反复调用编译器修补局部证明”单独当作方法贡献时，它会随模型能力提升而贬值；费马项目展示了另一类收益：将大量局部成功合成为经内核检查的全局结果。
+
+### 6.2 检验模型与方法的交互
+
+在同一批 Vero proof-only 实例上，交叉运行普通编码代理与 CoCo-Prover，并改变模型和思考强度；固定 Lean 版本、题目、审查规则、时间及美元上限。每格记录完整解决数、逐题成功集合、模型费用、墙钟时间和重复运行方差。如果强模型补上了 CoCo-Prover 独有的题，调度的成功率增益就会收缩；若 CoCo-Prover 继续补出新题，说明两者在此预算下互补。
+
+对 Prove2Me，则应在同一项大型形式化任务上固定模型和总计算量，比较有无共享依赖图、不可变定理卡片、独立编译与检索的代理群。除最终能否闭合主目标，还应测量重复证明、编译资源、冲突次数、无效依赖和核心陈述的人工审核量。这样的实验才能把平台贡献从模型能力、巨额算力和已有数学库中分离出来。
+
+现有结果已给出一条清晰线索：**局部证明策略最容易被模型迭代吸收；跨代理、跨文件、跨数万定理的状态管理会随着模型产出增加而变得更重要。**Vero 说明强模型的影响，CoCo-Prover 测量调度，费马项目展示可组合基础设施如何把海量局部证明接成一个已检查的定理。
 
 ## 来源与图像授权
 
 - Zhe Ye 等，Vero: Can AI Agents Build Formally Verified Software Repositories?，arXiv:2608.13522v1，2026。文中 Vero 图 1、图 3 原样转载。
 - Shuangjie Yao 等，Cost-Efficient Theorem Proving via Agent Orchestration in Program Verification，NeurIPS 2026 Workshop on AI for Verifiable Coding（VERICODEGEN）海报论文；arXiv:2610.09681v1。文中 CoCo-Prover 图 2、图 3、图 4、图 6 与表 1–3 均截自原论文。会场信息见[作者论文目录](https://cse.hkust.edu.hk/~dongdong/publications/)。
+- Shuze Chen 等，Prove2Me: An Open Collaborative Platform for Scaling Math Formalization，arXiv:2608.28433v2，2026。文中 Prove2Me 图 3、图 5 和表 1 均取自原论文。费马项目的过程与数字见 [Anthropic 项目报告](https://www.anthropic.com/news/formalizing-fermats-last-theorem)，形式证明与复核方式见[公开代码仓库](https://github.com/anthropics/fermats-last-theorem)；独立编译结果见 [Kevin Buzzard 的记录](https://xenaproject.wordpress.com/2026/09/04/flt-anthropic-has-beaten-me-to-it/)。
 
-两篇论文均以 [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) 发布。本文文字是根据论文撰写的中文改编，代码例子有摘取和整理；原图与原表只做裁切，没有修改内容。本文及所转载图片按 CC BY-SA 4.0 分享。
+费马证明路线图取自 Anthropic 项目报告原图，图片版权归 Anthropic。
+
+Vero 与 CoCo-Prover 两篇论文以 [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) 发布。本文文字是根据论文与项目报告撰写的中文改编；图表取自标明的原论文，表格只做裁切，没有改动数值。Prove2Me 的 arXiv v2 标注为 arXiv 永久非独占授权，其图表版权归原作者。本文文字及 CC BY-SA 原图按 CC BY-SA 4.0 分享。
