@@ -8,7 +8,7 @@ Vero 收录 **43 个多模块 Lean 4 仓库**，提供固定 API、人工审核�
 
 ### 1.2 CoCo-Prover：证明任务的成本调度
 
-Yao 等人的 [*Cost-Efficient Theorem Proving via Agent Orchestration in Program Verification*](https://arxiv.org/abs/2610.09681) 于 **2026 年 10 月 7 日**作为 arXiv 预印本公开（arXiv:2610.09681）。论文研究证明成功率与模型费用的关系。一个仓库包含大量有依赖的证明目标：有些可由 Lean 自动化直接关闭，有些需要深层归纳或共享引理。均匀分配模型预算会把钱花在容易的目标上。
+Yao 等人的 [*Cost-Efficient Theorem Proving via Agent Orchestration in Program Verification*](https://arxiv.org/abs/2610.09681) 被 **NeurIPS 2026 Workshop on AI for Verifiable Coding（VERICODEGEN）**接收为海报论文，并于 **2026 年 10 月 7 日**公开 arXiv 版本（arXiv:2610.09681）。论文研究证明成功率与模型费用的关系。一个仓库包含大量有依赖的证明目标：有些可由 Lean 自动化直接关闭，有些需要深层归纳或共享引理。均匀分配模型预算会把钱花在容易的目标上。
 
 CoCo-Prover 用两层证明图保存进度，调度器给出当前可处理的目标，路由器决定调用哪类专家、使用多少推理预算。论文在 **五个 Lean 4 基准、三个底座模型**上比较成功率与费用，并报告了同底座下的明显提升。
 
@@ -363,6 +363,6 @@ CoCo-Prover 把每次调用的推理强度放入配置 $\theta$；字符串案�
 ## 来源与图像授权
 
 - Zhe Ye 等，Vero: Can AI Agents Build Formally Verified Software Repositories?，arXiv:2608.13522v1，2026。文中 Vero 图 1、图 3 原样转载。
-- Shuangjie Yao 等，Cost-Efficient Theorem Proving via Agent Orchestration in Program Verification，arXiv:2610.09681v1，2026。文中 CoCo-Prover 图 2、图 3、图 4、图 6 原样转载。
+- Shuangjie Yao 等，Cost-Efficient Theorem Proving via Agent Orchestration in Program Verification，NeurIPS 2026 Workshop on AI for Verifiable Coding（VERICODEGEN）海报论文；arXiv:2610.09681v1。文中 CoCo-Prover 图 2、图 3、图 4、图 6 原样转载。会场信息见[作者论文目录](https://cse.hkust.edu.hk/~dongdong/publications/)。
 
 两篇论文均以 [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) 发布。本文文字是根据论文撰写的中文改编，代码例子有摘取和整理；原图未修改。本文及所转载图片按 CC BY-SA 4.0 分享。
