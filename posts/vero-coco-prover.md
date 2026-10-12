@@ -135,14 +135,7 @@ Vero 的审计机制让基准自身接受形式化检验。代理可以提交目
 
 ### 分数揭示的真正瓶颈
 
-Vero 原论文每个仓库限时 **90 分钟**，对四种编码代理配置同时评测两种模式：
-
-| 代理配置 | Code-and-proof | Proof-only |
-| --- | ---: | ---: |
-| Codex + GPT-5.5 xhigh | **27/43** | **25/43** |
-| Codex + GPT-5.5 medium | 2/43 | 6/43 |
-| Claude Code + Opus 4.8 | 8/43 | 10/43 |
-| Claude Code + Sonnet 5 | 2/43 | 2/43 |
+Vero 原论文每个仓库限时 **90 分钟**，对四种编码代理配置同时评测两种模式。原论文图 3 给出全部结果：GPT-5.5 xhigh 在 code-and-proof / proof-only 下分别解决 **27/43**、**25/43**；GPT-5.5 medium 为 **2/43**、**6/43**；Opus 4.8 为 **8/43**、**10/43**；Sonnet 5 在两种模式下均为 **2/43**。
 
 GPT-5.5 xhigh 的逐规格通过率在两种模式下分别达到 **87.3%** 和 **85.8%**，但完整仓库解决数仍为 27 与 25。GPT-5.5 的 medium 与 xhigh 之间差距尤其大：proof-only 从 6 增至 25。完整解决数对思考强度高度敏感，因而是检验 CoCo-Prover 方法增益的关键基线。
 
@@ -264,49 +257,17 @@ CoCo-Prover 在五个 Lean 4 基准上评估：CLEVER **161** 题、VERINA **189
 
 ### 4.2 五个基准的成功率
 
-下表按论文表 1 列出全部“基准 × 底座”组合。数值是完成率；仓库级任务中的横线表示该基线未参与比较。
+原论文表 1 列出全部“基准 × 底座”组合，上半部分是两个仓库级基准，下半部分是三个函数级基准。
 
-| 基准 | 底座 | Ax-Prover-Base | Humanize | 编码代理 | CoCo-Prover |
-| --- | --- | ---: | ---: | ---: | ---: |
-| CLEVER | Terra | 89.4% | 97.5% | 91.9% | **100%** |
-| CLEVER | Gemini | 85.7% | 97.5% | 94.4% | **100%** |
-| CLEVER | DeepSeek | 73.9% | 91.9% | 78.9% | **96.9%** |
-| VERINA | Terra | 85.7% | 98.9% | 87.3% | **100%** |
-| VERINA | Gemini | 72.5% | 95.2% | 87.8% | **98.4%** |
-| VERINA | DeepSeek | 66.1% | 73.5% | 58.2% | **100%** |
-| AlgoVeri | Terra | 81.8% | 85.7% | 67.5% | **89.6%** |
-| AlgoVeri | Gemini | 76.6% | **80.5%** | 71.4% | **80.5%** |
-| AlgoVeri | DeepSeek | 58.4% | 66.2% | 79.2% | **93.5%** |
-| NTP4VC | Terra | — | — | 85.3% | **89.3%** |
-| NTP4VC | Gemini | — | — | 79.7% | **94.7%** |
-| NTP4VC | DeepSeek | — | — | 39.0% | **95.0%** |
-| Vero | Terra | — | — | 2.3%（1/43） | **53.5%（23/43）** |
-| Vero | Gemini | — | — | 7.0%（3/43） | **60.5%（26/43）** |
-| Vero | DeepSeek | — | — | 0% | **14.0%（6/43）** |
+[![CoCo-Prover 原论文表 1：五个基准、三个模型的完整成功率](../assets/papers/coco-table-1.png)](../assets/papers/coco-table-1.png)
 
 同底座下，CoCo-Prover 在 15 组结果里最高或并列最高。函数级 CLEVER、VERINA 已接近满分，绝对提升空间有限；仓库级 Vero 的提升大得多。DeepSeek 上的差距尤其突出，论文附录 C.3 指出，若代理框架给模型过长的上下文和单次推理，DeepSeek 容易耗尽墙钟预算。这里同时存在**方法适配性**与**基线框架适配性**的差别。
 
 ### 4.3 共同成功题目的费用
 
-论文表 2 对每个基线分别取成功交集，只比较双方都证明成功的题目。下表展示函数级最强基线 Humanize，以及仓库级编码代理的全部对比；单位为美元，格式为“基线 → CoCo-Prover”。交集题数单列，因为不同底座的比较对象不同。
+论文表 2 对每个基线分别取成功交集，只比较双方都证明成功的题目。原表同时保留 Ax-Prover-Base、Humanize、编码代理三类对照、各自的交集题数与模型费用。
 
-| 基准 | 底座 | 共同成功题数 | 模型费用（基线 → CoCo） |
-| --- | --- | ---: | ---: |
-| CLEVER | Terra | 157 | 136.6 → 94.4 |
-| CLEVER | Gemini | 157 | 271.9 → 199.6 |
-| CLEVER | DeepSeek | 143 | 64.9 → 29.0 |
-| VERINA | Terra | 187 | 299.5 → 244.5 |
-| VERINA | Gemini | 180 | 498.9 → 403.4 |
-| VERINA | DeepSeek | 139 | 108.2 → 25.4 |
-| AlgoVeri | Terra | 66 | 67.4 → 66.6 |
-| AlgoVeri | Gemini | 58 | 157.3 → 112.1 |
-| AlgoVeri | DeepSeek | 51 | 29.9 → 15.2 |
-| NTP4VC | Terra | 247 | 186.5 → 162.2 |
-| NTP4VC | Gemini | 239 | 608.2 → 343.9 |
-| NTP4VC | DeepSeek | 117 | 30.7 → 18.6 |
-| Vero | Terra | 1 | 1.6 → 3.6 |
-| Vero | Gemini | 3 | 55.0 → 24.6 |
-| Vero | DeepSeek | 0 | 无共同成功题目 |
+[![CoCo-Prover 原论文表 2：所有基线在共同成功题目上的费用对比](../assets/papers/coco-table-2.png)](../assets/papers/coco-table-2.png)
 
 九个函数级组合里，CoCo-Prover 对 Humanize、Ax-Prover-Base 和编码代理的共同成功题目费用都更低。对 Humanize 的差额在 AlgoVeri + Terra 上仅 **1.3%**；对 Vero + Terra，唯一共同成功仓库反而由 Codex 更便宜。Vero 的共同成功交集太小，仓库级费用结论主要看 NTP4VC。表 2 衡量的是**成功交集里的模型费用**，而非所有题目的总资源消耗。
 
@@ -322,14 +283,9 @@ CoCo-Prover 在五个 Lean 4 基准上评估：CLEVER **161** 题、VERINA **189
 
 ### 4.4 消融与重复运行
 
-组件消融固定 Gemini-3.5-Flash，从三个函数级基准各抽 **10 题**。论文表 3 的总结果如下；完整系统的费用为三次运行的均值。
+组件消融固定 Gemini-3.5-Flash，从三个函数级基准各抽 **10 题**。原论文表 3 同时展示各基准与全部 30 题的成功数、费用；完整系统的费用为三次运行的均值。
 
-| 系统 | 完成题数 | 总模型费用 | 相对完整系统 |
-| --- | ---: | ---: | ---: |
-| 完整 CoCo-Prover | 30/30 | $110.94 | — |
-| 去掉路由器，固定动作顺序 | 29/30 | $155.20 | +39.9% |
-| 去掉自动化 | 29/30 | $117.39 | +5.8% |
-| 去掉引理规划器 | 27/30 | $157.06 | +41.6% |
+[![CoCo-Prover 原论文表 3：路由器、自动化和引理规划器的完整消融结果](../assets/papers/coco-table-3.png)](../assets/papers/coco-table-3.png)
 
 路由器和引理规划器带来明显的费用与成功率收益。自动化的平均成本收益较小：CLEVER、VERINA 受益，AlgoVeri 去掉它后反而便宜 **5.8%**。该消融覆盖 30 条函数级题目，Vero 仓库未参与。
 
@@ -337,14 +293,7 @@ CoCo-Prover 在五个 Lean 4 基准上评估：CLEVER **161** 题、VERINA **189
 
 ### 4.5 强模型与思考强度：缺少的一格实验
 
-| Vero proof-only 设置 | 完整解决 | 每题上限 |
-| --- | ---: | --- |
-| Vero 原论文：Codex + GPT-5.5 medium | 6/43 | 90 分钟 |
-| Vero 原论文：Codex + GPT-5.5 xhigh | 25/43 | 90 分钟 |
-| CoCo-Prover：GPT-5.6-Terra | 23/43 | 8 小时、$60 |
-| CoCo-Prover：Gemini-3.5-Flash | 26/43 | 8 小时、$60 |
-
-GPT-5.5 从 medium 提到 xhigh，proof-only 完整解决数由 **6** 增至 **25**。CoCo-Prover + Terra 完成 **23** 个；Gemini 组合完成 **26** 个。两篇论文的模型、代理版本和预算不同，这些数字展示了思考强度的巨大影响，以及 CoCo-Prover 尚未测试的强模型对照。
+对照上面的 **Vero 原论文图 3** 与 **CoCo-Prover 原论文表 1**：Codex + GPT-5.5 的 proof-only 完整解决数从 medium 的 **6/43** 增至 xhigh 的 **25/43**，每题限时 **90 分钟**。CoCo-Prover + GPT-5.6-Terra 完成 **23/43**，Gemini-3.5-Flash 组合完成 **26/43**，每题上限 **8 小时、$60**。两篇论文的模型、代理版本和预算不同；这些数字展示了思考强度的巨大影响，以及 CoCo-Prover 尚未测试的强模型对照。
 
 CoCo-Prover 把每次调用的推理强度放入配置 $\theta$；字符串案例说引理规划使用 high-thinking、证明脚本使用 low-thinking。论文没有报告覆盖全部任务的逐次强度设置及强度扫描。OpenAI 证明底座只用了 Terra；GPT-5.6-Sol（high）只参与事先生成 CLEVER、AlgoVeri 的参考实现。**方法增益与模型增强的交互**因此仍是开放的实证问题。
 
@@ -363,6 +312,6 @@ CoCo-Prover 把每次调用的推理强度放入配置 $\theta$；字符串案�
 ## 来源与图像授权
 
 - Zhe Ye 等，Vero: Can AI Agents Build Formally Verified Software Repositories?，arXiv:2608.13522v1，2026。文中 Vero 图 1、图 3 原样转载。
-- Shuangjie Yao 等，Cost-Efficient Theorem Proving via Agent Orchestration in Program Verification，NeurIPS 2026 Workshop on AI for Verifiable Coding（VERICODEGEN）海报论文；arXiv:2610.09681v1。文中 CoCo-Prover 图 2、图 3、图 4、图 6 原样转载。会场信息见[作者论文目录](https://cse.hkust.edu.hk/~dongdong/publications/)。
+- Shuangjie Yao 等，Cost-Efficient Theorem Proving via Agent Orchestration in Program Verification，NeurIPS 2026 Workshop on AI for Verifiable Coding（VERICODEGEN）海报论文；arXiv:2610.09681v1。文中 CoCo-Prover 图 2、图 3、图 4、图 6 与表 1–3 均截自原论文。会场信息见[作者论文目录](https://cse.hkust.edu.hk/~dongdong/publications/)。
 
-两篇论文均以 [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) 发布。本文文字是根据论文撰写的中文改编，代码例子有摘取和整理；原图未修改。本文及所转载图片按 CC BY-SA 4.0 分享。
+两篇论文均以 [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) 发布。本文文字是根据论文撰写的中文改编，代码例子有摘取和整理；原图与原表只做裁切，没有修改内容。本文及所转载图片按 CC BY-SA 4.0 分享。
