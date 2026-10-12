@@ -21,6 +21,12 @@ const articles = [
     description: '交叉熵的最小性、softmax 梯度与 KL 散度的参数顺序。',
     category: '信息论',
   },
+  {
+    slug: 'vero-coco-prover',
+    title: 'Vero 与 CoCo-Prover：方法增益会被模型能力吞噬吗？',
+    description: '详解仓库级证明与代理调度，并检验 CoCo-Prover 的实验结论能否超越强模型基线。',
+    category: '形式化验证',
+  },
 ];
 
 function escapeHtml(value) {
