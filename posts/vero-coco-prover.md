@@ -6,7 +6,7 @@ Ye 等人的 [*Vero: Can AI Agents Build Formally Verified Software Repositories
 
 Vero 为此构建 **43 个来自真实仓库的多模块 Lean 4 实例**，覆盖 Python、Dafny、Verus、Coq 来源。每个实例有预定 API、人工整理的形式规格和参考实现，支持 proof-only 与 code-and-proof 两种模式；审计机制还允许代理形式化证明规格无解或参考实现有误。配备 Lean 工具链的最强编码代理只完整解决 **27/43** 个实例。
 
-### 1.2 CoCo-Prover：证明任务的成本调度
+### 1.2 CoCo-Prover：先证什么，花多少钱
 
 Yao 等人的 [*Cost-Efficient Theorem Proving via Agent Orchestration in Program Verification*](https://arxiv.org/abs/2610.09681) 被 **NeurIPS 2026 Workshop on AI for Verifiable Coding（VERICODEGEN）**接收为海报论文，并于 **2026 年 10 月 7 日**公开 arXiv 版本（arXiv:2610.09681）。摘要强调：现有证明器多以通过率为目标，很少计入搜索和采样花费；真实软件却可能有数百个互相依赖的证明义务，因此需要同时看成功数与成本。
 
