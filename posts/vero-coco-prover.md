@@ -1,12 +1,14 @@
-形式化验证中的“完成”有严格含义：实现符合事先写好的规格，且证明由 Lean 的内核检查通过。一个函数的证明可以独立搜索；一个仓库却包含多个模块、共享定义、彼此依赖的定理。某条看似局部的性质，可能需要先建立跨越几个模块的辅助引理。
+## 一、两篇论文讲什么，问题从哪里来
 
-[Vero: Can AI Agents Build Formally Verified Software Repositories?](https://arxiv.org/abs/2608.13522)（Ye 等，2026）提出仓库级的 Lean 4 基准；[Cost-Efficient Theorem Proving via Agent Orchestration in Program Verification](https://arxiv.org/abs/2610.09681)（Yao 等，2026）提出 CoCo-Prover，以证明图和多个代理调度证明工作。后者的案例很精彩，但本文贯穿一个更尖锐的问题：**CoCo-Prover 的优势有多少来自方法本身？如果换成更强的模型、提高思考强度，复杂调度的增益还剩多少？**
+**Vero。** Ye 等人的 [*Vero: Can AI Agents Build Formally Verified Software Repositories?*](https://arxiv.org/abs/2608.13522) 于 **2026 年 8 月 13 日**以 arXiv 预印本公开（arXiv:2608.13522）。论文摘要的主张是：已有可验证代码生成基准大多只考单个函数，或给定实现后只考证明；Vero 则把任务提升到真实的多模块仓库，让代理在固定 API 和人工审核的规格下完成实现与证明。它收录 43 个 Lean 4 仓库实例，支持 proof-only 与 code-and-proof 两种模式，还允许用形式化反证指出规格或参考实现自身有错。论文中最强代理只完整解决 27/43 个 code-and-proof 仓库，说明仓库级验证仍有难度。[Vero 摘要与提交记录](https://arxiv.org/abs/2608.13522)
 
-先看最容易被忽略的对照。CoCo-Prover 论文在 Vero 的 proof-only 任务上，用 GPT-5.6-Terra 完成 **23/43**；Vero 原论文的 Codex + GPT-5.5 (xhigh) 在同一基准的 proof-only 模式完成 **25/43**。CoCo-Prover 并非只测试 Terra：它还用 Gemini-3.5-Flash 完成 **26/43**，用 DeepSeek-V4-Flash 完成 **6/43**。准确的质疑是：**OpenAI 底座只测试了 Terra，未与 GPT-5.5 (xhigh) 这样的强推理配置做同条件对照。**而且 Vero 原论文每题限时 90 分钟，CoCo-Prover 对仓库任务给 8 小时、$60 上限，原始数字更不能视作公平竞赛。[Vero §4.1–4.2](https://arxiv.org/html/2608.13522v1#S4.SS1)、[CoCo-Prover §4、附录 C.1](https://arxiv.org/html/2610.09681v1#S4)
+**CoCo-Prover。** Yao 等人的 [*Cost-Efficient Theorem Proving via Agent Orchestration in Program Verification*](https://arxiv.org/abs/2610.09681) 于 **2026 年 10 月 7 日**以 arXiv 预印本公开（arXiv:2610.09681）。论文摘要把焦点从“能否证明”推进到“以多少钱证明”：仓库有大量相互依赖的目标，均匀地给每个目标同样的模型预算并不经济。CoCo-Prover 用声明间的引理依赖图、声明内的 AND/OR 证明图保存进度，再让路由器决定做哪些目标、调用哪类专家及花多少推理预算。作者在五个 Lean 4 基准上报告较好的成功率与模型成本。[CoCo-Prover 摘要与提交记录](https://arxiv.org/abs/2610.09681)
 
-因此本文会同时做两件事：认真解释 CoCo-Prover 为什么能工作，也逐项检查其效果论证是否排除了模型能力与思考强度这两个更简单的解释。
+为什么要换基准？早先的数学定理证明榜单已经出现**天花板效应**：CoCo-Prover 论文引用的 Humanize 在 PutnamBench 报告了 **100%**；在它自己的函数级实验中，Humanize 用 GPT-5.6-Terra 已完成 CLEVER 的 **97.5%**、VERINA 的 **98.9%**。这些数字只说明特定模型与设置下的榜单空间变小，并不代表所有形式化证明都已解决。Vero 转而考多模块、共享不变量和完整仓库；CoCo-Prover 又把 Vero 用作验证调度方法的场景。[CoCo-Prover §4 表 1](https://arxiv.org/html/2610.09681v1#S4.T1)
 
-## 一、Vero：把验证单位从函数提升到仓库
+于是出现本文的**反常对照**：在 Vero 的 proof-only 模式，CoCo-Prover + GPT-5.6-Terra 完成 **23/43**，而 Vero 原论文的 Codex + GPT-5.5 (xhigh) 完成 **25/43**。CoCo-Prover 另用 Gemini-3.5-Flash 完成 26/43，不能说它“只测了 Terra”；准确问题是 **OpenAI 底座只用了 Terra，没有与 GPT-5.5 (xhigh) 做同条件对照**。而且两篇论文的每题上限分别是 8 小时/$60 与 90 分钟，数字不能直接判定方法输赢。它们提出了贯穿本文的问题：**更强模型与更高思考强度，会不会吞噬 CoCo-Prover 的方法增益？**[Vero §4.1–4.2](https://arxiv.org/html/2608.13522v1#S4.SS1)、[CoCo-Prover §4、附录 C.1](https://arxiv.org/html/2610.09681v1#S4)
+
+## 二、Vero：把验证单位从函数提升到仓库
 
 ### 基准实例究竟给了什么
 
@@ -64,7 +66,7 @@ Vero 收集 **43 个仓库实例**：13 个原本使用 Dafny、Verus、Coq 等�
 
 附录 H 的 `deposit_sc` 是具体例子：79 条规格跨 `Bits`、`Tree`、`Merkle`、`Contract` 四个模块。要证明“批量 deposit 的折叠结果等于逐个 deposit”，直接对输入列表归纳会卡住；归纳步还需要知道中间状态有效，以及树高、合并函数和默认值没有变。成功证明先提出一个**更强的合取归纳命题**，同时携带这些事实，再让每层模块的引理依次调用。其 code-and-proof 提交包含 99 条辅助定理和 6,052 行非空证明代码。真正的创造性在于选对归纳命题。这个案例也提醒我们：强通用代理在高思考强度下已经能自行组织大型引理库；CoCo-Prover 不能仅凭“会规划引理”证明自己超越了它。[论文附录 H.2](https://arxiv.org/html/2608.13522v1#A8.SS2)
 
-## 二、CoCo-Prover：把证明搜索变成受成本约束的调度
+## 三、CoCo-Prover：把证明搜索变成受成本约束的调度
 
 Vero 展示了大量相互依赖、难度不一的目标。CoCo-Prover 的出发点是：若所有目标都调用同一种昂贵模型、使用同样长的搜索预算，简单目标被过度计算，难题又缺少持续的结构化积累。论文将选择拆成两个问题：**接下来做哪些目标**，以及**为这些目标购买哪一种证明动作及预算**。成本按实际货币支出计，因为输入、缓存和输出 token 的价格不同。[论文 §3.1](https://arxiv.org/html/2610.09681v1#S3.SS1)
 
@@ -120,7 +122,7 @@ CoCo-Prover 沿抽象层逐步立引理：先把规格化成拼接后切分的�
 
 但这仍是一个**Terra 对 Terra**的案例：基线只完成 5/56，说明在这个底座、时限与实现下，持久证明图非常有用；它没有回答 GPT-5.5 (xhigh) 这样的强配置在同一题上能完成多少。Vero 原论文中的 `deposit_sc` 已证明强代理能够构造更深的大型引理库，所以“弱基线缺少依赖图”不能直接推出“强模型也离不开这套调度”。
 
-## 三、效果到底有多大：按证据强弱分层
+## 四、效果到底有多大：按证据强弱分层
 
 ### 同论文、同底座：方法确有收益
 
@@ -145,7 +147,7 @@ CoCo-Prover 在 CLEVER、VERINA、AlgoVeri 三个函数级基准及 NTP4VC、Ver
 
 用 Gemini-3.5-Flash 做的 30 题消融中，去掉路由器，总成本上升 **39.9%**；去掉引理规划器，总成本上升 **41.6%**，完成题数从 30 降到 27。这说明在**固定这一底座、这一题集**时，组件确实发挥作用。消融没有覆盖 Vero，也没有把“更强模型、更高思考强度的简单代理”纳入同一实验矩阵。因此无法从组件消融推断：随着模型升级，CoCo-Prover 对简单代理的绝对优势仍会保持。[CoCo-Prover §4.2](https://arxiv.org/html/2610.09681v1#S4.SS2)
 
-## 四、真正需要的实验：方法与模型能力的交叉对照
+## 五、真正需要的实验：方法与模型能力的交叉对照
 
 要检验“方法会被更强模型和更高思考强度吞噬”，应在**同一批 Vero proof-only 实例**上交叉运行两种框架：普通编码代理与 CoCo-Prover；每种框架分别使用 Terra、强模型，以及每个模型可比的 medium/high/xhigh 等推理配置。固定 Lean 版本、定理原文、检索工具、审查规则和时间/美元上限，报告每个格子的完整解决数、逐题成功集合、模型账单、总墙钟时间与运行方差。尤其要看强模型解决的是不是 CoCo-Prover 独有的那批题，而不能只比较总数。
 
