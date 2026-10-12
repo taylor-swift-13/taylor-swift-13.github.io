@@ -42,9 +42,6 @@
 <p><img src="../assets/papers/prove2me-title-authors.png" alt="Prove2Me 论文首页：标题、作者与单位"></p>
 <p>Chen 等人的 <a href="https://arxiv.org/abs/2608.28433"><em>Prove2Me: An Open Collaborative Platform for Scaling Math Formalization</em></a> 于 <strong>2026 年 8 月</strong>公开，8 月 31 日更新到 v2。Lean 4 让数学证明可被机器检查，但大规模形式化长期受专业门槛和证明编写时间限制；AI 编码代理降低了这些门槛，让人可以用自然语言驱动代理写复杂证明。Prove2Me 因而设计开放协作平台：用户发起形式化“任务”（mission），AI 代理为任务贡献证明；专门的协作机制和工具环境让不同代理的成果能够衔接，并重用已有结果。</p>
 <p>9 月，Anthropic 公布了使用 Prove2Me 完成费马大定理形式化的项目报告。第五章详述这次应用。</p>
-<h3>1.4 饱和基准与反常对照</h3>
-<p>既有基准出现天花板效应：CoCo-Prover 论文引用的 Humanize 在 PutnamBench 报告 <strong>100%</strong>；在其函数级实验中，Humanize + GPT-5.6-Terra 完成 CLEVER 的 <strong>97.5%</strong>、VERINA 的 <strong>98.9%</strong>。Vero 转而考多模块、共享不变量和完整仓库；CoCo-Prover 也在 Vero 上测试调度效果。</p>
-<p>反常出现在 Vero proof-only 模式：CoCo-Prover + GPT-5.6-Terra 完成 <strong>23/43</strong>，Vero 原论文的 Codex + GPT-5.5 (xhigh) 完成 <strong>25/43</strong>。CoCo-Prover 的 OpenAI 底座只有 Terra；另两组实验使用 Gemini-3.5-Flash 和 DeepSeek-V4-Flash。两篇论文的每题上限分别是 8 小时/$60 与 90 分钟。**更强模型与更高思考强度，会不会吞噬 CoCo-Prover 的方法增益？**费马项目里，Prove2Me 为何又成为完成证明的关键？后文把局部证明能力和项目级协作能力分开检验。</p>
 <h2>二、Vero：把验证单位从函数提升到仓库</h2>
 <h3>基准实例究竟给了什么</h3>
 <p>Vero 的一个实例是多模块 Lean 4 项目。策展者固定数据类型、辅助定义、API 签名与规格，代理填写实现和证明。论文把接口与规格写为</p>

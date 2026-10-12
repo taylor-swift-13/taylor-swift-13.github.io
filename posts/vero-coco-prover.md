@@ -24,12 +24,6 @@ Chen 等人的 [*Prove2Me: An Open Collaborative Platform for Scaling Math Forma
 
 9 月，Anthropic 公布了使用 Prove2Me 完成费马大定理形式化的项目报告。第五章详述这次应用。
 
-### 1.4 饱和基准与反常对照
-
-既有基准出现天花板效应：CoCo-Prover 论文引用的 Humanize 在 PutnamBench 报告 **100%**；在其函数级实验中，Humanize + GPT-5.6-Terra 完成 CLEVER 的 **97.5%**、VERINA 的 **98.9%**。Vero 转而考多模块、共享不变量和完整仓库；CoCo-Prover 也在 Vero 上测试调度效果。
-
-反常出现在 Vero proof-only 模式：CoCo-Prover + GPT-5.6-Terra 完成 **23/43**，Vero 原论文的 Codex + GPT-5.5 (xhigh) 完成 **25/43**。CoCo-Prover 的 OpenAI 底座只有 Terra；另两组实验使用 Gemini-3.5-Flash 和 DeepSeek-V4-Flash。两篇论文的每题上限分别是 8 小时/$60 与 90 分钟。**更强模型与更高思考强度，会不会吞噬 CoCo-Prover 的方法增益？**费马项目里，Prove2Me 为何又成为完成证明的关键？后文把局部证明能力和项目级协作能力分开检验。
-
 ## 二、Vero：把验证单位从函数提升到仓库
 
 ### 基准实例究竟给了什么
