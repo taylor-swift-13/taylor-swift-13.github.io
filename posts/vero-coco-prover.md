@@ -114,9 +114,37 @@ def spec_char_to_bits_reject (impl : RepoImpl) : Prop :=
 
 改后，`=` 仍被识别为填充字符，第二条规格不再要求拒绝它。原来的矛盾曾通过人工审核和 Lean 类型检查：命题写得合法，不等于命题能成立。论文报告，审计在 43 个实例中定位并修复了 **38 条有缺陷的规格**，涉及 9 个实例，另有 6 组联合不可满足的规格。
 
-另外两类错误也见于附录 F。`verified_ironkv` 有三条规格没有约束比较器 `KeyTrait` 的行为。GPT-5.5（xhigh）构造了一个总是返回 `Ordering.Less` 的比较器：含两个相同 `Unit` 元素的列表因此满足“有序”的前提，却仍有重复元素，相关规格对任何实现都无法成立。作者加入 `LawfulKeyTrait`，要求比较结果中的“相等”与元素相等一致，再修复这三条规格。
+`verified_ironkv` 的问题是**“有序”并没有保证“无重复”**。规格对任意 `KeyTrait` 比较器都提出要求，却没有规定比较器必须正确识别相等。论文给出的反例证明摘录如下，中文注释用于解释：
 
-`verified_bitmasks` 的问题出在参考实现与规格不符。三条规格要求位运算保持第一个输入的位数，却没有要求两个输入等长。实现用的是 `zipWith`，结果长度取两个输入长度的较小值；第二个输入更短，规格就会失败。修复需要加上输入等长的前提。另有四条规格在位数超过 64 位机器字的表示范围时失败，需要补上范围限制。作者随后为这七条规格逐一编译了参考实现的正向证明，确认修复后的要求能够满足。
+```lean
+theorem unsat_strictly_ordered_vec_no_duplicates :
+    ¬ (∃ impl : RepoImpl,
+        spec_strictly_ordered_vec_no_duplicates impl) := by
+  intro ⟨impl, h⟩
+  let bad : KeyTrait Unit :=
+    { zeroSpec := (), cmpSpec := fun _ _ => Ordering.Less }
+  let s : StrictlyOrderedVec Unit := ⟨[(), ()]⟩
+  -- h 必须适用于 bad 和 s，但 s 的两个位置存着同一个 ()。
+  exact (h _ bad s (by intro i j _; rfl)) ⟨0, 1⟩ rfl rfl
+```
+
+`Unit` 只有一个值 `()`，所以 `[(), ()]` 必然重复。但 `bad.cmpSpec` 连比较 `()` 与自身也返回 `Less`，按它定义的“严格递增”检查就会放行这张列表。若存在满足规格的 `impl`，`h` 就得证明它没有重复，立刻矛盾；所以这里是**规格对任何实现都无法成立**，换一个实现无济于事。作者为受影响的三条规格加入 `LawfulKeyTrait`，约束比较器的 `.Equal` 与真实元素相等一致。以上证明摘自[论文附录 F，Audit 2](https://arxiv.org/html/2608.13522v1#A6)。
+
+`verified_bitmasks` 是另一种错误：**给定参考实现不满足漏了前提的规格**。先看论文展示的修复后规格，`A.length = B.length` 是新增的一行：
+
+```lean
+def spec_bIIF_and_nbits_preserved (impl : RepoImpl) : Prop :=
+  ∀ (A B : T), A.length = B.length →
+    impl.verifiedBitmasks.bIIF_nbits
+      (impl.verifiedBitmasks.bIIF_and A B) =
+    impl.verifiedBitmasks.bIIF_nbits A
+```
+
+原规格没有箭头前的等长条件，却要求结果的位数始终等于 `A` 的位数。参考实现用 `zipWith` 逐位合并，合并到较短的一边就停止。取长度分别为 2 和 1 的位列，`zipWith` 的结果只有 1 位，不可能还保留 `A` 的 2 位。加上等长条件后，才可要求输出与 `A` 等长。同一错误影响三条规格。
+
+另外四条规格涉及 **64 位机器字的表示范围**。论文没有列出这四条规格的完整 Lean 代码，只说明它们把位计数与机器字边界比较；当位列足够长，计数超出 `UInt64` 能表示的范围，机器字运算会回绕。示意来说，`(2^64 + 1 : Nat)` 转成 64 位无符号数会变成 `1`，再拿这个结果比较大小会误判。作者一度想把比较改到 `Nat` 中，但原来的机器字值已经回绕，转换类型无法恢复丢失的信息；第二位审计者否定了这份草案。最后，作者给四条规格统一加入“相关数值可由机器字表示”的前提。
+
+修完七条后，作者没有只检查旧反例是否消失，还分别编译正向证明 `theorem _chk_X : spec_X canonical`，确认参考实现确实满足修复后的规格。后一个案例的具体规格和修复过程见[附录 F，Audit 3](https://arxiv.org/html/2608.13522v1#A6)。
 
 这些审计证明给了制作人员明确的修改依据：到底是实现错了、前提漏了，还是两条要求互相矛盾，都能在 Lean 中指出来。
 
