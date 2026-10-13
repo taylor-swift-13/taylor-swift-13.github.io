@@ -1,6 +1,7 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import MarkdownIt from 'markdown-it';
 import texmath from 'markdown-it-texmath';
 import katex from 'katex';
@@ -63,6 +64,9 @@ function articleHtml(article) {
   const title = escapeHtml(article.title);
   const description = escapeHtml(article.description);
   const category = escapeHtml(article.category);
+  const styleVersion = article.slug === 'vero-coco-prover'
+    ? `?v=${createHash('sha256').update(readFileSync(path.join(root, 'css/style.css'))).digest('hex').slice(0, 12)}`
+    : '';
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -71,7 +75,7 @@ function articleHtml(article) {
   <meta name="theme-color" content="#faf9f6">
   <meta name="description" content="${description}">
   <title>${title} — Notes</title>
-  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/style.css${styleVersion}">
   <link rel="stylesheet" href="../assets/katex/katex.min.css">
   <script src="../js/blog.js" defer></script>
   <script src="../js/visualizations.js" defer></script>
