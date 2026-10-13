@@ -441,6 +441,16 @@ Prove2Me 把协作中最难共享的状态外置：哪个数学陈述已固定�
 
 @@opinion-end@@
 
+### 6.3 形式化目标的人类关口
+
+三篇工作都没有把“原始需求 → 可信形式陈述”完全交给代理。Vero 的规格由制作人员整理和审核，代理接手固定题目；CoCo-Prover 的实验固定实现与待证陈述，主要研究如何完成证明；Prove2Me 允许代理起草 mission，但发布前必须由人逐条确认主目标、定义和里程碑。后续证明所需的普通中间引理，则可以由代理自行提出。[Vero §3.3](https://arxiv.org/html/2608.13522v1#S3.SS3)、[CoCo-Prover 附录 C.1](https://arxiv.org/html/2610.09681v1#A3.SS1)、[Prove2Me §3.3](https://arxiv.org/html/2608.28433v2#S3.SS3)
+
+@@opinion-begin@@
+
+**Lean 证明的是形式陈述，不是原始意图。**模型越擅长写实现、拆引理和补证明，这个边界越显眼：若规格漏掉关键前提，或自然语言定理被译成较弱的 Lean 命题，整条证明仍可能通过检查。因而，这几篇工作真正推进的是给定可信目标后的自动证明与协作；从需求写出正确规格、确认形式定理忠于原意，仍是 human gate。更有价值的自动化也许不是取消这道关口，而是像 Vero 的反例审计和 Prove2Me 的 read-back 一样，让人能更快发现自己确认的目标哪里写错了。
+
+@@opinion-end@@
+
 ## 来源与图像授权
 
 - Zhe Ye 等，Vero: Can AI Agents Build Formally Verified Software Repositories?，arXiv:2608.13522v1，2026。文中首页标题与作者截图、图 1、图 3 取自原论文。
