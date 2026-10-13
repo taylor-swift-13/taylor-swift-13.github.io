@@ -18,7 +18,7 @@ CoCo-Prover 用一张图记录单条证明的拆解过程，另一张图记录�
 
 Chen 等人的 [*Prove2Me: An Open Collaborative Platform for Scaling Math Formalization*](https://arxiv.org/abs/2608.28433) 于 **2026 年 8 月**发布，8 月 31 日更新到 v2。它关心的是大规模形式化项目的协作：用户发起一项 mission，多个 AI 代理分别贡献证明，平台负责检查提交、记录依赖，并让后来者找到已经证明的结果。Lean 4 负责检查每份证明；代理之间怎样分工、怎样复用成果，则由平台安排。
 
-9 月，Anthropic 公布了使用 Prove2Me 完成费马大定理形式化的项目报告，第五节会结合这次运行讨论平台的作用。
+论文以黄浩敏感度猜想的形式化过程解释平台机制，并报告数项已完成的论文和教材 mission。第五节重点讨论这些机制如何让不同代理的局部证明接成一条可检查的证明链。
 
 ## 二、Vero：一个函数证完了，仓库还没证完
 
@@ -206,15 +206,13 @@ Vero 中，同一个 GPT-5.5 从 medium 的 **6/43** 提升到 xhigh 的 **25/43
 
 @@opinion-end@@
 
-## 五、Prove2Me：费马项目为什么需要一个协作平台
+## 五、Prove2Me：怎样让多个代理接起同一条证明链
 
 ### 5.1 把定理和证明分开提交
 
-Prove2Me 将一个形式化项目称为 **mission**，包含主目标、所需定义和沿证明路线排列的里程碑。每条定理是一张独立卡片，写明自然语言描述、Lean 陈述和编译环境；按论文的提交格式，陈述以 `:= by sorry` 结尾。证明另用一份文件提交，其中 `solution` 必须与目标类型完全相同，且不含 `sorry` 或新增公理。不同代理因此可以对同一陈述分别提交证明。
+Prove2Me 将一个形式化项目称为 **mission**，包含主目标、所需定义和里程碑。每条定理作为独立、不可变的对象提交：卡片写明自然语言描述、所需 import 与定义、Lean 陈述和固定的 Lean / Mathlib 环境。提交格式中的 `:= by sorry` 只是待证明目标的占位；卡片编译通过，并不表示定理已被证明。
 
-这些提交在固定的 Lean / Mathlib 环境中检查。若陈述有误，代理也可以提交它的否定证明。具体规则见平台论文第 3 节。
-
-定理卡片固定陈述和 Lean 环境，因而不同代理可以在同一目标上独立工作。[原论文 §3.1–3.2](https://arxiv.org/html/2608.28433v2#S3.SS1)
+证明是另一份文件：其中名为 `solution` 的定理必须与目标陈述类型完全相同，不含 `sorry` 或新公理，并在该卡片选定的环境中编译。不同代理可以给同一陈述提交多份证明，也可以提交其否定命题的证明指出陈述有误。每份提交还附有供人阅读的自然语言说明。[原论文 §3.1–3.2](https://arxiv.org/html/2608.28433v2#S3.SS1)
 
 ### 5.2 先搭证明框架，再分头证明子定理
 
@@ -230,39 +228,35 @@ sketch 自己的证明体不含 `sorry`，但导入的子定理可以尚未完�
 
 所以 proof-sketch 解决的是“这些子定理能不能接回主目标”，并没有替参与者证明子定理。CoCo-Prover 可以把连接留待后续 Proof Writer 完成；Prove2Me 在接收 sketch 时便检查连接，但仍须等待各个开放子定理的证明。
 
-陈述与 proof-sketch 提交后不再修改，代理可以并行处理各自的子定理。证明完成后，所有依赖它的目标都可复用；若子定理被否证，则要重写依赖它的证明路线。平台保存这张依赖图，代理不必各自在上下文里记住整个项目的进度。
+陈述与 proof-sketch 一经提交便不再修改。子定理各自成为独立任务，代理只需编译并证明自己负责的那张卡片；最后一个依赖关闭时，上层目标依既有 sketch 自动完成。若子定理被否证，则要另建修正后的声明和连接。平台保存这张依赖图，代理不必各自在上下文里记住整个项目的进度。[原论文 §4.2](https://arxiv.org/html/2608.28433v2#S4.SS2)
 
 不可变性保证各代理始终针对同一份陈述工作。若某个子定理漏了前提，不能直接修改旧陈述，让已经接受的上层连接悄悄改变含义；需要提出修正后的声明和新的 proof-sketch。原论文 §4.5 的实例中，一个代理否证了 `gotsman_linial`，另一个代理随后提出补上边界条件的 `gotsman_linial_with_zero`，用修正后的形式化完成该分支。
 
-### 5.3 编译、找引理和核对陈述
+### 5.3 怎样协调、复用和审核
 
-**编译**。数十个代理共同修改一套 Lean 文件，容易发生文件冲突，依赖的定义或引理变化还会引起大量重编译。Prove2Me 将陈述和证明拆开，代理在独立环境中证明子定理，不必下载并重编译整个上层工程；服务端检查提交，再更新依赖图。模型的局部证明能力再强，也仍需要处理这些构建和协作问题。
+**独立编译**。若多个代理直接修改同一 Lean 仓库，文件冲突和依赖重编译会使协作串行化。Prove2Me 把定理卡片作为独立编译单元，代理证明子定理时无需下载并编译整个上层项目。服务端在固定环境中检查提交，再把通过的结果写回依赖图。[原论文 §4.1–4.2](https://arxiv.org/html/2608.28433v2#S4.SS1)
 
-**里程碑**。仅有依赖图还不够：不同代理可能把同一个数学结论写成参数、定义或前提不一致的 Lean 声明，彼此无法直接调用。mission 的 captain 为关键里程碑提供权威的自然语言陈述，并确认其对应的标准形式化。代理从里程碑列表进入项目，针对同一陈述工作，遇到已证结果直接复用。完成条件也不只是“里程碑全证完”，还要有 proof-sketch 将它们接到主目标。共享目标怎样固定，见[原论文 §4.4](https://arxiv.org/html/2608.28433v2#S4.SS4)。
+**里程碑**。仅有依赖图还不够：不同代理可能把同一数学结论写成互不兼容的 Lean 陈述。mission 的 captain 先为关键引理给出权威的自然语言表述，再确认对应的标准形式化；里程碑按证明顺序排列。代理从这张清单进入项目，针对同一陈述工作，已证明的里程碑可以直接导入。全部里程碑完成后，仍需通过 proof-sketch 把它们接到主目标。[原论文 §4.4](https://arxiv.org/html/2608.28433v2#S4.SS4)
 
-**检索**。每张定理卡片都有自然语言描述。代理创建新定理前先搜索，找到适用结果便直接导入。已验证的成果存入 Formalpedia，其他证明路线或 mission 也可复用，减少重复形式化。
+**检索与共享**。平台为每张定理卡片保存标准化的自然语言描述，供搜索 API 建索引。代理提交新定理前先搜索；若已有合适的结果，就在 proof-sketch 中导入。已证定理进入 Formalpedia，可跨证明路线和 mission 复用。讨论区还保存进展与失败教训，供随后加入的代理读取。[原论文 §4.3–4.5](https://arxiv.org/html/2608.28433v2#S4.SS3)
 
-**审计**。Lean 检查证明能否推出形式陈述，但陈述有没有表达原来的数学意思，还需要核对。Prove2Me 要求人审核 mission 的主目标、定义和里程碑，允许代理自行补充中间引理。平台还让独立代理将 Lean 陈述回译成普通数学描述，再由人核对量词、边界条件等细节。最终仍需要完整的 Lean 证明链。[原论文 §3.3](https://arxiv.org/html/2608.28433v2#S3.SS3)
+**审计**。Lean 检查证明是否推出形式陈述，却不能保证陈述忠实于原数学命题。captain 的代理可以起草 mission，但人在发布前必须逐条确认主目标、定义与里程碑；草稿在确认前可修订，发布后这些陈述保持不变。独立的 read-back 代理只看 Lean 陈述及其依赖定义，不看原始数学表述，再将其译回普通数学语言，供人对照量词和边界条件。下图的回译就指出：陈述中的两个有限集分别存在，并没有要求它们相等或互补。人工审核集中在这组关键陈述，中间引理可由代理继续提出，最终仍由 Lean 检查整条证明链。[原论文 §3.3](https://arxiv.org/html/2608.28433v2#S3.SS3)
 
-### 5.4 费马大定理项目的运行与复核
+[![Prove2Me 原论文图 3：Lean 陈述及独立代理的数学回译](../assets/papers/prove2me-readback.png)](../assets/papers/prove2me-readback.png)
 
-据 Anthropic 9 月的项目报告，Claude 代理最初已经能完成一些局部任务，但工作越积越多，各代理逐渐无法掌握共同进度，协作和复用出现问题。早期尝试贡献了约 **7%** 的非样板代码行。切换到 Prove2Me 后，代理通过依赖图查看未完成目标，独立编译减少构建负担，自然语言检索帮助寻找已有引理。团队随后使用 Claude Code 多代理环境和一个内部研究模型，在 **11 天**内完成端到端形式化，消耗约 **60 亿输出 token**，写出约 **1,300 万行 Lean**。最终证明用了约 **29,500 条中间定理**；公开仓库列出 **29,511 条定理、60,475 个模块**。
+### 5.4 平台论文展示了什么
 
-最终目标在公开仓库中证明自然数指数至少为 3 时，正整数 $a,b,c$ 不满足 $a^n+b^n=c^n$。项目重新编译全仓库，核对最终陈述与 Mathlib 的对应关系，并用第二个内核复查导出的声明；Kevin Buzzard 也独立完成了编译和陈述核对。这些检查覆盖最终陈述和它所依赖的证明。
+原论文报告了四项已完成的 mission：两篇论文和两本教材的形式化。其中《Bandit Algorithms》项目产生约 **15.1 万行 Lean**，由 **6 个代理**在 **13 天**内完成；敏感度猜想的四个里程碑也全部达成。这些案例说明平台能承载多代理的大型证明项目，但没有把模型能力与平台机制单独拆开做对照。[原论文 §5](https://arxiv.org/html/2608.28433v2#S5)
 
-证明采用 Frey–Serre–Ribet–Wiles–Taylor–Wiles 路线，复用了 Mathlib，以及先前 FLT 和正则素数项目的部分成果。新写的大规模主体处理高指数情形，再接上已有的小指数结果。Buzzard 在重新编译后也指出，代码量大、编译昂贵；便于人阅读、适合长期收入 Mathlib 的形式化工作仍在继续。
+后来的费马大定理项目提供了更大规模的运行记录：代理通过平台共享目标、依赖和已证引理，完成了端到端形式化。[Anthropic 项目报告](https://www.anthropic.com/news/formalizing-fermats-last-theorem)
 
-报告中的证明路线分为 **Mazur 的不可约性、Ribet 的降层、Wiles 的模性**三条分支，最后接到费马结论。代理可以沿依赖关系查看进度和领取目标。
+### 5.5 平台机制的作用与证据边界
 
-[![Anthropic 费马形式化项目路线图：Mazur、Ribet、Wiles 三条分支汇合到最终定理](../assets/papers/prove2me-flt-dag.png)](../assets/papers/prove2me-flt-dag.png)
-
-### 5.5 这个项目说明了什么
-
-费马项目中，代理接入平台前就能证明部分结果，卡住的是共同进度、协作和复用。Prove2Me 提供的依赖图、独立编译和自然语言检索正好处理了这些问题。它让代理知道还有哪些目标没做，避免反复编译整个工程，也更容易找到已证引理。
+Prove2Me 把协作中最难共享的状态外置：哪个数学陈述已固定并审核，哪份 proof-sketch 已证明条件连接，哪些子定理尚未完成，哪些结果能被别的代理导入。新代理接手时可从里程碑和未完成目标继续工作，不必重新阅读整个仓库或重做已有引理。
 
 @@opinion-begin@@
 
-项目显示，局部证明能力很强时，协作和复用仍可能成为瓶颈。但前后运行并非控制变量实验，不能据此量化平台的独立增益。
+这些案例显示，大项目的瓶颈不只有单个定理的求解，还包括陈述对齐、依赖闭合和成果复用。但论文及后续项目都没有在相同模型、任务和预算下单独消融这些机制，不能据此量化平台的独立增益。
 
 @@opinion-end@@
 
@@ -318,6 +312,6 @@ sketch 自己的证明体不含 `sorry`，但导入的子定理可以尚未完�
 
 - Zhe Ye 等，Vero: Can AI Agents Build Formally Verified Software Repositories?，arXiv:2608.13522v1，2026。文中 Vero 图 3 取自原论文。
 - Shuangjie Yao 等，Cost-Efficient Theorem Proving via Agent Orchestration in Program Verification，NeurIPS 2026 Workshop on AI for Verifiable Coding（VERICODEGEN）海报论文；arXiv:2610.09681v1。文中 CoCo-Prover 图 2、图 3 与表 1–3 取自原论文。会场信息见[作者论文目录](https://cse.hkust.edu.hk/~dongdong/publications/)。
-- Shuze Chen 等，Prove2Me: An Open Collaborative Platform for Scaling Math Formalization，arXiv:2608.28433v2，2026。文中 proof-sketch 依赖图取自原论文图 5。费马项目的过程、数字和路线图见 [Anthropic 项目报告](https://www.anthropic.com/news/formalizing-fermats-last-theorem)，路线图版权归 Anthropic；形式证明与复核方式见[公开代码仓库](https://github.com/anthropics/fermats-last-theorem)；独立编译结果见 [Kevin Buzzard 的记录](https://xenaproject.wordpress.com/2026/09/04/flt-anthropic-has-beaten-me-to-it/)。
+- Shuze Chen 等，Prove2Me: An Open Collaborative Platform for Scaling Math Formalization，arXiv:2608.28433v2，2026。文中 proof-sketch 依赖图与 read-back 图分别取自原论文图 5、图 3。后续费马项目见 [Anthropic 项目报告](https://www.anthropic.com/news/formalizing-fermats-last-theorem)。
 
 Vero 与 CoCo-Prover 两篇论文以 [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) 发布。本文文字是根据论文与项目报告撰写的中文改编；保留的图表取自标明的原论文，表格只做裁切，没有改动数值。Prove2Me 的 arXiv v2 标注为 arXiv 永久非独占授权，其图表版权归原作者。本文文字及 CC BY-SA 原图按 CC BY-SA 4.0 分享。
