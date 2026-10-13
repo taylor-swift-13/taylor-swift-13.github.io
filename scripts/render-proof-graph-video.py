@@ -17,7 +17,7 @@ OUTPUT.parent.mkdir(parents=True, exist_ok=True)
 
 W, H, FPS = 1280, 720, 12
 SECONDS_PER_SCENE = 8
-SCENES = 6
+SCENES = 7
 FONT_PATH = "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"
 FONT = {size: ImageFont.truetype(FONT_PATH, size) for size in (18, 20, 22, 25, 30, 38)}
 
@@ -95,10 +95,13 @@ def arrow(draw, start, end, color, width=3):
     draw.polygon((tip, left, right), fill=color)
 
 
-def graph(draw, solved=(), active=None, bad=False, plan_h=False, rollback=()):
+def graph(draw, solved=(), active=None, bad=False, plan_h=False, rollback=(), visible=None):
     solved = set(solved)
     rollback = set(rollback)
+    visible = set(POS) if visible is None else set(visible)
     for source, target in EDGES:
+        if source not in visible or target not in visible:
+            continue
         edge_color = GREEN if source in solved and target in solved else LINE
         if bad and (source == "H" or target == "H"):
             edge_color = RED
@@ -106,6 +109,8 @@ def graph(draw, solved=(), active=None, bad=False, plan_h=False, rollback=()):
             edge_color = ORANGE
         arrow(draw, POS[source], POS[target], edge_color, 3)
     for name, (x, y) in POS.items():
+        if name not in visible:
+            continue
         fill, stroke, label = CARD, LINE, INK
         if name in solved:
             fill, stroke, label = GREEN_PALE, GREEN, GREEN
@@ -124,7 +129,8 @@ def frame(scene, progress):
     im = Image.new("RGB", (W, H), BG)
     d = ImageDraw.Draw(im)
     titles = [
-        "证明依赖图：先做谁？",
+        "证明依赖图：先分解，再调度",
+        "第一步：从根目标 T 写 proof-sketch",
         "方案一：先证无依赖的底层引理",
         "方案二：先盯住被依赖最多的 H",
         "H 正确时：优先级影响反馈速度",
@@ -141,8 +147,20 @@ def frame(scene, progress):
         txt(d, (1010, 188), "图怎么读", 25)
         paragraph(d, (1010, 235), "X、Y 是 H 的前提；H 被 A、B、C 三处复用；T 是最终目标。", 20, width=180)
         paragraph(d, (1010, 375), "绿色表示已证。蓝色表示当前关注。红色表示陈述错误。", 20, width=180)
-        footer = "比较的是调度顺序；任何父定理最终都必须等前置引理得到证明。"
+        footer = "先从根目标写出条件证明，再对形成的开放子目标选择证明顺序。"
     elif scene == 1:
+        if progress < 0.22:
+            visible = {"T"}
+        elif progress < 0.62:
+            visible = {"T", "A", "B", "C"}
+        else:
+            visible = set(POS)
+        graph(d, active="T", visible=visible)
+        txt(d, (1010, 188), "自顶向下分解", 25)
+        paragraph(d, (1010, 235), "先写 T 的条件证明：假设 A、B、C，证明它们足以推出 T。", 20, width=180)
+        paragraph(d, (1010, 410), "再递归提出 H、L1 等子引理，形成待证依赖图。", 20, BLUE, 180)
+        footer = "sketch 先验证“子定理能接回根目标”；此时 A、B、C 还没有被证明。"
+    elif scene == 2:
         count = min(10, int(progress * 11))
         solved = BOTTOM_ORDER[:count]
         active = BOTTOM_ORDER[count] if count < 10 else None
@@ -151,7 +169,7 @@ def frame(scene, progress):
         txt(d, (1010, 242), f"已证 {count}/10", 30, GREEN)
         paragraph(d, (1010, 305), "顺序：L1、L2、L3、X、Y，再证 H，最后拼 A、B、C、T。", 20, width=180)
         footer = "优点：只做前提已就绪的目标；适合底层引理便宜、稳定、可独立复用的情况。"
-    elif scene == 2:
+    elif scene == 3:
         count = min(10, int(progress * 11))
         solved = HUB_ORDER[:count]
         active = HUB_ORDER[count] if count < 10 else None
@@ -160,14 +178,14 @@ def frame(scene, progress):
         txt(d, (1010, 242), f"已证 {count}/10", 30, BLUE)
         paragraph(d, (1010, 305), "先审视 H；H 依赖 X、Y，仍要先证明它们，才能真正关闭 H。", 20, width=180)
         footer = "优点：尽早暴露共享瓶颈。高扇出是“先检查”的理由，不是跳过依赖的许可。"
-    elif scene == 3:
+    elif scene == 4:
         count = min(10, int(progress * 11))
         graph(d, HUB_ORDER[:count], HUB_ORDER[count] if count < 10 else None)
         txt(d, (1010, 188), "H 正确", 25)
         paragraph(d, (1010, 240), "两种顺序最后都要完成同样的证明义务。优先 H 不会凭空减少节点。", 20, width=180)
         paragraph(d, (1010, 420), "它的优势是更早知道共享核心能否打通。", 20, BLUE, 180)
         footer = "如果 H 很难、验证代价很高，先处理容易的独立叶子也可能更划算。"
-    elif scene == 4:
+    elif scene == 5:
         if progress < 0.48:
             count = min(5, int(progress / 0.48 * 5))
             graph(d, BOTTOM_ORDER[:count], "H" if count == 5 else BOTTOM_ORDER[count])

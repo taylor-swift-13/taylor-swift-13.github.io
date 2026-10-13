@@ -261,15 +261,16 @@ C_{\mathrm{share}}(h)=c_h+\sum_{i=1}^{K}d_i+r_h.
 <div class="author-opinion">
 <p>这也是两类图需要分别评价的原因：内部图是否比普通检查点更有用，要靠独立实验；跨定理依赖图则承担成果复用和共同进度的保存。接下来的方法研究，最值得回答的是：在强代理已经会修正、分解和搜索之后，系统还能减少多少重复工作，并让多少局部成果可靠地接成完整证明？</p>
 </div>
+<p>Prove2Me 允许先从根定理写 proof-sketch，证明所选子定理足以推出它，再把开放的子定理继续分解成独立任务；依赖图由此逐步形成。<a href="https://arxiv.org/html/2608.28433v2#S4.SS2">原论文 §4.2</a></p>
 <div class="author-opinion">
-<p>证明图的遍历没有固定赢家。实际关闭定理时，前置引理必须先证明；选择调查目标时，高复用的枢纽引理却值得先检查。若枢纽陈述有误，发现得越晚，越可能浪费底层工作或使下游证明草稿返工。下面的原创视频用同一张图演示这两种顺序和错误传播。</p>
+<p>图形成后，证明调度才有“先做谁”的问题：实际关闭定理时，前置引理必须先证明；选择调查目标时，高复用的枢纽引理却值得先检查。若枢纽陈述有误，发现得越晚，越可能浪费底层工作或使下游证明草稿返工。下面的原创视频按“根目标分解 → 子目标调度 → 错误处理”的顺序演示。</p>
 </div>
 <figure class="proof-graph-video">
   <video controls preload="metadata" playsinline poster="../assets/videos/proof-graph-poster.png" aria-label="证明依赖图遍历策略与错误引理影响的动画分析">
     <source src="../assets/videos/proof-graph-traversal.mp4" type="video/mp4">
     浏览器不支持视频播放。<a href="../assets/videos/proof-graph-traversal.mp4">下载视频</a>。
   </video>
-  <figcaption>原创示意视频（48 秒）：比较底层优先、共享引理优先，以及共享引理陈述有误时的返工风险。图中的节点和顺序是教学示例，不是论文实验数据。</figcaption>
+  <figcaption>原创示意视频（56 秒）：先从根目标写 proof-sketch，再比较底层优先、共享引理优先，以及共享引理陈述有误时的返工风险。图中的节点和顺序是教学示例，不是论文实验数据。</figcaption>
 </figure>
 
 <div class="author-opinion">
