@@ -84,6 +84,6 @@ nav a:hover,.footer-inner a:hover{color:var(--accent)}
 @media(max-width:700px){.interactive-figure{padding:20px 0}}
 .source-aware .prose{color:#242424}
 .source-aware .prose h2,.source-aware .prose h3,.source-aware .prose a{color:inherit}
-.source-aware .prose .author-opinion{color:#a34f35}
+.source-aware .prose .author-opinion{color:#a34f35;font-family:"Songti SC","SimSun","Noto Serif CJK SC","Source Han Serif SC",Georgia,serif}
 .source-aware .prose .author-opinion a{color:inherit;border-bottom-color:currentColor}
 .source-aware .prose .reading-key{font-size:13px;margin-bottom:28px}

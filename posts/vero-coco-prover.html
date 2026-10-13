@@ -29,7 +29,7 @@
       <p class="article-deck">从仓库级证明、成本调度到费马大定理形式化，分析模型能力与证明基础设施各自解决的问题。</p>
     </header>
     <article class="prose">
-<p>论文事实与方法介绍用黑色；作者的判断、解释和评论用陶土橙色。</p>
+<p>论文事实与方法介绍用黑色；分析与评论用陶土橙色衬线字体。</p>
 <h2>一、从三篇论文说起</h2>
 <h3>1.1 Vero：仓库级的可验证代码生成</h3>
 <p><img src="../assets/papers/vero-title-authors.png" alt="Vero 论文首页：标题、作者与单位"></p>
@@ -68,16 +68,16 @@
 <h3>从代理的工作目录到独立评分</h3>
 <p>Vero 的方法包括题目格式、制作、评分和审计；答题时使用的是配备 Lean 工具链的编码代理，论文没有为它规定一套专门的引理分解算法。代理可以编辑文件、构建项目和尝试证明，但评分器只接收 <code>!benchmark</code> 标记之间的内容，再把这些内容填回一份未修改的题目副本。代理即使在工作目录里降低了规格要求、修改了固定辅助定义，评分时也会恢复原题。</p>
 <p>评分不仅看能否编译，还检查证明是否依赖不可信公理，以及代理是否改变了规格含义。尤其要防止证明检查的逻辑函数与实际运行的代码脱离。核心要求是：在固定题目上，提交真实实现与有效证明。具体规则见<a href="https://arxiv.org/html/2608.13522v1#A4">附录 D</a>。</p>
-<h3>作者观点：为什么 code2spec 不能只按“可证明”评分</h3>
-<div class="author-opinion" aria-label="作者观点">
-<p>我的看法是，code2spec 的一个核心困难在于它容易被 hack：如果让代理看代码、自己生成规格，再只检查代码能否满足这份规格，代理就同时控制了要求与答案。它可以把规格写成恒真的命题，或者要求“函数的输出等于它自己的输出”。这样的规格很容易证明，却没有说明程序应该做什么。</p>
+<h3>为什么 code2spec 不能只按“可证明”评分</h3>
+<div class="author-opinion">
+<p>code2spec 的一个核心困难在于它容易被 hack：如果让代理看代码、自己生成规格，再只检查代码能否满足这份规格，代理就同时控制了要求与答案。它可以把规格写成恒真的命题，或者要求“函数的输出等于它自己的输出”。这样的规格很容易证明，却没有说明程序应该做什么。</p>
 </div>
-<div class="author-opinion" aria-label="作者观点">
-<p>因此，code2spec 不能仅以“生成的规格能被证明”为成功标准。规格越弱，验证越容易；评分若没有独立检查规格的准确性、覆盖范围和信息量，就会奖励降低要求。我更认可先固定独立的行为要求，再让代理实现并证明，或对已有实现进行验证。这里的关键是约束由谁确定，而不是规格本身是否可执行。</p>
+<div class="author-opinion">
+<p>因此，code2spec 不能仅以“生成的规格能被证明”为成功标准。规格越弱，验证越容易；评分若没有独立检查规格的准确性、覆盖范围和信息量，就会奖励降低要求。更可靠的评测方式是先固定独立的行为要求，再让代理实现并证明，或对已有实现进行验证。这里的关键是约束由谁确定，而不是规格本身是否可执行。</p>
 </div>
 <p>Vero 的制作流程确实包含根据代码生成规格：Python 项目的规格参考原代码、文档和测试起草，并经过人工审核；答题时这些规格已经固定，代理不能自行降低要求。见<a href="https://arxiv.org/html/2608.13522v1#S3.SS3">论文 §3.3</a>。</p>
-<div class="author-opinion" aria-label="作者观点">
-<p>固定规格使 Vero 避开了答题代理通过弱化目标获利的问题。这是我对任务设计的理解；“因为容易 hack，所以不把 code2spec 作为评测任务”并不是论文明确给出的动机。code2spec 本身仍有价值，但必须有独立评价规格质量的办法。</p>
+<div class="author-opinion">
+<p>固定规格使 Vero 避开了答题代理通过弱化目标获利的问题。这一点可以从任务设计中推得；“因为容易 hack，所以不把 code2spec 作为评测任务”并不是论文明确给出的动机。code2spec 本身仍有价值，但必须有独立评价规格质量的办法。</p>
 </div>
 <h3>题目也会错：三个审计案例</h3>
 <p>Vero 的项目涉及密码协议、分布式系统、数据结构等领域。跨语言翻译可能改变规格的含义；从 Python 代码补写规格也可能漏掉前提。人工审核之后，仍有必要检查参考实现是否满足规格，以及规格本身能否成立。</p>
@@ -104,7 +104,7 @@ def spec_char_to_bits_reject (impl : RepoImpl) : Prop :=
 <h3>为什么局部通过率很高，完整仓库仍难完成</h3>
 <p>Vero 原论文给每个仓库 <strong>90 分钟</strong>，评测四种编码代理配置的两种任务模式。图 3 中，GPT-5.5 xhigh 在 code-and-proof / proof-only 下分别完成 <strong>27/43</strong>、<strong>25/43</strong>；GPT-5.5 medium 为 <strong>2/43</strong>、<strong>6/43</strong>；Opus 4.8 为 <strong>8/43</strong>、<strong>10/43</strong>；Sonnet 5 两种模式均为 <strong>2/43</strong>。</p>
 <p>GPT-5.5 xhigh 的逐规格通过率分别为 <strong>87.3%</strong> 和 <strong>85.8%</strong>，完整仓库却只完成了 27 和 25 个。还有一个差距不能忽略：同一个 GPT-5.5，proof-only 从 medium 的 <strong>6/43</strong> 提升到 xhigh 的 <strong>25/43</strong>。</p>
-<div class="author-opinion" aria-label="作者观点">
+<div class="author-opinion">
 <p>后面判断 CoCo-Prover 的效果时，必须把这个强配置算进去。</p>
 </div>
 <p><img src="../assets/papers/vero-results.svg" alt="Vero 论文图 3：各代理在两种任务模式下的完整仓库解决情况"></p>
@@ -113,7 +113,7 @@ def spec_char_to_bits_reject (impl : RepoImpl) : Prop :=
 <p>附录 H 的 <code>deposit_sc</code> 来自 ConsenSys 的 Dafny Merkle 树增量提交合约，含 <strong>79 条规格</strong>，分布在 <code>Bits</code>、<code>Tree</code>、<code>Merkle</code>、<code>Contract</code> 四个模块。GPT-5.5（xhigh）在两种模式下都证明了全部规格。code-and-proof 的四个证明模块共 <strong>6,052 行非空代码</strong>，含 <strong>99 条代理编写的辅助定理</strong>。证明从位列表计算和树结构开始，逐步做到 Merkle 根计算，再做到合约状态更新。辅助定理占证明文字的 <strong>54.3%</strong>；规格证明的中位长度为 <strong>9 行</strong>，辅助定理为 <strong>19 行</strong>。</p>
 <p><code>spec_incremental_equals_batch</code> 要求一批 deposit 的折叠结果与逐次 deposit 一致。直接对批次归纳还不够：每一步都需要中间状态有效、<code>values</code> 追加了已处理的输入，以及树高、合并函数、默认值保持不变。代理把这五项要求合成一条更强的辅助命题，再做归纳。上层规格随后调用该引理即可。类似地，<code>prove_same_leaves_same_root</code> 的正文只有两行，背后却用到一条 <strong>94 行</strong>的树归纳引理。</p>
 <p>较早一轮评估中，这个实例还剩 <strong>7/79 条规格未证</strong>。它们都依赖一条边界引理，描述叶子数组增加一个元素后 Merkle 路径的兄弟节点怎样移动，合约的主要有效性不变量也在其中。本轮评估中，同一 GPT-5.5（xhigh）配置补上了这条引理，完成全部 79 条规格。</p>
-<div class="author-opinion" aria-label="作者观点">
+<div class="author-opinion">
 <p>可见，强通用代理已经能自己搭建大型引理库。专门的调度方法还值多少，要与这样的代理比较。</p>
 </div>
 <h2>三、CoCo-Prover：怎样安排证明，怎样少花钱</h2>
@@ -177,21 +177,21 @@ def spec_char_to_bits_reject (impl : RepoImpl) : Prop :=
 <p><a href="../assets/papers/coco-table-3.png"><img src="../assets/papers/coco-table-3.png" alt="CoCo-Prover 原论文表 3：路由器、自动化和引理规划器的完整消融结果"></a></p>
 <p>去掉路由器或引理规划器后，费用与成功率都有明显损失。确定性自动化的平均作用较小：CLEVER、VERINA 从中受益，AlgoVeri 去掉它后反而便宜 <strong>5.8%</strong>。这些结果只来自 30 道函数级题，不能直接说明它们在 Vero 仓库上的作用。</p>
 <p>这些消融也没有单独检验内部超图。去掉路由器的版本仍保留两层图，只把自适应动作选择换成固定调用顺序。附录 C.5 解释，调度、引理共享和回滚都建立在图状态上，直接删除整套图会变成另一种系统，所以作者用基线比较和案例说明图的作用。</p>
-<div class="author-opinion" aria-label="作者观点">
-<p>不过，这个理由没有回答另一种比较：保留外部依赖 DAG、路由器和其他组件，只将内部超图替换为普通证明检查点，效果会怎样？现有消融支持路由和引理规划在该子集上的作用，但无法隔离内部超图相对简单进度记录方式的独立增益。这是本文对实验范围的判断；</p>
+<div class="author-opinion">
+<p>不过，这个理由没有回答另一种比较：保留外部依赖 DAG、路由器和其他组件，只将内部超图替换为普通证明检查点，效果会怎样？现有消融支持路由和引理规划在该子集上的作用，但无法隔离内部超图相对简单进度记录方式的独立增益。这一结论仅限于现有实验能够支持的范围。</p>
 </div>
 <p>作者关于未做图消融的说明见<a href="https://arxiv.org/html/2610.09681v1#A3.SS5">附录 C.5</a>。</p>
 <p>论文还在 Gemini 上重复运行了全部 <strong>427</strong> 道函数级题。三次完成的题目相同，总费用均值为 <strong>$969.8</strong>，标准差 <strong>$89.5</strong>，变异系数 <strong>9.2%</strong>。30 题子集在三个模型上也各跑了三次，每次均全部完成；费用波动最大的是 AlgoVeri + Terra，变异系数为 <strong>34.2%</strong>。路由器、引理规划器约 40% 的费用差高于 Gemini 子集的运行波动，自动化的 5.8% 差值则与波动量级接近。</p>
 <h3>4.5 CoCo-Prover 没超过 Vero 的强基线</h3>
 <p>Vero proof-only 上，<strong>CoCo-Prover + GPT-5.6-Terra 完成 23/43，原论文的 Codex + GPT-5.5（xhigh）完成 25/43</strong>。CoCo-Prover 每题最多 <strong>8 小时、$60</strong>，Vero 原实验限时 <strong>90 分钟</strong>。</p>
-<div class="author-opinion" aria-label="作者观点">
+<div class="author-opinion">
 <p>这是不同模型、不同预算的比较，不能据此单独判断调度方法好坏，但事实是：CoCo-Prover 尚未超过 Vero 已发表的强基线。</p>
 </div>
-<div class="author-opinion" aria-label="作者观点">
+<div class="author-opinion">
 <p>思考强度的影响也不能略过。</p>
 </div>
 <p>Vero 中，同一个 GPT-5.5 从 medium 的 <strong>6/43</strong> 提升到 xhigh 的 <strong>25/43</strong>；CoCo-Prover 的 OpenAI 证明实验只用了 Terra，未说明整组实验的思考强度，也没给出更强模型、高思考强度下的对照。</p>
-<div class="author-opinion" aria-label="作者观点">
+<div class="author-opinion">
 <p>论文说明了它能改善所测配置的表现，却没有回答：换成更强的通用代理后，还剩多少增益？这个问题不补测，“方法增益会不会被模型迭代吞噬”的疑问就仍在。</p>
 </div>
 <h2>五、Prove2Me：费马项目为什么需要一个协作平台</h2>
@@ -258,91 +258,91 @@ M834 80h400000v40h-400000z"/></svg></span></span></span><span class="vlist-s">�
 <p><a href="../assets/papers/prove2me-flt-dag.png"><img src="../assets/papers/prove2me-flt-dag.png" alt="Anthropic 费马大定理形式化项目原图：Mazur、Ribet、Wiles 三条证明分支"></a></p>
 <h3>5.6 这个项目说明了什么</h3>
 <p>费马项目中，代理接入平台前就能证明部分结果，卡住的是共同进度、协作和复用。Prove2Me 提供的依赖图、独立编译和自然语言检索正好处理了这些问题。它让代理知道还有哪些目标没做，避免反复编译整个工程，也更容易找到已证引理。</p>
-<div class="author-opinion" aria-label="作者观点">
+<div class="author-opinion">
 <p>接入平台后完成证明，是平台在这次项目中发挥作用的证据。不过，这份报告并非控制变量实验，不能仅凭前后结果算出平台的独立增益。较稳妥的判断是：局部证明能力已经很强时，大项目仍需要让这些证明能够衔接、检查和复用的协作工具。</p>
 </div>
 <h2>六、Compiler in the Loop 的方法增益还能保留多少</h2>
 <h3>6.1 模型越强，方法越宏观；模型越弱，方法越细节</h3>
 <p>写 Lean、看报错、修改、再编译，是 compiler in the loop 最基本的循环。模型变强后，同样的循环可能少试几次就成功。若一个方法的贡献只是帮助模型修补局部证明，那么更新模型之后，还能省多少调用、提高多少成功率，就需要重新测量。CoCo-Prover 在所测模型上取得了改善，但它尚未超过 Vero 的强基线，也缺少更强模型和更高思考强度下的对照。</p>
-<div class="author-opinion" aria-label="作者观点">
-<p>本文的判断是：<strong>模型越弱，方法越需要介入细节；模型越强，方法的价值越往宏观移动。模型会逐渐吞噬具体方法</strong>。能力不足时，系统要替模型选择 tactic、保存每一步状态、规定何时回溯；能力变强后，这些决策越来越多地由代理自己完成。原先值得单独设计的流程，可能变成一次普通工具调用中的行为。</p>
+<div class="author-opinion">
+<p><strong>模型越弱，方法越需要介入细节；模型越强，方法的价值越往宏观移动。模型会逐渐吞噬具体方法</strong>。能力不足时，系统要替模型选择 tactic、保存每一步状态、规定何时回溯；能力变强后，这些决策越来越多地由代理自己完成。原先值得单独设计的流程，可能变成一次普通工具调用中的行为。</p>
 </div>
-<div class="author-opinion" aria-label="作者观点">
+<div class="author-opinion">
 <p>这并不只意味着“更强的模型少试几次”。更深的变化是，<strong>方法与模型之间的分工发生了移动</strong>。弱模型只能提出一个候选步骤，外部程序就得组织候选、验证结果、展开子目标并决定回溯。强模型能在一次代理运行里完成这一串工作，原先写在调度器里的决策便进入了模型的行为。研究者仍然可以给这些行为命名，但命名本身已经不能说明方法有额外增益。</p>
 </div>
-<div class="author-opinion" aria-label="作者观点">
-<p>对强模型代理，我倾向于不再把 tactic 级别的选择和回溯当作需要刻意教授的核心能力。给它 Lean 环境、编译反馈和足够预算，它通常已经会尝试策略、根据子目标调整证明，失败后撤回重试。例如，<code>simp</code> 没有关闭目标，它会检查剩余条件，换用现有引理或补一条 <code>have</code>；一段代码无法编译，它会修改代码，再运行验证器。这些行为发生在代理的实际尝试中，不必先由外部控制器逐条指定。</p>
+<div class="author-opinion">
+<p>对强模型代理，tactic 级别的选择和回溯已不再适合作为需要刻意教授的核心能力。给它 Lean 环境、编译反馈和足够预算，它通常已经会尝试策略、根据子目标调整证明，失败后撤回重试。例如，<code>simp</code> 没有关闭目标，它会检查剩余条件，换用现有引理或补一条 <code>have</code>；一段代码无法编译，它会修改代码，再运行验证器。这些行为发生在代理的实际尝试中，不必先由外部控制器逐条指定。</p>
 </div>
-<div class="author-opinion" aria-label="作者观点">
+<div class="author-opinion">
 <p>因此，CoCo-Prover 的内部 AND/OR 超图需要回答一个更具体的问题：当强代理已经会选择 tactic、产生子目标和回退时，把这些操作再显式记成图，究竟增加了什么？如果收益来自恢复进度、保留已验证片段或减少上下文重传，就应当直接测这些收益。仅仅把代理本来会做的事表示成一张图，还不足以说明它改善了证明。前文提到的内部超图独立消融，正是为了区分行为能力与状态保存的贡献。</p>
 </div>
-<div class="author-opinion" aria-label="作者观点">
+<div class="author-opinion">
 <p>模型吞噬方法，也不是说方法从此没有意义。一种外部方法可以先帮助弱模型完成任务，其轨迹随后进入训练，让后来的模型学会同样的行为。方法曾经有用，但它的推理时收益可能随着训练和模型迭代下降。只在较弱模型上取得提升，不能保证它在下一代强模型上仍值得保留。</p>
 </div>
 <h3>6.2 refine、decompose、search 也正在被代理内化</h3>
-<div class="author-opinion" aria-label="作者观点">
+<div class="author-opinion">
 <p>方法上移到宏观之后，还会遇到同样的问题。refine、decompose、search 曾经可以作为三个显式模块：一个负责修正，一个负责分解，一个负责尝试不同路线。如今，对具备这些能力的强代理，prompt 不必每次提醒“失败后修正”“必要时分解”“多试几次”；它会自己基于验证器报错修改证明，把大问题拆成小问题，对同一目标进行多次尝试。<strong>把三个行为分别写进 prompt，再交给三个代理，不自动构成三项新增能力</strong>。</p>
 </div>
-<div class="author-opinion" aria-label="作者观点">
+<div class="author-opinion">
 <p>refine 是其中最清楚的一项。目标类型与当前项不匹配，就检查参数、隐式变量和等式方向；缺少某个前提，就寻找能提供该前提的引理；还有未完成目标，就继续补证明。这里的下一步可以由验证器反馈直接驱动。</p>
 </div>
 <p><a href="https://arxiv.org/abs/2508.03613">Goedel-Prover-V2</a>已经把 Lean 验证器指导的自我修正纳入训练流程，并结合逐渐变难的合成任务、专家迭代和强化学习。</p>
-<div class="author-opinion" aria-label="作者观点">
+<div class="author-opinion">
 <p>修正经验因此可以进入模型，而不必一直作为外部修补模块存在。</p>
 </div>
-<div class="author-opinion" aria-label="作者观点">
+<div class="author-opinion">
 <p>decompose 也有相同趋势。代理发现主目标太难，会提取一个局部性质作为辅助引理，先证明它，再尝试接回主目标。</p>
 </div>
 <p><a href="https://arxiv.org/abs/2504.21801">DeepSeek-Prover-V2</a>先用 DeepSeek-V3 递归分解问题，把已解决子目标的证明与自然语言推理组合成强化学习的冷启动数据。</p>
-<div class="author-opinion" aria-label="作者观点">
+<div class="author-opinion">
 <p>这项工作展示了分解经验怎样进入模型训练。它的数据生成阶段仍使用分解提示，但提示产生的经验可以被后续模型学走。</p>
 </div>
-<div class="author-opinion" aria-label="作者观点">
+<div class="author-opinion">
 <p>但会提出辅助引理，不等于提出了正确的分解。若主目标是 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi></mrow><annotation encoding="application/x-tex">A</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal">A</span></span></span></span></eq>，代理给出 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi></mrow><annotation encoding="application/x-tex">B</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0502em;">B</span></span></span></span></eq>、<eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>C</mi></mrow><annotation encoding="application/x-tex">C</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0715em;">C</span></span></span></span></eq>，它还得证明 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><mo separator="true">,</mo><mi>C</mi><mo>⊢</mo><mi>A</mi></mrow><annotation encoding="application/x-tex">B,C\vdash A</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0502em;">B</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal" style="margin-right:0.0715em;">C</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">⊢</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal">A</span></span></span></span></eq>，并保证 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi></mrow><annotation encoding="application/x-tex">B</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0502em;">B</span></span></span></span></eq>、<eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>C</mi></mrow><annotation encoding="application/x-tex">C</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0715em;">C</span></span></span></span></eq> 本身可证。没有这个连接，代理可能在解决越来越多的小问题，却始终接不回原目标。前文 CoCo-Prover 与 Prove2Me 的区别，也应当放在这里看：分解想法可以由模型提出，系统仍要保存并检查分解的实际依赖和完成条件。</p>
 </div>
-<div class="author-opinion" aria-label="作者观点">
+<div class="author-opinion">
 <p>search 则表现为：一条路线走不通，就换一个引理、另一种归纳方式或不同的数学表示，再尝试一次。强代理通常已经会这样工作，外部系统不必每次告诉它“还有另一条路”。不过，知道要多试几次，与有效分配预算仍有距离。系统是否避免重复路线、是否在合适的时候停止、是否把失败经验交给后续尝试，才是值得检验的额外贡献。</p>
 </div>
-<div class="author-opinion" aria-label="作者观点">
-<p>三者之中，我认为 <strong>refine 是目前做得最好的一项</strong>。它的反馈最直接：修改前有具体报错，修改后能立即验证。decompose 的好坏可能要等若干子引理完成后才能判断，search 的路线选择也常常缺少即时反馈。这个排序是本文的判断，并非统一实验的结论；但它解释了为什么只围绕报错设计一套修补流程，最容易被更强模型替代。</p>
+<div class="author-opinion">
+<p>三者之中，<strong>refine 的内化目前最为成熟</strong>。它的反馈最直接：修改前有具体报错，修改后能立即验证。decompose 的好坏可能要等若干子引理完成后才能判断，search 的路线选择也常常缺少即时反馈。这一判断依据反馈机制，并非统一实验的结论；但它解释了为什么只围绕报错设计一套修补流程，最容易被更强模型替代。</p>
 </div>
 <p><a href="https://arxiv.org/abs/2602.24273">A Minimal Agent for Automated Theorem Proving（AxProverBase）</a>提供了一个有用的参照：它只保留迭代修正、库检索和上下文管理，就能以简单架构取得有竞争力的结果，并发现迭代方式在采样效率和成本上优于多次单次生成。</p>
-<div class="author-opinion" aria-label="作者观点">
-<p>它没有证明完全不需要提示，而是提醒我们，比较复杂方法时，基线也应当是一个能运行、能读反馈、能继续尝试的代理。</p>
+<div class="author-opinion">
+<p>它没有证明完全不需要提示，但说明比较复杂方法时，基线也应当是一个能运行、能读反馈、能继续尝试的代理。</p>
 </div>
-<div class="author-opinion" aria-label="作者观点">
+<div class="author-opinion">
 <p>宏观编排仍然可能有实测收益。</p>
 </div>
 <p><a href="https://goedelarchitect.github.io/">Goedel-Architect</a>生成定义与引理的依赖图，并行证明节点，再根据失败诊断和否证修改全局图，同时保留已经证明的节点。作者在同一模型下的比较显示，这种编排仍优于直接生成和工具代理基线。</p>
-<div class="author-opinion" aria-label="作者观点">
+<div class="author-opinion">
 <p>它的贡献因此不能只概括成“让模型分解”：它还组织了跨引理的反馈，保存成果，并修订整条路线。这些具体机制才是方法继续存在的理由。</p>
 </div>
 <h3>6.3 最值得外置的是记忆：让重要上下文持续存在</h3>
-<div class="author-opinion" aria-label="作者观点">
-<p>在这样的趋势下，我更看好 <strong>external memory：把重要上下文持久化到模型之外，让后续运行和多个代理共同使用</strong>。一个代理会自己修正证明，不等于它在换上下文后还记得先前找到了什么；一个代理会拆问题，也不等于其他代理知道这份拆解、使用相同的定义，或者能复用已经完成的部分。模型能力越强，重新做这些工作的浪费反而越明显。</p>
+<div class="author-opinion">
+<p>在这样的趋势下，更有持续价值的是 <strong>external memory：把重要上下文持久化到模型之外，让后续运行和多个代理共同使用</strong>。一个代理会自己修正证明，不等于它在换上下文后还记得先前找到了什么；一个代理会拆问题，也不等于其他代理知道这份拆解、使用相同的定义，或者能复用已经完成的部分。模型能力越强，重新做这些工作的浪费反而越明显。</p>
 </div>
-<div class="author-opinion" aria-label="作者观点">
+<div class="author-opinion">
 <p>这里有一个根本区别：修正、分解和尝试路线，可以是代理当下的推理行为；项目记忆则要跨越这次推理的边界。模型参数可以保存通用证明经验，却不会自动保存某个正在进行的项目昨天新证明了哪条引理、谁改了哪个定义、哪个反例否定了一条路线。这些信息必须在运行过程中写下来，并允许其他代理读取。</p>
 </div>
-<div class="author-opinion" aria-label="作者观点">
+<div class="author-opinion">
 <p>例如，代理甲为主目标 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi></mrow><annotation encoding="application/x-tex">A</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal">A</span></span></span></span></eq> 提出 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi></mrow><annotation encoding="application/x-tex">B</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0502em;">B</span></span></span></span></eq>、<eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>C</mi></mrow><annotation encoding="application/x-tex">C</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0715em;">C</span></span></span></span></eq>，写出了条件证明 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi><mo separator="true">,</mo><mi>C</mi><mo>⊢</mo><mi>A</mi></mrow><annotation encoding="application/x-tex">B,C\vdash A</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord mathnormal" style="margin-right:0.0502em;">B</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal" style="margin-right:0.0715em;">C</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">⊢</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal">A</span></span></span></span></eq>，随后证完了 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi></mrow><annotation encoding="application/x-tex">B</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0502em;">B</span></span></span></span></eq>。如果这些信息只留在甲的上下文中，代理乙接手时可能重新分解 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi></mrow><annotation encoding="application/x-tex">A</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal">A</span></span></span></span></eq>，再次证明 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi></mrow><annotation encoding="application/x-tex">B</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0502em;">B</span></span></span></span></eq>，甚至使用另一份不兼容的 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>C</mi></mrow><annotation encoding="application/x-tex">C</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0715em;">C</span></span></span></span></eq>。共享记忆应当让乙直接看到：主目标和条件连接的准确版本、<eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>B</mi></mrow><annotation encoding="application/x-tex">B</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0502em;">B</span></span></span></span></eq> 的已验证证明、<eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>C</mi></mrow><annotation encoding="application/x-tex">C</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0715em;">C</span></span></span></span></eq> 的待证状态，以及甲在 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>C</mi></mrow><annotation encoding="application/x-tex">C</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0715em;">C</span></span></span></span></eq> 上已经失败的尝试。乙的任务就明确地变成继续证明 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>C</mi></mrow><annotation encoding="application/x-tex">C</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0715em;">C</span></span></span></span></eq>，或者用新路线替换这份分解。</p>
 </div>
-<div class="author-opinion" aria-label="作者观点">
+<div class="author-opinion">
 <p>这种记忆不要求把所有聊天原样堆进去。更有用的是把会影响后续工作的结果保存为可检索对象，并附上证据：代码位置、编译结果、依赖和失败原因。长记录可以留作追溯，下一位代理首先需要的是当前可信状态。否则，虽然信息持久化了，代理仍得花大量上下文重建项目进度。</p>
 </div>
 <p><a href="https://arxiv.org/abs/2410.06209">LeanAgent</a>从持续学习的角度处理知识积累：用动态数学知识数据库管理不断扩展的 Lean 知识，结合难度课程和渐进训练，让检索与证明跨仓库持续改进。</p>
-<div class="author-opinion" aria-label="作者观点">
+<div class="author-opinion">
 <p>它并非多代理共享记忆实验，但说明了持久知识库与检索可以成为独立的系统组成部分。Prove2Me 则更直接地处理多个代理围绕同一项目工作的状态共享。
 需要保存的内容应当能直接支持下一次工作：定理的准确陈述和环境版本、已经通过验证的证明、仍待完成的条件依赖、可复用引理的位置，以及失败路线和失败原因。例如，代理甲发现引理缺少非空条件，代理乙应当能读到这条结论及其反例；代理甲证完一个辅助引理，代理乙应当能直接导入它，而不是从聊天记录里猜测哪个版本可用。</p>
 </div>
-<div class="author-opinion" aria-label="作者观点">
+<div class="author-opinion">
 <p>这里还必须保留状态的区别：计划使用某条引理、上层条件证明已经通过、整条依赖链已经验证，是三件不同的事。CoCo-Prover 的暂定与稳定状态、Prove2Me 的开放定理与条件 proof-sketch，都在处理这一问题。共享记忆若抹平这些区别，就会把尚未完成的路线当作已证事实。</p>
 </div>
-<div class="author-opinion" aria-label="作者观点">
+<div class="author-opinion">
 <p>Prove2Me 在本文中的意义也因此更清楚：它把固定陈述、可检索成果、证明依赖和共同进度放到代理之外，让不同代理针对同一对象工作。其<a href="https://arxiv.org/html/2608.28433v2#S4.SS2">依赖与协作机制</a>提供了一种具体实现。图在这里不仅表达“怎么分解”，还保存“大家已经完成什么、还缺什么”。这比反复提醒强代理要修正、分解和搜索，更接近大项目中持续存在的需求。</p>
 </div>
 <p>Vero 和 Prove2Me 给出了更大的任务。Vero 要求整个仓库的全部规格通过，一条关键引理没证完就不能算完成；费马项目有约三万条中间定理，除了证明单条定理，还得维护依赖、查找已有结果、安排并行工作并检查最终证明链。模型写证明的能力与项目的组织方式，都要在这样的任务上接受检验。</p>
-<div class="author-opinion" aria-label="作者观点">
+<div class="author-opinion">
 <p>标题里的“消亡”说的是一种方法贡献的贬值：如果换个更强的模型就能得到同样的结果，只围绕编译报错设计修补流程，价值便会越来越小。更有希望留下来的，是跨上下文的记忆、跨代理的成果复用、固定的任务接口和最终证明链的检查。接下来的方法研究，要说明自己在这些地方解决了什么问题，也要拿当前的强模型来证明它仍然值得用。</p>
 </div>
 <h2>来源与图像授权</h2>

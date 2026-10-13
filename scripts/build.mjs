@@ -42,7 +42,7 @@ function articleHtml(article) {
     if (boundary === 'begin') {
       if (opinionDepth) throw new Error(`Nested opinion block in ${article.slug}.md`);
       opinionDepth = 1;
-      return '<div class="author-opinion" aria-label="作者观点">';
+      return '<div class="author-opinion">';
     }
     if (!opinionDepth) throw new Error(`Unexpected opinion end in ${article.slug}.md`);
     opinionDepth = 0;
