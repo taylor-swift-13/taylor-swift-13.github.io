@@ -95,21 +95,6 @@ $$
 
 这三个式子里的否定范围不同，审计建议因而不同：第一式只需找出参考实现失败的一处输入，并不能推出换个实现也不行；第二式否定「存在任何实现满足这一条」，通常要检查规格是否缺了前提；第三式允许每条规格分别有解，却断言找不到**同一个**实现同时满足它们，修复对象是规格之间的冲突。`verified_bitmasks`、`verified_ironkv` 和填充字符 `=` 分别展示了这三种差别。
 
-### 代理程序与模型（论文附录 A.1）
-
-这里的 **agent harness** 指运行代理的程序框架，负责让模型读写文件、调用构建和 Lean 工具；它与模型本身是两个变量。附录 A.1 把正文图 3 的四行对应到如下配置：[原论文附录 A.1](https://arxiv.org/html/2608.13522v1#A1.SS1)
-
-| 图 3 中的配置 | 代理程序 | 模型 | 思考强度 |
-| --- | --- | --- | --- |
-| GPT-5.5 (mid) | Codex v0.140.0 | GPT-5.5 | `model_reasoning_effort=medium`，Codex 默认值 |
-| GPT-5.5 (xhigh) | Codex v0.140.0 | GPT-5.5 | `model_reasoning_effort=xhigh` |
-| Claude Opus 4.8 | Claude Code v2.1.191 | Claude Opus 4.8 | xhigh |
-| Claude Sonnet 5 | Claude Code v2.1.191 | Claude Sonnet 5 | xhigh |
-
-表中的 **mid 与 medium 是同一个设置**：前者是结果图的行名，后者是 Codex 参数值。**每种配置都会分别测试全部 43 个仓库**，而且在 code-and-proof 和 proof-only 两种模式下各跑一遍；因此每个仓库对应 $4\times2=8$ 次独立评测，不是一个仓库只分到一种配置。所有代理都有文件编辑、项目构建和 Lean 工具访问权，使用 **Lean v4.29.1**，可运行 `lake build`。每次评测的时间上限为 **90 分钟**。[原论文 §4.1、附录 A.1](https://arxiv.org/html/2608.13522v1#A1.SS1)
-
-同一个 Codex、同一个 GPT-5.5 的 medium 与 xhigh 两行，最适合观察增加思考强度后结果如何变化；不同模型之间的差异则同时混入了模型与代理程序，不能只按模型能力解释。论文使用同一个 `xhigh` 名称描述 Claude Code 的设置，但没有证明不同代理程序的强度档位具有相同计算量。
-
 ### 评估结果与分析（论文 §4.2）
 
 Vero 原论文给每个仓库 **90 分钟**，评测四种编码代理配置的两种任务模式。图 3 中，GPT-5.5 xhigh 在 code-and-proof / proof-only 下分别完成 **27/43**、**25/43**；GPT-5.5 medium 为 **2/43**、**6/43**；Opus 4.8 为 **8/43**、**10/43**；Sonnet 5 两种模式均为 **2/43**。

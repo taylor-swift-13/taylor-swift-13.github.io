@@ -85,46 +85,6 @@
 </ul>
 <p>第一种证据只否定参考实现，后两种否定题目本身。修题后还要给出正向证明，确认新要求可满足。<a href="https://arxiv.org/html/2608.13522v1#A6">附录 F</a></p>
 <p>这三个式子里的否定范围不同，审计建议因而不同：第一式只需找出参考实现失败的一处输入，并不能推出换个实现也不行；第二式否定「存在任何实现满足这一条」，通常要检查规格是否缺了前提；第三式允许每条规格分别有解，却断言找不到<strong>同一个</strong>实现同时满足它们，修复对象是规格之间的冲突。<code>verified_bitmasks</code>、<code>verified_ironkv</code> 和填充字符 <code>=</code> 分别展示了这三种差别。</p>
-<h3>代理程序与模型（论文附录 A.1）</h3>
-<p>这里的 <strong>agent harness</strong> 指运行代理的程序框架，负责让模型读写文件、调用构建和 Lean 工具；它与模型本身是两个变量。附录 A.1 把正文图 3 的四行对应到如下配置：<a href="https://arxiv.org/html/2608.13522v1#A1.SS1">原论文附录 A.1</a></p>
-<table>
-<thead>
-<tr>
-<th>图 3 中的配置</th>
-<th>代理程序</th>
-<th>模型</th>
-<th>思考强度</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>GPT-5.5 (mid)</td>
-<td>Codex v0.140.0</td>
-<td>GPT-5.5</td>
-<td><code>model_reasoning_effort=medium</code>，Codex 默认值</td>
-</tr>
-<tr>
-<td>GPT-5.5 (xhigh)</td>
-<td>Codex v0.140.0</td>
-<td>GPT-5.5</td>
-<td><code>model_reasoning_effort=xhigh</code></td>
-</tr>
-<tr>
-<td>Claude Opus 4.8</td>
-<td>Claude Code v2.1.191</td>
-<td>Claude Opus 4.8</td>
-<td>xhigh</td>
-</tr>
-<tr>
-<td>Claude Sonnet 5</td>
-<td>Claude Code v2.1.191</td>
-<td>Claude Sonnet 5</td>
-<td>xhigh</td>
-</tr>
-</tbody>
-</table>
-<p>表中的 <strong>mid 与 medium 是同一个设置</strong>：前者是结果图的行名，后者是 Codex 参数值。<strong>每种配置都会分别测试全部 43 个仓库</strong>，而且在 code-and-proof 和 proof-only 两种模式下各跑一遍；因此每个仓库对应 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>4</mn><mo>×</mo><mn>2</mn><mo>=</mo><mn>8</mn></mrow><annotation encoding="application/x-tex">4\times2=8</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.7278em;vertical-align:-0.0833em;"></span><span class="mord">4</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:0.6444em;"></span><span class="mord">2</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:0.6444em;"></span><span class="mord">8</span></span></span></span></eq> 次独立评测，不是一个仓库只分到一种配置。所有代理都有文件编辑、项目构建和 Lean 工具访问权，使用 <strong>Lean v4.29.1</strong>，可运行 <code>lake build</code>。每次评测的时间上限为 <strong>90 分钟</strong>。<a href="https://arxiv.org/html/2608.13522v1#A1.SS1">原论文 §4.1、附录 A.1</a></p>
-<p>同一个 Codex、同一个 GPT-5.5 的 medium 与 xhigh 两行，最适合观察增加思考强度后结果如何变化；不同模型之间的差异则同时混入了模型与代理程序，不能只按模型能力解释。论文使用同一个 <code>xhigh</code> 名称描述 Claude Code 的设置，但没有证明不同代理程序的强度档位具有相同计算量。</p>
 <h3>评估结果与分析（论文 §4.2）</h3>
 <p>Vero 原论文给每个仓库 <strong>90 分钟</strong>，评测四种编码代理配置的两种任务模式。图 3 中，GPT-5.5 xhigh 在 code-and-proof / proof-only 下分别完成 <strong>27/43</strong>、<strong>25/43</strong>；GPT-5.5 medium 为 <strong>2/43</strong>、<strong>6/43</strong>；Opus 4.8 为 <strong>8/43</strong>、<strong>10/43</strong>；Sonnet 5 两种模式均为 <strong>2/43</strong>。</p>
 <p>GPT-5.5 xhigh 的逐规格通过率分别为 <strong>87.3%</strong> 和 <strong>85.8%</strong>，完整仓库却只完成了 27 和 25 个。还有一个差距不能忽略：同一个 GPT-5.5，proof-only 从 medium 的 <strong>6/43</strong> 提升到 xhigh 的 <strong>25/43</strong>。</p>
