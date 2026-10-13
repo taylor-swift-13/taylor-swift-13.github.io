@@ -243,7 +243,6 @@ C_{\mathrm{share}}(h)=c_h+\sum_{i=1}^{K}d_i+r_h.
 <div class="author-opinion">
 <p>这种变化也延伸到 refine、decompose、search：强代理不必每次被 prompt 提醒，便会根据报错修正、拆出辅助引理、尝试另一条路线。<strong>refine 最容易被内化</strong>，因为报错直接指向修改，修改后又能立即验证；分解和路线选择的反馈更晚。这个判断来自反馈机制，并非三者的统一实验排名。</p>
 </div>
-<p><a href="https://arxiv.org/abs/2508.03613">Goedel-Prover-V2</a>把 Lean 反馈指导的自我修正纳入训练；<a href="https://arxiv.org/abs/2504.21801">DeepSeek-Prover-V2</a>用递归分解和子目标证明构造强化学习冷启动数据。<a href="https://arxiv.org/abs/2602.24273">AxProverBase</a>则以迭代修正、检索和上下文管理组成简单代理，取得有竞争力的结果。这些工作分别展示了修正、分解经验进入模型，以及简单反馈循环的能力。</p>
 <div class="author-opinion">
 <p>因此，把这些行为写成多个 prompt 或分给多个专家，不自动增加能力。外部方法需要证明自己改善了预算分配、进度恢复或成果复用。所谓“模型吞噬方法”，说的是这种额外收益可能随模型迭代下降，而不是验证器和运行环境不再需要。</p>
 </div>
@@ -251,7 +250,6 @@ C_{\mathrm{share}}(h)=c_h+\sum_{i=1}^{K}d_i+r_h.
 <div class="author-opinion">
 <p><strong>更有持续价值的是 external memory：把重要上下文持久化，让后续运行和多个代理共享</strong>。模型可以学会通用证明策略，却不会自动记住一个项目刚证明了哪些引理、哪个版本有效、哪些路线已经失败。局部推理越强，重复发现这些事实的浪费越明显。</p>
 </div>
-<p><a href="https://arxiv.org/abs/2410.06209">LeanAgent</a>用动态知识数据库和渐进训练支持跨仓库的持续学习；<a href="https://goedelarchitect.github.io/">Goedel-Architect</a>根据失败修订全局引理图，保留已证节点，并在同模型比较中取得收益。前者研究知识积累，后者组织跨引理的证明进度。Prove2Me 则把固定陈述、条件证明与可检索成果提供给多个代理共享。</p>
 <div class="author-opinion">
 <p>共享记忆应保存可继续使用的状态，而不是堆积聊天记录。后续代理应能看到子定理的准确陈述、已验证的连接和失败记录。计划使用、条件证明通过、整条依赖链完成，必须明确区分，否则共享只会传播未经验证的结论。</p>
 </div>
