@@ -37,6 +37,20 @@ function escapeHtml(value) {
 function articleHtml(article) {
   const source = readFileSync(path.join(root, 'posts', `${article.slug}.md`), 'utf8');
   let body = markdown.render(source);
+  let opinionDepth = 0;
+  body = body.replace(/<p>@@opinion-(begin|end)@@<\/p>/g, (_, boundary) => {
+    if (boundary === 'begin') {
+      if (opinionDepth) throw new Error(`Nested opinion block in ${article.slug}.md`);
+      opinionDepth = 1;
+      return '<div class="author-opinion" aria-label="作者观点">';
+    }
+    if (!opinionDepth) throw new Error(`Unexpected opinion end in ${article.slug}.md`);
+    opinionDepth = 0;
+    return '</div>';
+  });
+  if (opinionDepth || body.includes('@@opinion-')) {
+    throw new Error(`Unclosed or invalid opinion marker in ${article.slug}.md`);
+  }
   for (const [marker, fragment] of [
     ['log', 'log-inequality.html'],
   ]) {
@@ -62,7 +76,7 @@ function articleHtml(article) {
   <script src="../js/blog.js" defer></script>
   <script src="../js/visualizations.js" defer></script>
 </head>
-<body class="article-page" id="top">
+<body class="article-page${article.slug === 'vero-coco-prover' ? ' source-aware' : ''}" id="top">
   <header class="site-header">
     <div class="shell header-inner">
       <a class="brand" href="../index.html" aria-label="Notes 首页">Notes</a>
