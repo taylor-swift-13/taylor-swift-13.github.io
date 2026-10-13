@@ -123,7 +123,7 @@
 </tr>
 </tbody>
 </table>
-<p>表中的 <strong>mid 与 medium 是同一个设置</strong>：前者是结果图的行名，后者是 Codex 参数值。四行各自在 code-and-proof 和 proof-only 跑一次，因此图 3c 每种模式有四行，总共是八个「配置 × 模式」评测单元；这不是八个不同模型。所有代理都有文件编辑、项目构建和 Lean 工具访问权，使用 <strong>Lean v4.29.1</strong>，可运行 <code>lake build</code>。90 分钟是每个仓库、每个评测单元的时间上限，不是四种配置合用的一段时间。<a href="https://arxiv.org/html/2608.13522v1#A1.SS1">原论文 §4.1、附录 A.1</a></p>
+<p>表中的 <strong>mid 与 medium 是同一个设置</strong>：前者是结果图的行名，后者是 Codex 参数值。<strong>每种配置都会分别测试全部 43 个仓库</strong>，而且在 code-and-proof 和 proof-only 两种模式下各跑一遍；因此每个仓库对应 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>4</mn><mo>×</mo><mn>2</mn><mo>=</mo><mn>8</mn></mrow><annotation encoding="application/x-tex">4\times2=8</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.7278em;vertical-align:-0.0833em;"></span><span class="mord">4</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">×</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:0.6444em;"></span><span class="mord">2</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:0.6444em;"></span><span class="mord">8</span></span></span></span></eq> 次独立评测，不是一个仓库只分到一种配置。所有代理都有文件编辑、项目构建和 Lean 工具访问权，使用 <strong>Lean v4.29.1</strong>，可运行 <code>lake build</code>。每次评测的时间上限为 <strong>90 分钟</strong>。<a href="https://arxiv.org/html/2608.13522v1#A1.SS1">原论文 §4.1、附录 A.1</a></p>
 <p>同一个 Codex、同一个 GPT-5.5 的 medium 与 xhigh 两行，最适合观察增加思考强度后结果如何变化；不同模型之间的差异则同时混入了模型与代理程序，不能只按模型能力解释。论文使用同一个 <code>xhigh</code> 名称描述 Claude Code 的设置，但没有证明不同代理程序的强度档位具有相同计算量。</p>
 <h3>为什么局部通过率很高，完整仓库仍难完成</h3>
 <p>Vero 原论文给每个仓库 <strong>90 分钟</strong>，评测四种编码代理配置的两种任务模式。图 3 中，GPT-5.5 xhigh 在 code-and-proof / proof-only 下分别完成 <strong>27/43</strong>、<strong>25/43</strong>；GPT-5.5 medium 为 <strong>2/43</strong>、<strong>6/43</strong>；Opus 4.8 为 <strong>8/43</strong>、<strong>10/43</strong>；Sonnet 5 两种模式均为 <strong>2/43</strong>。</p>
@@ -132,7 +132,7 @@
 <p>后面判断 CoCo-Prover 的效果时，必须把这个强配置算进去。</p>
 </div>
 <p><img src="../assets/papers/vero-results.svg" alt="Vero 论文图 3：各代理在两种任务模式下的完整仓库解决情况"></p>
-<p><em>原论文图 3。左、中两个面板分别是 code-and-proof 与 proof-only：横轴为 90 分钟内的运行时间，纵轴为已完整解决的仓库数，上限 43；曲线在某个仓库最后一条规格通过时才上升，菱形标记各配置的运行时间中位数。右侧面板按仓库列出四种配置是否完整解决，因而能看出「总数相同」背后可能是不同的仓库。</em></p>
+<p><em>原论文图 3。左、中两个面板分别是 code-and-proof 与 proof-only：横轴为 90 分钟内的运行时间，纵轴为已完整解决的仓库数，上限 43；曲线在某个仓库最后一条规格通过时才上升，菱形标记各配置的运行时间中位数。右侧图 3c 中，同一仓库对应四种配置的四次结果，显示它被哪些配置完整解决。</em></p>
 <p>左、中曲线的终点对应前述 <strong>27/43、25/43</strong> 等完整解决数；它们回答「90 分钟内完成了多少」。右侧格子回答「完成的是哪几个」，不能用一条曲线的终点替代。菱形是运行时间的<strong>中位数</strong>，也不是某一具体仓库的完成时间；即使一个配置在中途已有不少完整解决，剩余运行仍可能到时限才停。阅读右图时还要按模式分别看：同一仓库在 code-and-proof 成功、proof-only 失败，是两次不同的实验，不是同一次运行结果前后矛盾。<a href="https://arxiv.org/html/2608.13522v1#S4.SS2">原论文图 3</a></p>
 <p>涉及全局覆盖性的规格失败率最高，为 <strong>47.1%</strong>。同一仓库中，使用给定辅助定义的规格失败率高出 <strong>14.9 个百分点</strong>，重复调用同一 API 的规格高出 <strong>11.7 个百分点</strong>。难题往往要求证明多次执行后仍保持某个不变量，也更依赖辅助引理。</p>
 <p>附录 H 的 Merkle 树合约有 <strong>79 条跨四个模块的规格</strong>。GPT-5.5（xhigh）最终全部证完，并自行写出 <strong>99 条辅助定理</strong>。这说明仓库级证明的主体常在共享引理和跨模块不变量，而不是 79 段互不相关的短证明。<a href="https://arxiv.org/html/2608.13522v1#A8">附录 H</a></p>
