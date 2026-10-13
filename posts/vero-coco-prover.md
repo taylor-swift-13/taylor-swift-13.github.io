@@ -159,7 +159,7 @@ s_t=(\mathfrak G_t,\mathcal F_t,\sigma_t,\mathcal M_t,\mathcal L_t),
 \qquad U_t=\operatorname{Sched}(s_t).
 $$
 
-$\mathfrak G_t$ 是两层证明图，$\mathcal F_t$ 是依赖已就绪的开放目标，$\sigma_t$ 记录引理等成果的状态，$\mathcal M_t$ 保存共享记忆，$\mathcal L_t$ 记录已花的费用。调度器通过图上的依赖关系算出本轮可处理的目标 $U_t$，这一步不用模型调用；目标依赖的引理可以暂未证完，但这种临时依赖会被记录，供失败时回滚。[原论文 §3.1](https://arxiv.org/html/2610.09681v1#S3.S1)
+$\mathfrak G_t$ 是两层证明图，$\mathcal F_t$ 是当前可处理的开放目标，$\sigma_t$ 记录引理等成果的状态，$\mathcal M_t$ 保存共享记忆，$\mathcal L_t$ 记录已花的费用。调度器据此算出本轮目标 $U_t$，不用调用模型。这里的「可处理」只要求前置引理的**陈述已经通过 Lean 解析**，不要求它已经证成：例如要证 $A$，计划使用引理 $B$，便可先尝试写出依赖 $B$ 的证明，但此时 $A$ 仍只是条件性进展。只有 $B$ 最终证成，依赖它的证明才能成为稳定成果；若 $B$ 被撤回，系统只重新打开用过它的目标，保留无关的已验证工作。[原论文 §3.1、附录 B.1、B.3](https://arxiv.org/html/2610.09681v1#A2.SS3)
 
 路由器接下来选择一次行动：
 
