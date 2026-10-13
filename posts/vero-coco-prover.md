@@ -26,13 +26,26 @@ Chen 等人的 [*Prove2Me: An Open Collaborative Platform for Scaling Math Forma
 
 Vero 将真实仓库转换为 Lean 项目，保留多模块结构、固定 API 和形式规格。43 个仓库共有 **743 个计分 API、2,705 条计分规格**。其中形式化语言项目沿用并翻译已有规格；Python 项目则根据代码、文档和测试起草规格，再由人审核。制作过程还检查构建、依赖关系和语义是否一致。[原论文图 1](https://arxiv.org/html/2608.13522v1#S3)
 
+[![Vero 原论文图 1：仓库制作、代理答题、独立评分和审计反馈](../assets/papers/vero-pipeline.png)](../assets/papers/vero-pipeline.png)
+
+*原论文图 1。左侧的人工审核把源仓库转成固定题目；右侧的独立评分检查代理提交，审计发现的反例再返回制作环节修题。*
+
 proof-only 固定参考实现，由代理补齐证明；code-and-proof 固定接口与规格，由代理同时编写实现和证明。评分器将提交内容放入未修改的题目副本，使用 Lean 检查全部规格和证明依赖的公理。整个仓库通过才算完成。代理还可以提交反面证明，指出参考实现或规格有错；制作人员据此修题。[原论文 §3](https://arxiv.org/html/2608.13522v1#S3)
 
 ### 基准实例究竟给了什么
 
 每道 Vero 题都是一个多模块 Lean 4 项目。制作人员固定数据类型、辅助定义、API 签名和规格，代理填写实现与证明。接口规定要实现哪些函数；规格规定这些函数必须满足什么。规格以整套仓库实现 `impl : RepoImpl` 为参数，因此同一组要求既能检查参考实现，也能检查代理编写的新实现。见[原论文 §3.1](https://arxiv.org/html/2608.13522v1#S3.SS1)。
 
-规格可以约束多个 API 的连续调用，而不只规定单个函数的输入和输出。论文中的银行账户规格便要求：账户原本不存在时，创建账户后查得的余额为零。两种模式都要证明整套实现满足全部规格，不能只挑容易的性质完成。[原论文图 2](https://arxiv.org/html/2608.13522v1#S3.SS1)
+论文把每条规格写成 $S_i:\mathrm{RepoImpl}\to\mathrm{Prop}$：给定整套实现，判断它是否满足第 $i$ 条要求。以图 2 的银行账户为例，规格可以简写为
+
+$$
+\forall\,id,ledger,\quad
+\neg\operatorname{accountExists}(id,ledger)
+\Longrightarrow
+\operatorname{getBalance}(id,\operatorname{createAccount}(id,ledger))=\operatorname{some}(0).
+$$
+
+它要求账户原本不存在时，创建账户后查得的余额为零。一个命题连起三个 API，说明规格可以约束多个调用的关系。两种模式都要证明整套实现满足全部规格，不能只挑容易的性质完成。[原论文图 2](https://arxiv.org/html/2608.13522v1#S3.SS1)
 
 ### 从代理的工作目录到独立评分
 
@@ -106,6 +119,13 @@ CoCo-Prover 每轮决定先证明哪些目标，再决定调用哪类代理、�
 
 **外部依赖图** $\mathcal D$ 记录哪些定理使用哪些引理，方便复用成果；每条定理 $\ell$ 有一张**内部 AND/OR 超图** $\mathcal H_\ell$，记录可选证明步骤及该步骤产生的全部子目标。内部图的目标节点需要完成；同一目标可有多条已尝试的证明路线，任一条路线完成即可。前者保存跨定理的关系，后者保存单条证明的进度。
 
+$$
+\mathcal D=(L,E_{\mathcal D}),\qquad
+\mathcal H_\ell=(A_\ell,O_\ell,E_\ell).
+$$
+
+$L$ 包括目标定理和辅助引理，依赖边 $u\to v$ 表示 $v$ 使用 $u$；$A_\ell$ 是 Lean 目标状态，$O_\ell$ 是尝试的证明步骤，$E_\ell$ 将一步与 Lean 返回的整组子目标连起来。[原论文 §3.1](https://arxiv.org/html/2610.09681v1#S3.S1)
+
 ![CoCo-Prover 论文图 2：引理依赖 DAG 与单一定理内部的 AND/OR 证明图](../assets/papers/coco-proof-graphs.svg)
 
 *原论文图 2。左图表示跨声明复用，右图表示单个证明步骤如何展开为子目标。*
@@ -146,6 +166,17 @@ $$
 
 例如，先证明一条会被多个目标使用的引理，眼前比直接写一段证明贵，却可能降低整个仓库的总费用。**这套最优价值是论文的分析框架，并非系统实际求解的数值**：CoCo-Prover 让路由器依据当前证明状态和历史反馈近似判断哪项行动更值得买。论文取较小的正 $\lambda$，使完成证明优先，费用主要用于比较完成希望相近的行动。[原论文 §3.1](https://arxiv.org/html/2610.09681v1#S3.S1)
 
+论文还把一次路由失误的代价记为 $\delta_\lambda(s,U,c)=V_\lambda^*(s)-Q_\lambda^*(s,U,c)\geq0$：选择的行动比理想行动差多少。路由器自身也要花模型费用，因此它只有在减少的决策损失超过这笔额外费用时才值得调用。[原论文 §3.1、附录 A.2](https://arxiv.org/html/2610.09681v1#A1.SS2)
+
+共享引理的账也能具体写出。若 $K$ 个目标各自重复发现同一事实 $h$，与先证明一次再共享的成本分别为
+
+$$
+C_{\mathrm{iso}}(h)=\sum_{i=1}^{K}(c_{h,i}+d_i),\qquad
+C_{\mathrm{share}}(h)=c_h+\sum_{i=1}^{K}d_i+r_h.
+$$
+
+$c_{h,i}$ 是第 $i$ 个目标单独发现该事实的费用，$c_h$ 是共享引理的证明费用，$d_i$ 是各目标剩余工作，$r_h$ 是失败尝试与回滚开销。只有 $C_{\mathrm{share}}(h)<C_{\mathrm{iso}}(h)$，共享才真的更便宜；它因此需要记录引理被谁使用，以及失败会影响哪些目标。[附录 B.5](https://arxiv.org/html/2610.09681v1#A2.SS5)
+
 ### 一轮具体做什么
 
 ![CoCo-Prover 论文图 3：调度器、路由器、四种专家代理及 Lean 检查器](../assets/papers/coco-workflow.svg)
@@ -165,6 +196,10 @@ $$
 ### 核心案例：字符串证明怎样接起来
 
 前文的 `apply And.intro` 将字符串目标拆成两支；两支随后都使用独立引理 `implementation_splitOn`，把上层规格接到底层字符串操作。CoCo-Prover 为这条证明建立了九条可复用引理。**内部超图**保存拆出的两支，**外部依赖图**保存 `correctness` 对引理的使用；引理和两支子目标全部通过 Lean 检查，原目标才算完成。[附录 D.1](https://arxiv.org/html/2610.09681v1#A4.SS1)
+
+[![CoCo-Prover 原论文字符串案例的引理依赖图：从底层字符串性质连接到 correctness](../assets/papers/coco-case-lemmas.svg)](../assets/papers/coco-case-lemmas.svg)
+
+*原论文的字符串案例依赖图。箭头从辅助引理指向使用它的上层声明；底层字符串性质被证一次后，沿依赖链支撑 `correctness`，无需每轮重新发现。*
 
 同一 GPT-5.6-Terra 模型下，CoCo-Prover 用 **$2.36** 完成该题，Codex 用 **$8.67**；前者运行时间略长。这个对照说明，保存引理和进度可以减少模型调用费用，但不保证更快。另一个仓库案例中，56 条区间规格共享排序与合并的性质，CoCo-Prover 完成 **56/56**，同底座编码代理完成 **5/56**；这进一步展示了跨目标复用的价值，却不能单独证明每个组件各贡献了多少。[附录 D.2](https://arxiv.org/html/2610.09681v1#A4.SS2)
 
@@ -201,6 +236,14 @@ DeepSeek 的差距尤其大，但框架与模型的适配也是变量：对照�
 九个函数级组合中，CoCo-Prover 在共同成功题目上的费用均低于 Humanize、Ax-Prover-Base 和编码代理。不过，AlgoVeri + Terra 相比 Humanize 只便宜 **1.3%**；Vero + Terra 唯一共同成功的仓库，反而是 Codex 更便宜。Vero 的交集太小，仓库级费用还得主要看 NTP4VC。表 2 也只算成功交集的账单，失败尝试和本地计算不在这个比较中。
 
 图 4 将函数级单题预算从 $0 增加到 $30，统计各预算下完成的题数。三个模型上，CoCo-Prover 在大部分预算区间领先；Terra 在最高预算下完成 **419/427**。但在 Terra 和 Gemini 上，它的平均运行时间都长于编码代理。多轮路由和 Lean 检查省下了调用费用，也增加了串行等待。
+
+![CoCo-Prover 原论文图 4a：Terra 模型的成功题数与费用预算](../assets/papers/coco-frontier-terra.svg)
+
+![CoCo-Prover 原论文图 4b：Gemini 模型的成功题数与费用预算](../assets/papers/coco-frontier-gemini.svg)
+
+![CoCo-Prover 原论文图 4c：DeepSeek 模型的成功题数与费用预算](../assets/papers/coco-frontier-deepseek.svg)
+
+*原论文图 4 的三个模型面板。横轴是单题费用上限，纵轴是完成题数；同一预算下曲线越高，表示完成的题目越多。图展示的是成功率与美元费用的关系，不能代替运行时间比较。*
 
 ### 4.4 消融与重复运行
 
@@ -248,11 +291,21 @@ Prove2Me 将一个形式化项目称为 **mission**，包含主目标、所需�
 
 证明是另一份文件：其中名为 `solution` 的定理必须与目标陈述类型完全相同，不含 `sorry` 或新公理，并在该卡片选定的环境中编译。不同代理可以给同一陈述提交多份证明，也可以提交其否定命题的证明指出陈述有误。每份提交还附有供人阅读的自然语言说明。[原论文 §3.1–3.2](https://arxiv.org/html/2608.28433v2#S3.SS1)
 
+用类型论记号说，卡片固定命题 $T:\mathrm{Prop}$，证明提交要给出 $p:T$。Lean 比对的是这个类型关系；定理名称相似或自然语言描述一致，都不能替代类型检查。反驳错误陈述则要提交 $p:\neg T$。[原论文 §3.2](https://arxiv.org/html/2608.28433v2#S3.SS2)
+
 ### 5.2 先搭证明框架，再分头证明子定理
 
 Prove2Me 的 **proof-sketch** 允许先导入尚未完成的子定理 $L_1,\ldots,L_k$，写出不含 `sorry` 的上层推导。论文的 Property 1 说明：等这些子定理全部得到验证，上层定理也就得到验证。因此可以先证明“这些子定理足以推出主目标”，再把子定理分给不同代理。每个子定理最后仍要有 Lean 证明。
 
 这里的 sketch 仍是一份 Lean 证明代码。若目标是 $A$，导入待证的 $B$、$C$，提交者要在自己的证明体中写完使用它们推出 $A$ 的步骤。用逻辑记号说，当前建立的是 $B,C\vdash A$；尚未建立的是 $\vdash B$ 和 $\vdash C$。这就是分解中的连接部分。本文用这个记号解释其作用，平台并不要求另建一个名为 bridge 的对象。
+
+把论文 Property 1 写成推理关系，就是
+
+$$
+\frac{B,C\vdash A\qquad\vdash B\qquad\vdash C}{\vdash A}.
+$$
+
+上方左项由 proof-sketch 先检查，另外两项可交给不同代理；三项都成立，主目标才关闭。图中的依赖边只记录这份条件证明引用了谁，不能代替左项本身。[原论文 §4.2](https://arxiv.org/html/2608.28433v2#S4.SS2)
 
 原论文图 5 将这种连接画在敏感度猜想的依赖图中：绿色椭圆是定理，紫色方块是 proof-sketch；几条引理通过方块接到上层目标，同一已证引理也能被别的路线复用。
 
@@ -281,6 +334,10 @@ sketch 自己的证明体不含 `sorry`，但导入的子定理可以尚未完�
 ### 5.4 平台论文展示了什么
 
 原论文报告了四项已完成的 mission：两篇论文和两本教材的形式化。其中《Bandit Algorithms》项目产生约 **15.1 万行 Lean**，由 **6 个代理**在 **13 天**内完成；敏感度猜想的四个里程碑也全部达成。这些案例说明平台能承载多代理的大型证明项目，但没有把模型能力与平台机制单独拆开做对照。[原论文 §5](https://arxiv.org/html/2608.28433v2#S5)
+
+[![Prove2Me 原论文表 1：已完成 mission 的代码规模、代理数、模型和时间](../assets/papers/prove2me-table-1.png)](../assets/papers/prove2me-table-1.png)
+
+*原论文表 1。各行给出项目规模与参与方式；对照项目和 Prove2Me 项目使用不同模型、任务和计费口径，不能把表中的费用差直接解释为平台节省的成本。*
 
 后来的费马大定理项目提供了更大规模的运行记录：代理通过平台共享目标、依赖和已证引理，完成了端到端形式化。[Anthropic 项目报告](https://www.anthropic.com/news/formalizing-fermats-last-theorem)
 
@@ -344,8 +401,8 @@ Prove2Me 把协作中最难共享的状态外置：哪个数学陈述已固定�
 
 ## 来源与图像授权
 
-- Zhe Ye 等，Vero: Can AI Agents Build Formally Verified Software Repositories?，arXiv:2608.13522v1，2026。文中 Vero 图 3 取自原论文。
-- Shuangjie Yao 等，Cost-Efficient Theorem Proving via Agent Orchestration in Program Verification，NeurIPS 2026 Workshop on AI for Verifiable Coding（VERICODEGEN）海报论文；arXiv:2610.09681v1。文中 CoCo-Prover 图 2、图 3 与表 1–3 取自原论文。会场信息见[作者论文目录](https://cse.hkust.edu.hk/~dongdong/publications/)。
-- Shuze Chen 等，Prove2Me: An Open Collaborative Platform for Scaling Math Formalization，arXiv:2608.28433v2，2026。文中 proof-sketch 依赖图与 read-back 图分别取自原论文图 5、图 3。后续费马项目见 [Anthropic 项目报告](https://www.anthropic.com/news/formalizing-fermats-last-theorem)。
+- Zhe Ye 等，Vero: Can AI Agents Build Formally Verified Software Repositories?，arXiv:2608.13522v1，2026。文中 Vero 图 1、图 3 取自原论文。
+- Shuangjie Yao 等，Cost-Efficient Theorem Proving via Agent Orchestration in Program Verification，NeurIPS 2026 Workshop on AI for Verifiable Coding（VERICODEGEN）海报论文；arXiv:2610.09681v1。文中 CoCo-Prover 的两层图、流程图、字符串案例依赖图、费用曲线与表 1–3 取自原论文。会场信息见[作者论文目录](https://cse.hkust.edu.hk/~dongdong/publications/)。
+- Shuze Chen 等，Prove2Me: An Open Collaborative Platform for Scaling Math Formalization，arXiv:2608.28433v2，2026。文中 proof-sketch 依赖图、read-back 图和任务表分别取自原论文图 5、图 3 与表 1。后续费马项目见 [Anthropic 项目报告](https://www.anthropic.com/news/formalizing-fermats-last-theorem)。
 
 Vero 与 CoCo-Prover 两篇论文以 [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) 发布。本文文字是根据论文与项目报告撰写的中文改编；保留的图表取自标明的原论文，表格只做裁切，没有改动数值。Prove2Me 的 arXiv v2 标注为 arXiv 永久非独占授权，其图表版权归原作者。本文文字及 CC BY-SA 原图按 CC BY-SA 4.0 分享。
