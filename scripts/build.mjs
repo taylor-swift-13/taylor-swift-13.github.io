@@ -54,7 +54,6 @@ function articleHtml(article) {
   }
   for (const [marker, fragment] of [
     ['log', 'log-inequality.html'],
-    ['proof-graph-video', 'proof-graph-video.html'],
   ]) {
     const placeholder = `<p>@@viz-${marker}@@</p>`;
     if (body.includes(placeholder)) {
