@@ -222,6 +222,10 @@ Prove2Me 的 **proof-sketch** 允许先导入尚未完成的子定理 $L_1,\ldot
 
 这里的 sketch 仍是一份 Lean 证明代码。若目标是 $A$，导入待证的 $B$、$C$，提交者要在自己的证明体中写完使用它们推出 $A$ 的步骤。用逻辑记号说，当前建立的是 $B,C\vdash A$；尚未建立的是 $\vdash B$ 和 $\vdash C$。这就是分解中的连接部分。本文用这个记号解释其作用，平台并不要求另建一个名为 bridge 的对象。
 
+原论文图 5 将这种连接画在敏感度猜想的依赖图中：绿色椭圆是定理，紫色方块是 proof-sketch；几条引理通过方块接到上层目标，同一已证引理也能被别的路线复用。
+
+[![Prove2Me 原论文图 5：敏感度猜想的定理与 proof-sketch 依赖图](../assets/papers/prove2me-decomposition.png)](../assets/papers/prove2me-decomposition.png)
+
 sketch 自己的证明体不含 `sorry`，但导入的子定理可以尚未完成。因此平台接受的是条件证明；只有所有依赖都得到验证，上层目标才算完成。见[原论文 §4.2](https://arxiv.org/html/2608.28433v2#S4.SS2)。
 
 所以 proof-sketch 解决的是“这些子定理能不能接回主目标”，并没有替参与者证明子定理。CoCo-Prover 可以把连接留待后续 Proof Writer 完成；Prove2Me 在接收 sketch 时便检查连接，但仍须等待各个开放子定理的证明。
@@ -249,6 +253,8 @@ sketch 自己的证明体不含 `sorry`，但导入的子定理可以尚未完�
 证明采用 Frey–Serre–Ribet–Wiles–Taylor–Wiles 路线，复用了 Mathlib，以及先前 FLT 和正则素数项目的部分成果。新写的大规模主体处理高指数情形，再接上已有的小指数结果。Buzzard 在重新编译后也指出，代码量大、编译昂贵；便于人阅读、适合长期收入 Mathlib 的形式化工作仍在继续。
 
 报告中的证明路线分为 **Mazur 的不可约性、Ribet 的降层、Wiles 的模性**三条分支，最后接到费马结论。代理可以沿依赖关系查看进度和领取目标。
+
+[![Anthropic 费马形式化项目路线图：Mazur、Ribet、Wiles 三条分支汇合到最终定理](../assets/papers/prove2me-flt-dag.png)](../assets/papers/prove2me-flt-dag.png)
 
 ### 5.5 这个项目说明了什么
 
@@ -312,6 +318,6 @@ sketch 自己的证明体不含 `sorry`，但导入的子定理可以尚未完�
 
 - Zhe Ye 等，Vero: Can AI Agents Build Formally Verified Software Repositories?，arXiv:2608.13522v1，2026。文中 Vero 图 3 取自原论文。
 - Shuangjie Yao 等，Cost-Efficient Theorem Proving via Agent Orchestration in Program Verification，NeurIPS 2026 Workshop on AI for Verifiable Coding（VERICODEGEN）海报论文；arXiv:2610.09681v1。文中 CoCo-Prover 图 2、图 3 与表 1–3 取自原论文。会场信息见[作者论文目录](https://cse.hkust.edu.hk/~dongdong/publications/)。
-- Shuze Chen 等，Prove2Me: An Open Collaborative Platform for Scaling Math Formalization，arXiv:2608.28433v2，2026。费马项目的过程与数字见 [Anthropic 项目报告](https://www.anthropic.com/news/formalizing-fermats-last-theorem)，形式证明与复核方式见[公开代码仓库](https://github.com/anthropics/fermats-last-theorem)；独立编译结果见 [Kevin Buzzard 的记录](https://xenaproject.wordpress.com/2026/09/04/flt-anthropic-has-beaten-me-to-it/)。
+- Shuze Chen 等，Prove2Me: An Open Collaborative Platform for Scaling Math Formalization，arXiv:2608.28433v2，2026。文中 proof-sketch 依赖图取自原论文图 5。费马项目的过程、数字和路线图见 [Anthropic 项目报告](https://www.anthropic.com/news/formalizing-fermats-last-theorem)，路线图版权归 Anthropic；形式证明与复核方式见[公开代码仓库](https://github.com/anthropics/fermats-last-theorem)；独立编译结果见 [Kevin Buzzard 的记录](https://xenaproject.wordpress.com/2026/09/04/flt-anthropic-has-beaten-me-to-it/)。
 
-Vero 与 CoCo-Prover 两篇论文以 [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) 发布。本文文字是根据论文与项目报告撰写的中文改编；保留的图表取自标明的原论文，表格只做裁切，没有改动数值。本文文字及 CC BY-SA 原图按 CC BY-SA 4.0 分享。
+Vero 与 CoCo-Prover 两篇论文以 [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) 发布。本文文字是根据论文与项目报告撰写的中文改编；保留的图表取自标明的原论文，表格只做裁切，没有改动数值。Prove2Me 的 arXiv v2 标注为 arXiv 永久非独占授权，其图表版权归原作者。本文文字及 CC BY-SA 原图按 CC BY-SA 4.0 分享。
