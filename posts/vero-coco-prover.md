@@ -84,77 +84,13 @@ code2spec 若只按“实现满足生成的规格”评分，就会奖励弱化�
 
 @@opinion-end@@
 
-### 题目也会错：三个审计案例
+### 题目也会错：审计证明指出该修哪里
 
-Vero 的项目涉及密码协议、分布式系统、数据结构等领域。跨语言翻译可能改变规格的含义；从 Python 代码补写规格也可能漏掉前提。人工审核之后，仍有必要检查参考实现是否满足规格，以及规格本身能否成立。
+Vero 固定规格之后，仍须检查这些规格本身是否合理。代理可以提交 Lean 检查过的反面证明，交由制作人员修题。审计区分三种结论：给定参考实现违反某条规格；任何实现都无法满足某条规格；几条规格单独可满足，却不能同时满足。[原论文 §3.5](https://arxiv.org/html/2608.13522v1#S3.SS5)
 
-审计区分三种情况：参考实现有错；某条规格对任何实现都不可能成立；多条规格各自可满足，却互相冲突。代理需要提交 Lean 检查过的错误证据，再交由制作人员修题，不能自行删除要求。见[原论文 §3.5](https://arxiv.org/html/2608.13522v1#S3.SS5)。
+附录 F 各有一个例子。Base64 的填充字符 `=` 被一条规格要求接受、另一条要求拒绝，属于规格间冲突。`verified_ironkv` 的“有序列表没有重复元素”对任意比较器提出要求，却没约束比较器正确识别相等；坏比较器会把两个相同元素也判作严格有序，所以任何实现都无法满足原规格。`verified_bitmasks` 的参考实现用 `zipWith` 合并两列位，结果长度取两列中较短者；原规格却对长度不同的输入也要求保留第一列长度，补上等长条件才成立。另四条规格漏了 64 位机器字的可表示范围前提。[附录 F](https://arxiv.org/html/2608.13522v1#A6)
 
-附录 F 的 `verdict` 案例涉及 Base64 字符分类函数 `charToBits`。第一条规格处理填充字符，第二条规定应拒绝哪些字符：
-
-```lean
-def spec_char_to_bits_padding (impl : RepoImpl) : Prop :=
-  impl.verdict.charToBits 0x3D = some none
-
-def spec_char_to_bits_reject (impl : RepoImpl) : Prop :=
-  ∀ (c : UInt8),
-    (c < 0x2B ∨ (c > 0x2B ∧ c < 0x2F) ∨
-      (c > 0x39 ∧ c < 0x41) ∨
-      (c > 0x5A ∧ c < 0x61) ∨ c > 0x7A) →
-    impl.verdict.charToBits c = none
-```
-
-`=` 的字符值为 `0x3D`。第一条要求 `charToBits 0x3D = some none`，把它识别为填充字符。但 `0x3D` 也落在第二条的拒绝区间 `c > 0x39 ∧ c < 0x41` 中，因此第二条要求同一次调用返回 `none`。GPT-5.5（xhigh）据此提交了 Lean 可检查的联合不可满足证明。矛盾很具体：拒绝区间把本应允许的填充字符也包含进去了。
-
-修复时只需在拒绝条件的第三段排除 `0x3D`：
-
-```lean
-(c > 0x39 ∧ c < 0x41 ∧ c ≠ 0x3D)
-```
-
-改后，`=` 仍被识别为填充字符，第二条规格不再要求拒绝它。原来的矛盾曾通过人工审核和 Lean 类型检查：命题写得合法，不等于命题能成立。论文报告，审计在 43 个实例中定位并修复了 **38 条有缺陷的规格**，涉及 9 个实例，另有 6 组联合不可满足的规格。
-
-`verified_ironkv` 的问题是 **“有序”并没有保证“无重复”**。规格对任意 `KeyTrait` 比较器都提出要求，却没有规定比较器必须正确识别相等。论文给出的反例证明摘录如下，中文注释用于解释：
-
-```lean
-theorem unsat_strictly_ordered_vec_no_duplicates :
-    ¬ (∃ impl : RepoImpl,
-        spec_strictly_ordered_vec_no_duplicates impl) := by
-  intro ⟨impl, h⟩
-  let bad : KeyTrait Unit :=
-    { zeroSpec := (), cmpSpec := fun _ _ => Ordering.Less }
-  let s : StrictlyOrderedVec Unit := ⟨[(), ()]⟩
-  -- h 必须适用于 bad 和 s，但 s 的两个位置存着同一个 ()。
-  exact (h _ bad s (by intro i j _; rfl)) ⟨0, 1⟩ rfl rfl
-```
-
-`Unit` 只有一个值 `()`，所以 `[(), ()]` 必然重复。但 `bad.cmpSpec` 连比较 `()` 与自身也返回 `Less`，按它定义的“严格递增”检查就会放行这张列表。若存在满足规格的 `impl`，`h` 就得证明它没有重复，立刻矛盾；所以这里是 **规格对任何实现都无法成立**，换一个实现无济于事。作者为受影响的三条规格加入 `LawfulKeyTrait`，约束比较器的 `.Equal` 与真实元素相等一致。以上证明摘自[论文附录 F，Audit 2](https://arxiv.org/html/2608.13522v1#A6)。
-
-`verified_bitmasks` 是另一种错误：**给定参考实现不满足漏了前提的规格**。先看论文展示的修复后规格，`A.length = B.length` 是新增的一行：
-
-```lean
-def spec_bIIF_and_nbits_preserved (impl : RepoImpl) : Prop :=
-  ∀ (A B : T), A.length = B.length →
-    impl.verifiedBitmasks.bIIF_nbits
-      (impl.verifiedBitmasks.bIIF_and A B) =
-    impl.verifiedBitmasks.bIIF_nbits A
-```
-
-原规格没有箭头前的等长条件，却要求结果的位数始终等于 `A` 的位数。参考实现用 `zipWith` 逐位合并，合并到较短的一边就停止。取长度分别为 2 和 1 的位列，`zipWith` 的结果只有 1 位，不可能还保留 `A` 的 2 位。加上等长条件后，才可要求输出与 `A` 等长。同一错误影响三条规格。
-
-另外四条规格涉及 **64 位机器字的表示范围**。论文没有列出这四条规格的完整 Lean 代码，只说明它们把位计数与机器字边界比较；当位列足够长，计数超出 `UInt64` 能表示的范围，机器字运算会回绕。示意来说，`(2^64 + 1 : Nat)` 转成 64 位无符号数会变成 `1`，再拿这个结果比较大小会误判。作者一度想把比较改到 `Nat` 中，但原来的机器字值已经回绕，转换类型无法恢复丢失的信息；第二位审计者否定了这份草案。最后，作者给四条规格统一加入“相关数值可由机器字表示”的前提。
-
-修完七条后，作者没有只检查旧反例是否消失，还分别编译正向证明 `theorem _chk_X : spec_X canonical`，确认参考实现确实满足修复后的规格。后一个案例的具体规格和修复过程见[附录 F，Audit 3](https://arxiv.org/html/2608.13522v1#A6)。
-
-三个案例的关键区别是**要否定什么命题**：
-
-| 案例 | 审计证明了什么 | 修复方向 |
-| --- | --- | --- |
-| `verdict` | 两条规格各自可满足，但不能同时满足。 | 排除把 `=` 同时认作填充符和非法字符的冲突。 |
-| `verified_ironkv` | 不存在满足原规格的实现：`¬ ∃ impl, S impl`。 | 给比较器加上正确识别相等的约束。 |
-| `verified_bitmasks` | 固定参考实现不满足原规格：`¬ S canonical`。 | 检查实现或补上规格遗漏的适用条件；本例补了等长和可表示范围条件。 |
-
-`¬ S canonical` 只否定当前实现与当前规格的组合；`¬ ∃ impl, S impl` 否定任何实现能满足该规格；联合不可满足则指出多条要求之间有矛盾。[原论文 §3.5](https://arxiv.org/html/2608.13522v1#S3.SS5)
+这三类证据的区别在量词：`¬ S canonical` 只否定当前参考实现满足规格；`¬ ∃ impl, S impl` 说明换实现也无解；联合不可满足则要求修改互相冲突的规格。作者修复七条位列规格后，还编译了针对参考实现的正向证明，确认新要求确实可满足。
 
 ### 为什么局部通过率很高，完整仓库仍难完成
 
@@ -224,35 +160,11 @@ CoCo-Prover 每轮决定先证明哪些目标，再决定调用哪类代理、�
 
 这里与后文 Prove2Me 的提交规则不同：CoCo-Prover 允许先把 $B$、$C$ 当作候选计划放进依赖图，再逐步写出使用它们证明 $A$ 的 Lean 代码；Prove2Me 的 proof-sketch 则要在提交时写完这段 $B,C\vdash A$ 的条件证明。两者最终都不能只凭“有依赖边”宣布 $A$ 已证，还要等子定理及整条依赖链完成。
 
-### 案例一：一个字符串定理为什么要九条引理
+### 案例说明了什么
 
-附录 D.1 的 CLEVER `prob_15` 要求实现 `string_sequence`，将 `0` 到 `n` 的十进制表示用空格连接。代码是 `" ".intercalate ((List.range (n+1)).map Nat.repr)`，规格却用 `splitOn " "` 解析输出，要求段数为 `n+1`，第 $i$ 段等于 `i.repr`。证明得先说明数字表示中没有空格，再说明拼接后切分能还原原列表，还要接上 Lean 字符串库底层的 UTF-8 字节扫描和私有累加器。库中有列表级的 `List.splitOn_intercalate`，但没有能直接用于这里的字符串定理。
+字符串题中，CoCo-Prover 为“拼接后再切分”建立九条可复用引理，逐步把规格接到底层字符串操作。同一 GPT-5.6-Terra 模型下，它花 **$2.36** 完成，Codex 花 **$8.67**；两者找到的数学事实相近，差距主要来自反复传送上下文。CoCo-Prover 的运行时间却略长：费用收益与耗时收益不是一回事。[论文附录 D.1](https://arxiv.org/html/2610.09681v1#A4.SS1)
 
-CoCo-Prover 为此提出并证明了九条辅助引理，逐层连接“数字中没有空格”“拼接后切分还原列表”与底层字符串操作。图 6 展示了这条证明链。
-
-在相同 GPT-5.6-Terra 模型和价格下，CoCo-Prover 花费 **$2.36**，生成 **191 行证明**；Codex 为 **$8.67、149 行**；Humanize 为 **$10.74、184 行**；Ax-Prover-Base 花了 **$5.48** 仍未完成。两个成功基线也找到了相近的数学事实，费用主要差在反复发送上下文：Codex 和 Humanize 分别读取 **2,668 万**、**2,378 万**缓存 token，CoCo-Prover 为 **212 万**。Ax-Prover-Base 虽然找出了缺少的事实，却未能把它们拆成可单独证明的引理。
-
-![CoCo-Prover 论文图 6：字符串案例的引理依赖图](../assets/papers/coco-case-lemmas.svg)
-
-*原论文图 6。每条边从辅助引理指向使用它的声明；图的深度对应从规格下降到 UTF-8 扫描的层级。*
-
-这里省钱的原因已经很清楚：把缺少的事实写成独立引理，证明后记录下来，后续调用便不必反复携带和整理全部上下文。
-
-代价是运行更慢。CoCo-Prover 用了 **2,816 秒**，Codex 用了 **2,550 秒**。模型账单下降，并不意味着耗时也下降。
-
-### 案例二：56 条区间规格怎样复用引理
-
-附录 D.2 的 Vero `prob_14` 是一个半开整数区间 $[lo,hi)$ 的集合库。区间列表表示各区间覆盖的整数，`covered x ivs` 判断 $x$ 是否在其中。`overlaps`、`mergeOverlaps`、`chop` 三组操作分别有 **6、39、11 条规格**，共 **56 条**，要求合并保持覆盖、结果严格有序且不重叠、同一覆盖集合有唯一规范形式、排列输入不改变结果，以及切除区间与再次合并满足相应关系。
-
-难点在于排序与合并的组合：先证明各步骤保持覆盖、维持顺序，再把这些性质接到最终的合并结果上。直接展开实现容易让目标变大；建立可复用的引理后，上层的唯一性和排列不变性更容易证明。
-
-规划器也会提出错误引理。它最初猜测 `insertByLo iv ys` 的输出区间都非空，但取 `iv = [0,0)`、`ys = [[0,0)]` 就能反驳：`iv` 为空时函数原样返回 `ys`，输出仍含空区间。系统在证明前发现这个反例。规划器补上“`ys` 中每个区间都非空”的前提，证明后进一步得到 `sortByLo_output_nonempty`；后来 **28 条目标**间接依赖这条引理。
-
-整次运行完成 **56/56 条目标**，费用约 **$19**，使用 **55 条辅助引理**；同一 Terra 模型的编码代理基线只完成 **5/56**。这套证明库让后续目标反复复用已有成果。
-
-随着证明推进，已证目标也像辅助引理一样被后续目标调用。56 条规格因此共用一套证明库。
-
-5/56 与 56/56 的差距说明，这种安排对 Terra 处理该题很有帮助。但强模型在同一题上能做到什么，论文还没有测量；Vero 的 `deposit_sc` 已经展示了强代理自行建立大型引理库的能力。
+仓库题中，56 条区间规格依赖排序、合并的共同性质。系统把这些性质写成引理供不同目标复用，并在一个候选引理有反例时补齐前提。它在该题完成 **56/56** 条目标，同底座的编码代理完成 **5/56**。这个案例展示了跨目标保存证明成果的作用；它尚不能说明每个组件各贡献了多少。[论文附录 D.2](https://arxiv.org/html/2610.09681v1#A4.SS2)
 
 ## 四、实验：成功率、费用和强模型对照
 
@@ -358,18 +270,7 @@ sketch 自己的证明体不含 `sorry`，但导入的子定理可以尚未完�
 
 不可变性保证各代理始终针对同一份陈述工作。若某个子定理漏了前提，不能直接修改旧陈述，让已经接受的上层连接悄悄改变含义；需要提出修正后的声明和新的 proof-sketch。原论文 §4.5 的实例中，一个代理否证了 `gotsman_linial`，另一个代理随后提出补上边界条件的 `gotsman_linial_with_zero`，用修正后的形式化完成该分支。
 
-论文以黄浩的敏感度猜想为例。证明需要 Cauchy 特征值交错定理、递归矩阵 $A_n$ 的谱，以及由矩阵特征值得到图最大度的界。矩阵定义为：
-
-$$
-A_1=\begin{bmatrix}0&1\\1&0\end{bmatrix},\qquad
-A_n=\begin{bmatrix}A_{n-1}&I\\I&-A_{n-1}\end{bmatrix};
-$$
-
-谱引理要证明特征值为 $\sqrt n$ 和 $-\sqrt n$，各有重数 $2^{n-1}$。上层 proof-sketch 导入所需定理，证明它们能推出敏感度结论。图 5 中，椭圆表示定理或定义，紫色方块表示连接它们的 proof-sketch；同一条已证引理可以用于多条路线。
-
-这个例子需要把矩阵的谱性质接到图的最大度界上，不能只有几个孤立引理。proof-sketch 的作用就是提前检查这些连接，让分头完成的子证明最后能够汇合。见[原论文图 4](https://arxiv.org/html/2608.28433v2#S4.SS2)。
-
-[![Prove2Me 原论文图 5：敏感度猜想的证明分解图](../assets/papers/prove2me-decomposition.png)](../assets/papers/prove2me-decomposition.png)
+论文以黄浩的敏感度猜想展示这种分工：Cauchy 特征值交错定理、递归矩阵的谱性质和图最大度界由不同目标承载，上层 proof-sketch 先检查这些结果能否合起来推出主结论。它建立的是条件性连接；开放的子定理证完后，整条证明链才能关闭。[原论文图 4–5](https://arxiv.org/html/2608.28433v2#S4.SS2)
 
 ### 5.3 编译、找引理和核对陈述
 
@@ -385,15 +286,7 @@ $$
 
 [![Prove2Me 原论文图 3：Lean 陈述及独立代理的数学回译](../assets/papers/prove2me-readback.png)](../assets/papers/prove2me-readback.png)
 
-### 5.4 已完成项目的规模
-
-表 1 列出四项已完成的 mission：矩阵补全论文有 **8.1 万行** Lean，**9 个代理**用了 **16 天**；Sipser–Gács–Lautemann 定理为 **5.5 万行、3 个代理、8 天**；《Bandit Algorithms》为 **15.1 万行、6 个代理、13 天**；《Introduction to Linear Optimization》为 **1.7 万行、4 个代理、7 天**。表中还列出一个集中式代理群完成的《Algebraic Combinatorics》项目作为背景参考：**13 万行** Lean、**3 万次代理运行、7 天**。正文的敏感度猜想 mission 也完成了四个里程碑。
-
-[![Prove2Me 原论文表 1：已完成 mission 的规模、代理数、模型和时间](../assets/papers/prove2me-table-1.png)](../assets/papers/prove2me-table-1.png)
-
-这些项目的费用口径不同：集中式项目按 API 用量估算，Prove2Me 项目按参与者订阅费估算。任务难度、模型和工作方式也不同，所以表 1 更适合用来了解项目规模，不能拿各行直接比较性价比。费马项目则在之后的 9 月完成。
-
-### 5.5 费马大定理项目的运行与复核
+### 5.4 费马大定理项目的运行与复核
 
 据 Anthropic 9 月的项目报告，Claude 代理最初已经能完成一些局部任务，但工作越积越多，各代理逐渐无法掌握共同进度，协作和复用出现问题。早期尝试贡献了约 **7%** 的非样板代码行。切换到 Prove2Me 后，代理通过依赖图查看未完成目标，独立编译减少构建负担，自然语言检索帮助寻找已有引理。团队随后使用 Claude Code 多代理环境和一个内部研究模型，在 **11 天**内完成端到端形式化，消耗约 **60 亿输出 token**，写出约 **1,300 万行 Lean**。最终证明用了约 **29,500 条中间定理**；公开仓库列出 **29,511 条定理、60,475 个模块**。
 
@@ -413,7 +306,7 @@ theorem fermat_last_theorem (n : ℕ) (hn : 3 ≤ n)
 
 [![Anthropic 费马大定理形式化项目原图：Mazur、Ribet、Wiles 三条证明分支](../assets/papers/prove2me-flt-dag.png)](../assets/papers/prove2me-flt-dag.png)
 
-### 5.6 这个项目说明了什么
+### 5.5 这个项目说明了什么
 
 费马项目中，代理接入平台前就能证明部分结果，卡住的是共同进度、协作和复用。Prove2Me 提供的依赖图、独立编译和自然语言检索正好处理了这些问题。它让代理知道还有哪些目标没做，避免反复编译整个工程，也更容易找到已证引理。
 
@@ -474,8 +367,8 @@ theorem fermat_last_theorem (n : ℕ) (hn : 3 ≤ n)
 ## 来源与图像授权
 
 - Zhe Ye 等，Vero: Can AI Agents Build Formally Verified Software Repositories?，arXiv:2608.13522v1，2026。文中 Vero 首页标题与作者截图、图 1、图 3 取自原论文。
-- Shuangjie Yao 等，Cost-Efficient Theorem Proving via Agent Orchestration in Program Verification，NeurIPS 2026 Workshop on AI for Verifiable Coding（VERICODEGEN）海报论文；arXiv:2610.09681v1。文中 CoCo-Prover 首页标题与作者截图、图 2、图 3、图 4、图 6 与表 1–3 均截自原论文。会场信息见[作者论文目录](https://cse.hkust.edu.hk/~dongdong/publications/)。
-- Shuze Chen 等，Prove2Me: An Open Collaborative Platform for Scaling Math Formalization，arXiv:2608.28433v2，2026。文中 Prove2Me 首页标题与作者截图、图 3、图 5 和表 1 均取自原论文。费马项目的过程与数字见 [Anthropic 项目报告](https://www.anthropic.com/news/formalizing-fermats-last-theorem)，形式证明与复核方式见[公开代码仓库](https://github.com/anthropics/fermats-last-theorem)；独立编译结果见 [Kevin Buzzard 的记录](https://xenaproject.wordpress.com/2026/09/04/flt-anthropic-has-beaten-me-to-it/)。
+- Shuangjie Yao 等，Cost-Efficient Theorem Proving via Agent Orchestration in Program Verification，NeurIPS 2026 Workshop on AI for Verifiable Coding（VERICODEGEN）海报论文；arXiv:2610.09681v1。文中 CoCo-Prover 首页标题与作者截图、图 2、图 3、图 4 与表 1–3 均截自原论文。会场信息见[作者论文目录](https://cse.hkust.edu.hk/~dongdong/publications/)。
+- Shuze Chen 等，Prove2Me: An Open Collaborative Platform for Scaling Math Formalization，arXiv:2608.28433v2，2026。文中 Prove2Me 首页标题与作者截图、图 3 均取自原论文。费马项目的过程与数字见 [Anthropic 项目报告](https://www.anthropic.com/news/formalizing-fermats-last-theorem)，形式证明与复核方式见[公开代码仓库](https://github.com/anthropics/fermats-last-theorem)；独立编译结果见 [Kevin Buzzard 的记录](https://xenaproject.wordpress.com/2026/09/04/flt-anthropic-has-beaten-me-to-it/)。
 
 费马证明路线图取自 Anthropic 项目报告原图，图片版权归 Anthropic。
 
