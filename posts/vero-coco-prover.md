@@ -437,7 +437,7 @@ Prove2Me 把协作中最难共享的状态外置：哪个数学陈述已固定�
 
 @@opinion-begin@@
 
-**Lean 证明的是形式陈述，不是原始意图。**模型越擅长写实现、拆引理和补证明，这个边界越显眼：若规格漏掉关键前提，或自然语言定理被译成较弱的 Lean 命题，整条证明仍可能通过检查。因而，这几篇工作真正推进的是给定可信目标后的自动证明与协作；从需求写出正确规格、确认形式定理忠于原意，仍是 human gate。更有价值的自动化也许不是取消这道关口，而是像 Vero 的反例审计和 Prove2Me 的 read-back 一样，让人能更快发现自己确认的目标哪里写错了。
+**Lean 证明的是形式陈述，不是原始意图**。模型越擅长写实现、拆引理和补证明，这个边界越显眼：若规格漏掉关键前提，或自然语言定理被译成较弱的 Lean 命题，整条证明仍可能通过检查。因而，这几篇工作真正推进的是给定可信目标后的自动证明与协作；从需求写出正确规格、确认形式定理忠于原意，仍是 human gate。更有价值的自动化也许不是取消这道关口，而是像 Vero 的反例审计和 Prove2Me 的 read-back 一样，让人能更快发现自己确认的目标哪里写错了。
 
 @@opinion-end@@
 
@@ -445,18 +445,11 @@ Prove2Me 把协作中最难共享的状态外置：哪个数学陈述已固定�
 
 @@opinion-begin@@
 
-**复杂数学定理证明的一种常见组织方式，是先写出经检查的 proof-sketch，说明上层结论如何依赖下层引理，再把逐步形成的依赖 DAG 持久化到外部。**证明一个非叶子节点，就是证明这条条件连接；之后可以由不同代理补齐叶子和中间引理。外部图保存准确陈述、已验证的连接和完成状态，让成果能够复用，也让工作能在会话与代理之间接续。
+**复杂数学定理证明的一种常见组织方式，是先写出经检查的 proof-sketch，说明上层结论如何依赖下层引理，再把逐步形成的依赖 DAG 持久化到外部**。证明一个非叶子节点，就是证明这条条件连接；之后可以由不同代理补齐叶子和中间引理。外部图保存准确陈述、已验证的连接和完成状态，让成果能够复用，也让工作能在会话与代理之间接续。
 
 给定程序后，函数调用关系已由代码决定，程序验证的难点不在于重新设计这张调用图。为 callee 构造 spec 与提出引理相似：它既要能由 callee 的实现满足，又要足够强，使 caller 能据此完成证明。但调用图之外还有一层 VCG 产生的证明义务：调用前提、分支条件、循环保持性和最终后置条件等都要接起来。证明也不只发生在 ITP 中；assertion 和 loop invariant 的选择与放缩同样关键。条件加强可能让最终结论更容易推出，却让自身的建立与保持更难；条件放宽则相反。因此，数学证明的外部 DAG 主要管理引理依赖，程序验证还需要管理规格、验证条件以及注释调整带来的连锁影响。
 
-**Vero 虽以程序验证为题，核心证明任务仍更接近多条相关定理的联合证明。**它固定接口与规格，让代理在一个 Lean 仓库中证明许多命题；code-and-proof 还要编写实现，但证明目标仍由预设规格给出。从证明图看，单个目标的分解树扩展为以多条规格为根的「森林」：这些目标可能相互依赖，复用同一引理与证明思路，因此严格说整体是共享节点的多根 DAG。在程序验证中，多个 VC 也有这种联系；Vero 涉及其中的多目标协作，却比围绕具体程序生成 VC、反复设计和放缩 assertion 与 loop invariant 的完整流程简单得多。其仓库级结果不能直接代表后一类工作的自动化程度。
+**Vero 虽以程序验证为题，核心证明任务仍更接近多条相关定理的联合证明**。它固定接口与规格，让代理在一个 Lean 仓库中证明许多命题；code-and-proof 还要编写实现，但证明目标仍由预设规格给出。从证明图看，单个目标的分解树扩展为以多条规格为根的「森林」：这些目标可能相互依赖，复用同一引理与证明思路，因此严格说整体是共享节点的多根 DAG。在程序验证中，多个 VC 也有这种联系；Vero 涉及其中的多目标协作，却比围绕具体程序生成 VC、反复设计和放缩 assertion 与 loop invariant 的完整流程简单得多。其仓库级结果不能直接代表后一类工作的自动化程度。
 
 @@opinion-end@@
 
-## 来源与图像授权
-
-- Zhe Ye 等，Vero: Can AI Agents Build Formally Verified Software Repositories?，arXiv:2608.13522v1，2026。文中首页标题与作者截图、图 1、图 3 取自原论文。
-- Shuangjie Yao 等，Cost-Efficient Theorem Proving via Agent Orchestration in Program Verification，NeurIPS 2026 Workshop on AI for Verifiable Coding（VERICODEGEN）海报论文；arXiv:2610.09681v1。文中首页标题与作者截图、两层图、流程图、字符串案例依赖图、费用曲线与表 1–3 取自原论文。会场信息见[作者论文目录](https://cse.hkust.edu.hk/~dongdong/publications/)。
-- Shuze Chen 等，Prove2Me: An Open Collaborative Platform for Scaling Math Formalization，arXiv:2608.28433v2，2026。文中首页标题与作者截图、proof-sketch 依赖图、read-back 图和任务表分别取自原论文首页、图 5、图 3 与表 1。后续费马项目见 [Anthropic 项目报告](https://www.anthropic.com/news/formalizing-fermats-last-theorem)。
-
-Vero 与 CoCo-Prover 两篇论文以 [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) 发布。本文文字是根据论文与项目报告撰写的中文改编；保留的图表取自标明的原论文，表格只做裁切，没有改动数值。Prove2Me 的 arXiv v2 标注为 arXiv 永久非独占授权，其图表版权归原作者。本文文字及 CC BY-SA 原图按 CC BY-SA 4.0 分享。
