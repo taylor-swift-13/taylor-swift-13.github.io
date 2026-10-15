@@ -263,18 +263,6 @@ $c_{h,i}$ 是第 $i$ 个目标单独发现该事实的费用，$c_h$ 是共享�
 
 这里与后文 Prove2Me 的提交规则不同：CoCo-Prover 允许先把 $B$、$C$ 当作候选计划放进依赖图，再逐步写出使用它们证明 $A$ 的 Lean 代码；Prove2Me 的 proof-sketch 则要在提交时写完这段 $B,C\vdash A$ 的条件证明。两者最终都不能只凭“有依赖边”宣布 $A$ 已证，还要等子定理及整条依赖链完成。
 
-### CLEVER prob_15：函数级费用比较（论文附录 D.1）
-
-前文的 `apply And.intro` 将字符串目标拆成两支；两支随后都使用独立引理 `implementation_splitOn`，把上层规约接到底层字符串操作。CoCo-Prover 为这条证明建立了九条可复用引理。**内部超图**保存拆出的两支，**外部依赖图**保存 `correctness` 对引理的使用；引理和两支子目标全部通过 Lean 检查，原目标才算完成。[附录 D.1](https://arxiv.org/html/2610.09681v1#A4.SS1)
-
-[![CoCo-Prover 原论文字符串案例的引理依赖图：从底层字符串性质连接到 correctness](../assets/papers/coco-case-lemmas.svg)](../assets/papers/coco-case-lemmas.svg)
-
-*原论文的字符串案例依赖图。箭头从辅助引理指向使用它的上层声明；底层字符串性质被证一次后，沿依赖链支撑 `correctness`，无需每轮重新发现。*
-
-读这张图时，先找最上层的 `correctness`，再沿箭头反向追踪它用到的 `implementation_splitOn` 和更底层的字符串引理。它展示的是**引理如何接回主定理**，不是每一条 tactic 的执行轨迹；`apply And.intro` 产生的两个 Lean 子目标属于另一张内部图。只有底层引理与两支子目标都证完，图上的依赖链才真正闭合。
-
-同一 GPT-5.6-Terra 模型下，CoCo-Prover 用 **$2.36** 完成该题，Codex 用 **$8.67**；前者运行时间略长。这个对照说明，保存引理和进度可以减少模型调用费用，但不保证更快。另一个仓库案例中，56 条区间规约共享排序与合并的性质，CoCo-Prover 完成 **56/56**，同底座编码代理完成 **5/56**；这进一步展示了跨目标复用的价值，却不能单独证明每个组件各贡献了多少。[附录 D.2](https://arxiv.org/html/2610.09681v1#A4.SS2)
-
 ## 四、CoCo-Prover 的评估
 
 ### 4.1 实验设置（论文附录 C.1）
@@ -346,6 +334,18 @@ Vero 提供了一个参照：在同一 Codex 与 GPT-5.5 下，proof-only 从 me
 @@opinion-end@@
 
 论文在 Gemini 上重复运行全部 **427** 道函数级题，三次完成的题目相同，费用变异系数为 **9.2%**。路由器和引理规划器带来的费用变化明显大于这个波动；自动化的较小收益则不宜过度解释。
+
+### CLEVER prob_15：函数级费用比较（论文附录 D.1）
+
+前文的 `apply And.intro` 将字符串目标拆成两支；两支随后都使用独立引理 `implementation_splitOn`，把上层规约接到底层字符串操作。CoCo-Prover 为这条证明建立了九条可复用引理。**内部超图**保存拆出的两支，**外部依赖图**保存 `correctness` 对引理的使用；引理和两支子目标全部通过 Lean 检查，原目标才算完成。[附录 D.1](https://arxiv.org/html/2610.09681v1#A4.SS1)
+
+[![CoCo-Prover 原论文字符串案例的引理依赖图：从底层字符串性质连接到 correctness](../assets/papers/coco-case-lemmas.svg)](../assets/papers/coco-case-lemmas.svg)
+
+*原论文的字符串案例依赖图。箭头从辅助引理指向使用它的上层声明；底层字符串性质被证一次后，沿依赖链支撑 `correctness`，无需每轮重新发现。*
+
+读这张图时，先找最上层的 `correctness`，再沿箭头反向追踪它用到的 `implementation_splitOn` 和更底层的字符串引理。它展示的是**引理如何接回主定理**，不是每一条 tactic 的执行轨迹；`apply And.intro` 产生的两个 Lean 子目标属于另一张内部图。只有底层引理与两支子目标都证完，图上的依赖链才真正闭合。
+
+同一 GPT-5.6-Terra 模型下，CoCo-Prover 用 **$2.36** 完成该题，Codex 用 **$8.67**；前者运行时间略长。这个对照说明，保存引理和进度可以减少模型调用费用，但不保证更快。另一个仓库案例中，56 条区间规约共享排序与合并的性质，CoCo-Prover 完成 **56/56**，同底座编码代理完成 **5/56**；这进一步展示了跨目标复用的价值，却不能单独证明每个组件各贡献了多少。[附录 D.2](https://arxiv.org/html/2610.09681v1#A4.SS2)
 
 ### 4.5 本文分析：模型与思考强度的跨论文比较
 
