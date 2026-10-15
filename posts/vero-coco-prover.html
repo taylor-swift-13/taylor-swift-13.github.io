@@ -120,60 +120,8 @@
 <p>涉及全局覆盖性的规约失败率最高，为 <strong>47.1%</strong>。同一仓库中，使用给定辅助定义的规约失败率高出 <strong>14.9 个百分点</strong>，重复调用同一 API 的规约高出 <strong>11.7 个百分点</strong>。难题往往要求证明多次执行后仍保持某个不变量，也更依赖辅助引理。</p>
 <p><a href="../assets/papers/vero-figure-8.png"><img src="../assets/papers/vero-figure-8.png" alt="Vero 原论文图 8：规约语义类型和语句特征与失败率的关系"></a></p>
 <p><em>原论文图 8。(a) 比较不同语义类型的失败率，其中「存在性与覆盖性」最高；(b) 统计各类型在 262 次未完成运行中出现的比例；(c) 在同一仓库内比较含与不含某种语句特征的规约，使用给定辅助定义和重复调用同一 API 的差值较大，单纯跨模块引用的差值很小。菱形及横线是汇总估计与 95% 置信区间，小点是八种配置各自的结果。</em><a href="https://arxiv.org/html/2608.13522v1#S4.SS2">原论文 §4.2</a></p>
-<p>图 8(a) 的八行按<strong>规约要求证明什么性质</strong>分类，不是八种编译或证明错误；后者见图 7(b)。八个类别名称和失败率来自原图。论文正文具体解释了“存在性与覆盖性”，其余类别没有逐项给出正式定义；下表的释义与例子是本文为帮助读图补写的。一个规约可以同时属于多类，所以百分比不能相加；图中的失败率按仓库等权汇总。<a href="https://arxiv.org/html/2608.13522v1#S4.SS2">原论文图 8</a></p>
+<p>图 8(a) 按<strong>规约所描述的性质</strong>分类；图 7(b) 才统计未写证明、构建失败等失败原因。图 8 的类别可以重叠，失败率按仓库等权汇总。<a href="https://arxiv.org/html/2608.13522v1#S4.SS2">原论文图 8</a></p>
 <p>论文对“存在性与覆盖性”的解释是：输出必须<strong>覆盖或计入所有相关输入</strong>。这是全局性质，不能只靠对单次调用做分类讨论来证明；作者将它与前文指出的归纳推理缺口联系起来。以过滤操作作本文示意：只证“返回的元素都合格”还不够，还要证“每个合格的输入元素都被返回”。<a href="https://arxiv.org/html/2608.13522v1#S4.SS2">原论文 §4.2</a></p>
-<table>
-<thead>
-<tr>
-<th>规约类别（原论文）</th>
-<th>本文释义与示意例子</th>
-<th style="text-align:right">失败率（原论文）</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>存在性与覆盖性</strong>（Existence &amp; coverage）</td>
-<td>该出现的结果都出现：去重后，每种原有元素仍在输出中；若有符合条件的元素，搜索能找到一个。重点是排除遗漏。</td>
-<td style="text-align:right">47.1%</td>
-</tr>
-<tr>
-<td><strong>结构与成员关系</strong>（Structure &amp; membership）</td>
-<td>数据结构保持形状与元素归属：向有序树插入后仍有序，新元素成为树的成员。</td>
-<td style="text-align:right">41.0%</td>
-</tr>
-<tr>
-<td><strong>界限与最优性</strong>（Bounds &amp; optimality）</td>
-<td>结果落在上下界内，或比其他候选都好：返回的方案达到规定的最小代价。</td>
-<td style="text-align:right">41.3%</td>
-</tr>
-<tr>
-<td><strong>组合操作</strong>（Combined operations）</td>
-<td>几个操作接起来满足关系：先插入一个键，再查询它，应得到刚写入的值。</td>
-<td style="text-align:right">40.3%</td>
-</tr>
-<tr>
-<td><strong>往返性质</strong>（Round-trip）</td>
-<td>正向操作后再反向操作，恢复原值：<code>decode (encode x) = x</code>。</td>
-<td style="text-align:right">32.9%</td>
-</tr>
-<tr>
-<td><strong>直接输入–输出</strong>（Direct input–output）</td>
-<td>单次调用的输出与输入满足直接公式：拼接后的长度等于两段长度之和。</td>
-<td style="text-align:right">28.8%</td>
-</tr>
-<tr>
-<td><strong>边界情况</strong>（Edge cases）</td>
-<td>空输入、零、单元素等特殊情况也满足要求：空列表查找返回“未找到”。</td>
-<td style="text-align:right">22.0%</td>
-</tr>
-<tr>
-<td><strong>状态更新</strong>（State updates）</td>
-<td>一次操作前后的状态满足关系：存款后该账户余额增加，其他账户不变。</td>
-<td style="text-align:right">20.9%</td>
-</tr>
-</tbody>
-</table>
-<p>“组合操作”关注<strong>多次调用之间</strong>如何衔接，“状态更新”关注<strong>一次操作前后</strong>状态怎样变化；同一条规约也可能同时属于两者。图 8(b) 问这些类别在未完成运行中出现得有多普遍，图 8(c) 则另看“使用给定辅助定义”“重复调用同一 API”等语句特征。<a href="https://arxiv.org/html/2608.13522v1#S4.SS2">原论文 §4.2</a></p>
 <p>图 3 展示<strong>时间与完成数</strong>；美元费用见原论文附录 E.4 的表 5。<code>Total</code> 是每种配置运行 43 个仓库的总费用，<code>Full</code> 是完整解决的仓库数，<code>Specs</code> 是通过的规约数；右侧两列分别把总费用除以这两种完成数。</p>
 <p><a href="../assets/papers/vero-table-5.png"><img src="../assets/papers/vero-table-5.png" alt="Vero 原论文附录表 5：各代理配置的总费用、完整解决数及单位费用"></a></p>
 <p><em>原论文<a href="https://arxiv.org/html/2608.13522v1#A5.SS4">附录 E.4 表 5</a>。GPT-5.5 medium 在 proof-only 的总费用较低，但每个完整解为 $182；xhigh 则为 $119。</em></p>
