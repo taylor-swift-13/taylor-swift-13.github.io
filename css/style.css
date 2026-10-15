@@ -58,7 +58,7 @@ nav a:hover,.footer-inner a:hover{color:var(--accent)}
 .interactive-figure{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:25px 0 28px;margin:34px 0 38px;font-size:13px;line-height:1.6;color:var(--muted)}
 .prose img{display:block;width:100%;height:auto;margin:26px auto 8px;object-fit:contain}
 .prose a:has(> img){display:block;border:0}
-.prose p:has(> img) + p{color:var(--muted);font-size:13px;line-height:1.6}
+.prose p:has(> img) + p,.prose p:has(> a > img) + p{color:var(--muted);font-size:13px;line-height:1.6}
 .prose table{display:block;max-width:100%;overflow-x:auto;border-collapse:collapse;margin:24px 0;font-size:13px}
 .prose th,.prose td{padding:9px 12px;border:1px solid var(--line);text-align:left;white-space:nowrap}
 .interactive-figure figcaption{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:20px}

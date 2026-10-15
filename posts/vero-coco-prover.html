@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#faf9f6">
   <meta name="description" content="从仓库级证明、成本调度到多代理协作，分析模型能力与证明基础设施各自解决的问题。">
   <title>Compiler in the Loop 任务的消亡：方法增益会被模型迭代吞噬吗？从 Vero 到 CoCo-Prover 再到 Prove2Me — Notes</title>
-  <link rel="stylesheet" href="../css/style.css?v=4707a7df1732">
+  <link rel="stylesheet" href="../css/style.css?v=e6ef730d729b">
   <link rel="stylesheet" href="../assets/katex/katex.min.css">
   <script src="../js/blog.js" defer></script>
   <script src="../js/visualizations.js" defer></script>
@@ -108,7 +108,9 @@
 <p><em>原论文图 3。左、中两个面板分别是 code-and-proof 与 proof-only：横轴为 90 分钟内的运行时间，纵轴为已完整解决的仓库数，上限 43；曲线在某个仓库最后一条规约通过时才上升，菱形标记各配置的运行时间中位数。右侧图 3c 中，同一仓库对应四种配置的四次结果，显示它被哪些配置完整解决。</em></p>
 <p>GPT-5.5 xhigh 在第 45 分钟已分别完成 25 和 23 个仓库。<a href="https://arxiv.org/html/2608.13522v1#S4.SS2">原论文图 3</a></p>
 <p><a href="../assets/papers/vero-figure-4.png"><img src="../assets/papers/vero-figure-4.png" alt="Vero 原论文图 4：两种任务模式的配对结果，以及实现与证明的代码量"></a></p>
-<p><em>原论文图 4。(a) 对每个「仓库 × 代理配置」配对比较两种模式：172 对中，26 对都完成，13 对仅 code-and-proof 完成，17 对仅 proof-only 完成，116 对都未完成。(b–d) 每个点是一轮运行，横轴分别为实现行数、证明行数及二者之比。完整解和未完成运行写出的实现规模接近，但前者的证明文本约为后者两倍。因此「让代理自己写实现」有时有利于选取更易证明的算法，也会增加写实现的负担；完成与否更明显地体现在证明工作量上。</em><a href="https://arxiv.org/html/2608.13522v1#S4.SS2">原论文 §4.2</a></p>
+<p><em>原论文图 4。(a) 比较每个「仓库 × 代理配置」在两种模式下是否完整解决；(b) 比较实现行数；(c) 比较证明行数；(d) 比较证明与实现行数之比。(b–d) 的彩色点是完整解，灰点是未完成运行，菱形标出中位数。<a href="https://arxiv.org/html/2608.13522v1#S4.SS2">原论文 §4.2</a></em></p>
+<p>“证明文本约为两倍”要看<strong>左下角图 4(c)</strong> 的菱形及旁边的数字：code-and-proof 中，完整解的证明行数中位数为 <strong>1,181</strong>，未完成运行是 <strong>626</strong>，约 <strong>1.9 倍</strong>；proof-only 中分别为 <strong>1,320</strong> 和 <strong>562</strong>，约 <strong>2.3 倍</strong>。横轴是对数刻度，应按标注的行数比较。(b) 中实现行数的两组中位数则更接近：code-and-proof 为 <strong>58 对 48 行</strong>，proof-only 为 <strong>67 对 56 行</strong>。论文据此指出，完整解决更明显地体现在持续的证明工作量上。<a href="https://arxiv.org/html/2608.13522v1#S4.SS2">原论文图 4</a></p>
+<p>图 4(a) 另把 <strong>172 对</strong>同仓库、同配置的两种模式结果并排比较：<strong>26 对</strong>都完成，<strong>13 对</strong>仅 code-and-proof 完成，<strong>17 对</strong>仅 proof-only 完成，<strong>116 对</strong>都未完成。两种模式各有独占解，说明自行选择实现有时帮助证明，有时增加负担。<a href="https://arxiv.org/html/2608.13522v1#S4.SS2">原论文图 4</a></p>
 <p><a href="../assets/papers/vero-figure-5.png"><img src="../assets/papers/vero-figure-5.png" alt="Vero 原论文图 5：共享引理的复用、证明行数占比及引理链深度"></a></p>
 <p><em>原论文图 5，只统计 82 次完整解决。(a) 80 次有至少一条引理被两条规约共用，65 次有引理被至少五条规约共用；(b) 辅助引理占证明行数的中位数为 73.6%（code-and-proof）和 71.6%（proof-only）；(c) 以 GPT-5.5 xhigh 的成功证明为参照，需要四层以上引理链的规约，在其他运行中的通过率明显低于无需引理的规约。图说明完成仓库主要靠可复用的引理库，深层依赖则是难点。</em><a href="https://arxiv.org/html/2608.13522v1#S4.SS2">原论文 §4.2</a></p>
 <p><a href="../assets/papers/vero-figure-6.png"><img src="../assets/papers/vero-figure-6.png" alt="Vero 原论文图 6：各代理的证明行数与实现行数随时间变化"></a></p>
