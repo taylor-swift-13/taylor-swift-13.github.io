@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#faf9f6">
-  <meta name="description" content="从仓库级证明、成本调度到费马大定理形式化，分析模型能力与证明基础设施各自解决的问题。">
+  <meta name="description" content="从仓库级证明、成本调度到多代理协作，分析模型能力与证明基础设施各自解决的问题。">
   <title>Compiler in the Loop 任务的消亡：方法增益会被模型迭代吞噬吗？从 Vero 到 CoCo-Prover 再到 Prove2Me — Notes</title>
   <link rel="stylesheet" href="../css/style.css?v=4707a7df1732">
   <link rel="stylesheet" href="../assets/katex/katex.min.css">
@@ -26,11 +26,21 @@
     <header class="article-header">
       <p class="eyebrow">形式化验证</p>
       <h1>Compiler in the Loop 任务的消亡：方法增益会被模型迭代吞噬吗？从 Vero 到 CoCo-Prover 再到 Prove2Me</h1>
-      <p class="article-deck">从仓库级证明、成本调度到费马大定理形式化，分析模型能力与证明基础设施各自解决的问题。</p>
+      <p class="article-deck">从仓库级证明、成本调度到多代理协作，分析模型能力与证明基础设施各自解决的问题。</p>
     </header>
     <article class="prose">
 <p>论文事实与方法介绍用黑色；分析与评论用陶土橙色衬线字体。</p>
 <h2>一、引言</h2>
+<div class="author-opinion">
+<p>Compiler in the loop 可以概括为四个动作：decompose、search、refine、memory。代理提出 Lean 代码，编译器检查哪些步骤成立、还剩哪些目标；检查结果再进入下一轮。</p>
+<ul>
+<li><strong>Decompose（分解）</strong>：把大目标拆成子目标或引理，并写出它们怎样推出原目标。</li>
+<li><strong>Search（搜索）</strong>：对开放目标尝试不同的引理、证明步骤和处理顺序。</li>
+<li><strong>Refine（修正）</strong>：根据编译报错和未关闭的目标，修改实现或证明，再交给 Lean 检查。</li>
+<li><strong>Memory（记忆）</strong>：把已验证的引理、依赖关系、失败路线和当前进度保存到会话外，供后续尝试与其他代理使用。</li>
+</ul>
+<p>前三个动作推动当前证明，memory 让进度跨调用、跨代理保留下来。下文三篇工作分别从仓库级评测、证明过程编排和多人协作切入，重点各不相同。</p>
+</div>
 <h3>1.1 Vero：AI 代理能构建形式化验证的软件仓库吗？</h3>
 <p><img src="../assets/papers/vero-title-authors.png" alt="Vero 论文首页：标题、作者与单位"></p>
 <p>Ye 等人的 <a href="https://arxiv.org/abs/2608.13522"><em>Vero: Can AI Agents Build Formally Verified Software Repositories?</em></a> 于 <strong>2026 年 8 月 13 日</strong>发布 arXiv 版本（arXiv:2608.13522）。它问的是：AI 代理能否为一个多模块代码仓库同时写出实现和机器可检查的证明？此前的基准大多只考单个函数，或者给定实现后让代理补证明。仓库里的模块会共享类型、调用彼此的 API，局部证明成功并不意味着整个项目都能通过验证。</p>

@@ -25,7 +25,7 @@ const articles = [
   {
     slug: 'vero-coco-prover',
     title: 'Compiler in the Loop 任务的消亡：方法增益会被模型迭代吞噬吗？从 Vero 到 CoCo-Prover 再到 Prove2Me',
-    description: '从仓库级证明、成本调度到费马大定理形式化，分析模型能力与证明基础设施各自解决的问题。',
+    description: '从仓库级证明、成本调度到多代理协作，分析模型能力与证明基础设施各自解决的问题。',
     category: '形式化验证',
   },
 ];
