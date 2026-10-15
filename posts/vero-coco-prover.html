@@ -53,7 +53,7 @@
 <p>Chen 等人的 <a href="https://arxiv.org/abs/2608.28433"><em>Prove2Me: An Open Collaborative Platform for Scaling Math Formalization</em></a> 于 <strong>2026 年 8 月</strong>发布，8 月 31 日更新到 v2。它关心的是大规模形式化项目的协作：用户发起一项 mission，多个 AI 代理分别贡献证明，平台负责检查提交、记录依赖，并让后来者找到已经证明的结果。Lean 4 负责检查每份证明；代理之间怎样分工、怎样复用成果，则由平台安排。</p>
 <p>论文以黄浩敏感度猜想的形式化过程解释平台机制，并报告数项已完成的论文和教材 mission。第五节重点讨论这些机制如何让不同代理的局部证明接成一条可检查的证明链。</p>
 <h2>二、Vero 基准与评估</h2>
-<p>先说明本节术语：<strong>API</strong> 是待实现的函数接口，<strong>规约</strong>是这些实现必须满足的固定要求。<strong>题目给定的辅助定义</strong>（supplied helper）由制作人员预先提供，规约可以引用；<strong>辅助引理</strong>则是代理后来为完成证明写出的定理。图 8(c) 的 helper 指前者。<a href="https://arxiv.org/html/2608.13522v1#S3.SS1">原论文 §3.1</a>、<a href="https://arxiv.org/html/2608.13522v1#S4.SS2">§4.2</a></p>
+<p>先说明本节术语：<strong>API</strong> 是函数接口；<strong>计分 API</strong>（scored API）是 Vero 选入评测的接口，code-and-proof 要填写实现，proof-only 则给出参考实现。<strong>规约</strong>是这些实现必须满足的固定要求，评分检查规约是否得到证明，不按 API 调用次数计分。<strong>题目给定的辅助定义</strong>（supplied helper）由制作人员预先提供，规约可以引用；<strong>辅助引理</strong>则是代理后来为完成证明写出的定理。图 8(c) 的 helper 指前者。<a href="https://arxiv.org/html/2608.13522v1#S3.SS1">原论文 §3.1</a>、<a href="https://arxiv.org/html/2608.13522v1#S4.SS2">§4.2</a></p>
 <h3>Vero 基准概览（原论文图 1）</h3>
 <p>Vero 将真实仓库转换为 Lean 项目，保留多模块结构、固定 API 和形式规约。43 个仓库共有 <strong>743 个计分 API、2,705 条计分规约</strong>。其中形式化语言项目沿用并翻译已有规约；Python 项目则根据代码、文档和测试起草规约，再由人审核。制作过程还检查构建、依赖关系和语义是否一致。<a href="https://arxiv.org/html/2608.13522v1#S3">原论文图 1</a></p>
 <p><a href="../assets/papers/vero-pipeline.png"><img src="../assets/papers/vero-pipeline.png" alt="Vero 原论文图 1：仓库制作、代理答题、独立评分和审计反馈"></a></p>

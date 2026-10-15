@@ -39,7 +39,7 @@ Chen 等人的 [*Prove2Me: An Open Collaborative Platform for Scaling Math Forma
 
 ## 二、Vero 基准与评估
 
-先说明本节术语：**API** 是待实现的函数接口，**规约**是这些实现必须满足的固定要求。**题目给定的辅助定义**（supplied helper）由制作人员预先提供，规约可以引用；**辅助引理**则是代理后来为完成证明写出的定理。图 8(c) 的 helper 指前者。[原论文 §3.1](https://arxiv.org/html/2608.13522v1#S3.SS1)、[§4.2](https://arxiv.org/html/2608.13522v1#S4.SS2)
+先说明本节术语：**API** 是函数接口；**计分 API**（scored API）是 Vero 选入评测的接口，code-and-proof 要填写实现，proof-only 则给出参考实现。**规约**是这些实现必须满足的固定要求，评分检查规约是否得到证明，不按 API 调用次数计分。**题目给定的辅助定义**（supplied helper）由制作人员预先提供，规约可以引用；**辅助引理**则是代理后来为完成证明写出的定理。图 8(c) 的 helper 指前者。[原论文 §3.1](https://arxiv.org/html/2608.13522v1#S3.SS1)、[§4.2](https://arxiv.org/html/2608.13522v1#S4.SS2)
 
 ### Vero 基准概览（原论文图 1）
 
