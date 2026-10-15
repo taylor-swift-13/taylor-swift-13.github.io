@@ -381,23 +381,19 @@ Vero 中提高思考强度带来的增益很大。CoCo-Prover 把强度分配给
 
 ### 5.1 提交定理（论文 §3.1；图 1）
 
-Prove2Me 把**定理陈述**和**证明**分成两个对象。论文用敏感度猜想中的一条引理说明定理卡片如何建立：设 $H$ 是图，$A$ 是其对称的带符号邻接矩阵，则要表达的数学结论是
-
-$$
-\Delta(H)\geq\lambda_1(A).
-$$
+Prove2Me 把**定理陈述**和**证明**分成两个对象。代理先提交一张定理卡片，平台检查 Lean 陈述能否编译，并保存它所需的导入、自然语言解释和来源；证明可以由其他代理稍后提交。
 
 [![Prove2Me 原论文图 1：定理卡片中的 import 与 Lean 形式陈述](../assets/papers/prove2me-figure-1.png)](../assets/papers/prove2me-figure-1.png)
 
-*原论文图 1。上半部是 `Preamble`：这条定理需要的 Mathlib 模块；下半部是 `Formal statement`：量词、矩阵与邻接关系的条件，以及最大特征值不超过某个顶点度数的结论。作者使用一般的邻接谓词 `adj`，以便以后直接应用到超立方体的顶点子集。结尾 `:= by sorry` 只标出待证位置；此时平台接受的是能编译的陈述，尚未接受证明。*[原论文 §3.1](https://arxiv.org/html/2608.28433v2#S3.SS1)
+*原论文图 1。上半部 `Preamble` 列出所需模块，下半部 `Formal statement` 是 Lean 定理陈述。结尾 `:= by sorry` 只标出待证位置：此时平台接受的是能编译的陈述，尚未接受证明。*[原论文 §3.1](https://arxiv.org/html/2608.28433v2#S3.SS1)
 
-卡片还保存自然语言解释、来源和标签，并固定 Lean 与 Mathlib 版本。自然语言解释要说明上述 `adj` 等形式化选择，使后来者和审计者知道 Lean 定理打算对应哪条数学命题。
+卡片还保存自然语言解释、来源和标签，并固定 Lean 与 Mathlib 版本。这让后来者知道 Lean 陈述原本打算表达什么。
 
 ### 5.2 提交证明（论文 §3.2；图 2）
 
 [![Prove2Me 原论文图 2：与图 1 陈述类型相同的 solution 证明](../assets/papers/prove2me-figure-2.png)](../assets/papers/prove2me-figure-2.png)
 
-*原论文图 2。证明文件声明 `theorem solution`，从 `V`、`A` 到最后的不等式，类型必须与图 1 的目标完全一致。下方展示证明开头如何把特征值索引转换为顶点索引；论文略去了余下证明代码，但提交的完整证明不得含 `sorry` 或新公理。*[原论文 §3.2](https://arxiv.org/html/2608.28433v2#S3.SS2)
+*原论文图 2。证明文件声明 `theorem solution`，其类型必须与图 1 的目标完全一致。图片只展示了证明开头；提交的完整证明不得含 `sorry` 或新公理。*[原论文 §3.2](https://arxiv.org/html/2608.28433v2#S3.SS2)
 
 用类型记号说，定理卡片固定 $T:\mathrm{Prop}$，证明提交给出 $p:T$，服务端在同一环境中检查这个类型关系。一条陈述可以有多份独立证明；代理也可以提交 $p:\neg T$ 来否证它。证明和反证都需要附自然语言说明，供其他参与者理解。[原论文 §3.2](https://arxiv.org/html/2608.28433v2#S3.SS2)
 
@@ -407,28 +403,15 @@ $$
 
 [![Prove2Me 原论文图 3：Lean 陈述及独立代理的数学回译](../assets/papers/prove2me-readback.png)](../assets/papers/prove2me-readback.png)
 
-*原论文图 3。独立的 read-back 代理只看 Lean 陈述和它依赖的定义，不看原始题意，再把代码逐项译回数学语言。图中回译明确写出两个有限集各自被量化、空乘积等于 $1$、假设仅为 $n<M$。人把这份“代码实际说了什么”与原命题对照，才可能发现缺少的关系或前提。Lean 能检查证明是否满足陈述，不能替人判断陈述是否忠于原意。*[原论文 §3.3](https://arxiv.org/html/2608.28433v2#S3.SS3)
+*原论文图 3。独立的 read-back 代理只看 Lean 陈述和所依赖的定义，不看原始题意，再把代码译回自然语言。人把“代码实际说了什么”与原命题对照，检查是否漏了条件或改变了量词范围；Lean 只能检查证明是否满足写下的陈述。*[原论文 §3.3](https://arxiv.org/html/2608.28433v2#S3.SS3)
 
 ### 5.4 Proof decomposition via proof-sketches（论文 §4.1–4.2；图 4–5）
 
-直接让多个代理在同一 Lean 仓库填 `sorry`，会遇到文件冲突和下游反复编译。Prove2Me 改为让上层证明**导入平台上的独立定理**，其中有些尚未证明。论文以敏感度猜想作例子：若 $H$ 是 $n$ 维超立方体中有 $2^{n-1}+1$ 个顶点的诱导子图，目标为
-
-$$
-\Delta(H)\geq\sqrt n.
-$$
-
-为连接这个目标，论文列出图 1 的最大度数引理、Cauchy 特征值交错定理 $\lambda_i\geq\mu_i\geq\lambda_{i+n-m}$，以及矩阵递推
-
-$$
-A_1=\begin{bmatrix}0&1\\1&0\end{bmatrix},\qquad
-A_n=\begin{bmatrix}A_{n-1}&I\\I&-A_{n-1}\end{bmatrix},
-$$
-
-其中 $A_n$ 的特征值为 $\sqrt n$ 和 $-\sqrt n$，各出现 $2^{n-1}$ 次。这几条不是随意取的依赖：交错定理把大矩阵的谱信息传给诱导子图，矩阵递推给出起点的谱，最大度数引理把谱结论转成图的度数结论。[原论文 §4.2](https://arxiv.org/html/2608.28433v2#S4.SS2)
+直接让多个代理在同一 Lean 仓库填 `sorry`，会遇到文件冲突和下游反复编译。Prove2Me 改为让上层证明**导入平台上的独立定理**，其中有些尚未证明。论文用一个项目展示做法：代理先把主目标拆成几条可单独提交的引理，再写出引用这些引理推出主目标的 Lean 证明。平台检查并保存这段连接证明。[原论文 §4.2](https://arxiv.org/html/2608.28433v2#S4.SS2)
 
 [![Prove2Me 原论文图 4：敏感度猜想的 proof-sketch 代码](../assets/papers/prove2me-figure-4.png)](../assets/papers/prove2me-figure-4.png)
 
-*原论文图 4。上方四个 `import Theorems...` 是三条主要引理和一条连接带符号邻接矩阵的辅助引理；`Def_Hypercube` 提供目标所用定义。下方的 `solution` 必须写出怎样使用这些导入结果推出敏感度猜想。图中只展示了代码节选，但提交的 proof-sketch 本身没有 `sorry`；尚未解决的是所导入的开放定理。*[原论文 §4.2](https://arxiv.org/html/2608.28433v2#S4.SS2)
+*原论文图 4。上方的 `import Theorems...` 导入几条独立引理；下方的 `solution` 写出怎样用它们推出主目标。图中只展示代码节选；提交的 proof-sketch 本身没有 `sorry`，尚未解决的是所导入的开放定理。*[原论文 §4.2](https://arxiv.org/html/2608.28433v2#S4.SS2)
 
 这就是分解所需的**连接**。如果上层目标记作 $A$，导入的开放定理记作 $B,C$，sketch 先给出 Lean 检查过的 $B,C\vdash A$；其他代理随后补上 $\vdash B$ 与 $\vdash C$。论文的 Property 1 说，所有导入的子定理都得到验证时，上层定理也得到验证。可将它的逻辑关系写为
 
@@ -448,7 +431,7 @@ $$
 
 [![Prove2Me 原论文图 6：敏感度猜想 mission 的里程碑列表](../assets/papers/prove2me-milestones.png)](../assets/papers/prove2me-milestones.png)
 
-*原论文图 6。每个里程碑先列原数学证明中的权威陈述，再链接 captain 确认过的 Lean 定理。图中可见 Cauchy 交错定理和带符号邻接矩阵的谱定理，均已关联到已证卡片。顶部“4 of 4 reached”是里程碑进度，“37 of 44 theorems proved”是整张证明图的定理进度，两者不是同一个计数。里程碑让不同代理围绕同一形式陈述工作，避免各自造出无法互用的版本。*[原论文 §4.4](https://arxiv.org/html/2608.28433v2#S4.SS4)
+*原论文图 6。每个里程碑先列需要确认的核心陈述，再链接 captain 确认过的 Lean 定理。顶部“4 of 4 reached”是里程碑进度，“37 of 44 theorems proved”是整张证明图的定理进度。里程碑让不同代理围绕同一形式陈述工作，避免各自造出无法互用的版本。*[原论文 §4.4](https://arxiv.org/html/2608.28433v2#S4.SS4)
 
 里程碑并非所有待证子定理的清单。captain 只预先确认关键节点；代理仍可在 sketch 中引入普通中间引理。里程碑完成且由 sketch 接到主目标，mission 才能闭合。[原论文 §4.4](https://arxiv.org/html/2608.28433v2#S4.SS4)
 
@@ -460,7 +443,7 @@ $$
 
 *原论文表 1。四项 Prove2Me mission 是两篇论文与两本教材；表中还列一项集中式多代理项目作背景对照。《Bandit Algorithms》有约 15.1 万行 Lean、6 个代理、13 天。费用列的 $100,000 按 API 调用估算，Prove2Me 各行按参与者的包月订阅计价；表格展示项目案例。*[原论文 §5](https://arxiv.org/html/2608.28433v2#S5)
 
-表 1 展示平台承载的项目规模和协作人数。敏感度猜想作为前文贯穿的实例，也在论文报告的时间段内完成，四个里程碑均已达到。[原论文 §5](https://arxiv.org/html/2608.28433v2#S5)
+表 1 展示平台承载的项目规模和协作人数；其中的项目进度由定理卡片、proof-sketch 和里程碑共同记录。[原论文 §5](https://arxiv.org/html/2608.28433v2#S5)
 
 @@opinion-begin@@
 
@@ -478,11 +461,11 @@ $$
 
 [![Prove2Me 原论文图 7：代理在讨论区共享进展与已失效路线](../assets/papers/prove2me-discussion.png)](../assets/papers/prove2me-discussion.png)
 
-*原论文附录 A 图 7。讨论区一条消息指出哪些旧 sketch 仍依赖已否证或弃用的子定理、哪些叶子仍难解；另一条分享已证的 Bernoulli 期望引理和数学来源。共享的不只是聊天记录，而是可供下一位代理使用的结论、失效路线及出处。*[原论文 §4.5、附录 A](https://arxiv.org/html/2608.28433v2#A1)
+*原论文附录 A 图 7。讨论区一条消息指出哪些旧 sketch 仍依赖已否证或弃用的子定理、哪些叶子仍难解；另一条分享已证引理及其来源。共享的不只是聊天记录，还有可供下一位代理使用的结论、失效路线及出处。*[原论文 §4.5、附录 A](https://arxiv.org/html/2608.28433v2#A1)
 
 [![Prove2Me 原论文图 8：被否证的旧定理与补充条件后的修正版](../assets/papers/prove2me-correction.png)](../assets/papers/prove2me-correction.png)
 
-*原论文附录 A 图 8。橙色节点 `gotsman_linial` 被否证后，代理另建 `gotsman_linial_with_zero`，补上遗漏的边界条件，再让新的 proof-sketch 引用修正版。旧定理没有被悄悄改写；图保留了错误和修复的痕迹。*[原论文 §4.5、附录 A](https://arxiv.org/html/2608.28433v2#A1)
+*原论文附录 A 图 8。橙色节点代表一条已否证的旧定理；代理补上遗漏的条件，新建修正版，再让 proof-sketch 引用新节点。图保留了错误和修复的痕迹，供接手的代理辨认有效版本。*[原论文 §4.5、附录 A](https://arxiv.org/html/2608.28433v2#A1)
 
 ## 六、本文分析：模型能力与外部记忆
 
