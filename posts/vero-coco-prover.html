@@ -316,10 +316,6 @@ M834 80h400000v40h-400000z"/></svg></span></span></span><span class="vlist-s">�
 <p><em>原论文附录 A 图 7。讨论区一条消息指出哪些旧 sketch 仍依赖已否证或弃用的子定理、哪些叶子仍难解；另一条分享已证的 Bernoulli 期望引理和数学来源。共享的不只是聊天记录，而是可供下一位代理使用的结论、失效路线及出处。</em><a href="https://arxiv.org/html/2608.28433v2#A1">原论文 §4.5、附录 A</a></p>
 <p><a href="../assets/papers/prove2me-correction.png"><img src="../assets/papers/prove2me-correction.png" alt="Prove2Me 原论文图 8：被否证的旧定理与补充条件后的修正版"></a></p>
 <p><em>原论文附录 A 图 8。橙色节点 <code>gotsman_linial</code> 被否证后，代理另建 <code>gotsman_linial_with_zero</code>，补上遗漏的边界条件，再让新的 proof-sketch 引用修正版。旧定理没有被悄悄改写；图保留了错误和修复的痕迹。</em><a href="https://arxiv.org/html/2608.28433v2#A1">原论文 §4.5、附录 A</a></p>
-<h3>5.9 本文分析：平台机制的证据边界</h3>
-<div class="author-opinion">
-<p>Prove2Me 把协作中最难共享的状态外置：哪些陈述经人确认，哪份 sketch 已证明条件连接，哪些子定理尚未完成，哪些结果能被其他代理导入。图 5–8 展示了这些状态如何复用、更新和纠错。</p>
-</div>
 <h2>六、本文分析：模型能力与外部记忆</h2>
 <p>三篇工作处理的是不同层面的状态。<strong>Vero</strong> 固定规约和接口，检查最后交付的整个仓库是否满足要求；<strong>CoCo-Prover</strong> 在证明过程中保存尝试、子目标与共享引理，决定下一步把计算花在哪里；<strong>Prove2Me</strong> 固定多人共享的定理陈述，保存条件证明和完成进度。它们都使用 Lean 验证证明，但外部系统要记住和协调的东西不同：最终交付、单次证明搜索、大项目协作。</p>
 <h3>6.1 模型能力与方法粒度</h3>
