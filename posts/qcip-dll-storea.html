@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#faf9f6">
+  <meta name="description" content="从地址级规范的边界出发，解释 storeA 如何连接业务对象与通用链表证明。">
+  <title>内嵌双链表为什么要设计 storeA — Notes</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../assets/katex/katex.min.css">
+  <script src="../js/blog.js" defer></script>
+  <script src="../js/visualizations.js" defer></script>
+</head>
+<body class="article-page" id="top">
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="brand" href="../index.html" aria-label="Notes 首页">Notes</a>
+      <nav aria-label="主导航">
+        <a href="../index.html#writing">文章</a>
+        <a href="https://github.com/taylor-swift-13" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+      </nav>
+    </div>
+  </header>
+  <main class="article-shell article-main">
+    <a class="back-link" href="../index.html#writing">← 返回文章列表</a>
+    <header class="article-header">
+      <p class="eyebrow">形式化验证</p>
+      <h1>内嵌双链表为什么要设计 storeA</h1>
+      <p class="article-deck">从地址级规范的边界出发，解释 storeA 如何连接业务对象与通用链表证明。</p>
+    </header>
+    <article class="prose">
+<p>内嵌双链表的链接字段位于业务对象内部。链表函数操作这些字段，业务代码却要通过它们找到宿主对象，访问 ID 等业务数据。<code>storeA</code> 的设计目的，是在通用链表规范中保留<strong>每个节点与业务数据、内存资源之间的对应关系</strong>，使结构操作的证明能够用于不同业务对象。</p>
+<h2>1. 只有链表结构还缺少什么</h2>
+<p>例子涉及两个 C 类型：</p>
+<pre><code class="language-c">typedef struct SysDoubleLinklistNode {
+    struct SysDoubleLinklistNode *node_next;
+    struct SysDoubleLinklistNode *node_prev;
+} DoubleLinklistType;
+
+struct IdNode {
+    uint16 id;
+    DoubleLinklistType link;
+};
+</code></pre>
+<p>设宿主对象地址为 <code>p</code>，内嵌节点地址为 <code>x = &amp;p-&gt;link</code>。链表中的指针指向 <code>x</code>，业务代码读取的字段却是 <code>p-&gt;id</code>。</p>
+<p>如果规范只持有各节点的 <code>next/prev</code> 字段，就能描述链接关系并验证相关指针操作，但无法仅据此说明：<code>x</code> 来自哪个宿主对象、这个对象的 ID 是多少，以及能否读取它的 ID 字段。<strong>能够沿链表找到节点，并不自动意味着具备访问宿主业务字段的依据。</strong></p>
+<h2>2. CONTAINER_OF 如何访问宿主字段</h2>
+<p>实际代码先遍历哈希桶中的双链表，再恢复宿主地址。下面完整保留内部查找函数；<code>manager-&gt;htable</code> 是哨兵数组，<code>hoffset</code> 用来选择桶，参数检查宏和初始化函数由平台提供。</p>
+<pre><code class="language-c">static struct IdNode *GetObj(struct IdManager *manager, uint16 id)
+{
+    NULL_PARAM_CHECK(manager);
+
+    DoubleLinklistType *head = &amp;manager-&gt;htable[id % manager-&gt;hoffset];
+    DoubleLinklistType *node = NONE;
+    struct IdNode *idnode = NONE;
+
+    if (head-&gt;node_prev == NONE) {
+        InitDoubleLinkList(head);
+        return NONE;
+    }
+
+    DOUBLE_LINKLIST_FOR_EACH(node, head) {
+        idnode =CONTAINER_OF(node, struct IdNode, link);
+        if (idnode-&gt;id == id)
+            break;
+        idnode = NONE;
+    }
+
+    return idnode;
+}
+</code></pre>
+<p>这里用到的两个宏为：</p>
+<pre><code class="language-c">#define DOUBLE_LINKLIST_FOR_EACH(item, head) \
+    for (item = (head)-&gt;node_next; item != (head); item = item-&gt;node_next)
+
+#define CONTAINER_OF(item, type, member) \
+    ((type *)((char *)(item) - (unsigned long)(&amp;((type *)0)-&gt;member)))
+</code></pre>
+<p>遍历宏沿 <code>node_next</code> 前进，并排除哨兵。<code>CONTAINER_OF</code> 则从成员地址减去该成员在结构体中的偏移，回推宿主地址。用 <code>offsetof</code> 记法说明它的计算过程：</p>
+<pre><code class="language-text">delta = offsetof(struct IdNode, link)
+node = &amp;p-&gt;link = p + delta
+idnode = node - delta = p
+</code></pre>
+<p>转换成 <code>char *</code> 是为了按字节计算偏移。偏移由结构体布局决定，可能包含对齐填充。原宏的零地址表达式是依赖编译器支持的字段偏移写法。</p>
+<p>接下来执行 <code>idnode-&gt;id</code> 时，代码已经从链表结构访问进入了业务字段访问。<code>CONTAINER_OF</code> 本身不会检查 <code>node</code> 是否确实来自一个有效的 <code>IdNode.link</code>，也不会提供读取 ID 字段所需的资源。这些条件需要由规范保证。</p>
+<h2>3. store_idnode 怎样支持这两步访问</h2>
+<p>本例将业务资源描述为：</p>
+<pre><code class="language-coq">Definition store_idnode
+  (node_storeA : addr -&gt; Z -&gt; Prop)
+  (link : addr) (id : Z) : Assertion :=
+  EX p : addr,
+    “ link = &amp;(p # &quot;IdNode&quot; -&gt;ₛ &quot;link&quot;) ” &amp;&amp;
+    “ node_storeA p id ” &amp;&amp;
+    &amp;(p # &quot;IdNode&quot; -&gt;ₛ &quot;id&quot;) # UShort |-&gt; id.
+</code></pre>
+<p>这个断言以链表节点地址 <code>link</code> 为入口，给出宿主地址 <code>p</code>、业务关系，以及 ID 字段资源。它与 C 代码的对应关系是：</p>
+<table>
+<thead>
+<tr>
+<th>C 代码</th>
+<th>规范提供的依据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>CONTAINER_OF(node, struct IdNode, link)</code></td>
+<td><code>node = &amp;p-&gt;link</code>，结合字段偏移计算，恢复宿主地址 <code>p</code></td>
+</tr>
+<tr>
+<td><code>idnode-&gt;id</code></td>
+<td>持有 <code>p-&gt;id</code> 字段，且其中存储逻辑值 <code>id</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>node_storeA p id</code> 是返回 <code>Prop</code> 的纯关系；<code>UShort |-&gt; id</code> 才提供实际字段的堆资源。因此，仅有“对象对应这个 ID”的纯命题，不足以支持 C 字段读取。</p>
+<p>证明遍历代码时，需要展开或拆分链表谓词，暴露当前节点的这份断言，再分别证明地址计算和字段读取。<strong><code>CONTAINER_OF</code> 计算地址，<code>store_idnode</code> 描述地址对应的对象及可用资源。</strong> 两者通过 <code>node = &amp;p-&gt;link</code> 衔接。</p>
+<h2>4. 为什么把它抽象成 storeA</h2>
+<p>通用链表库不应写死 <code>IdNode</code> 的布局。其他业务可能使用不同宿主类型、不同数据字段和不同位置的内嵌节点，因此把业务部分抽象成一个参数：</p>
+<pre><code class="language-coq">storeA : addr -&gt; A -&gt; Assertion
+</code></pre>
+<p><code>storeA x d</code> 描述节点地址 <code>x</code> 对应逻辑数据 <code>d</code> 所需的资源。<code>A</code> 允许业务选择逻辑数据类型，<code>Assertion</code> 则允许同时表达纯关系和字段所有权。</p>
+<p>链表使用一个逻辑记录，把节点地址与数据配对：</p>
+<pre><code class="language-coq">Record DL_Node (A : Type) : Type :=
+  Build_DL_Node {
+    getData : A;
+    getPtr : addr;
+  }.
+</code></pre>
+<p>它属于规范，不要求 C 节点增加 <code>data</code> 字段。递归链表谓词对每个逻辑节点 <code>a</code>，按下面的结构组合资源：</p>
+<pre><code class="language-text">storeA (getPtr a) (getData a)
+** 该节点的 prev 字段
+** 该节点的 next 字段
+** 剩余链表
+</code></pre>
+<p>这里 <code>**</code> 是分离合取，表示各部分使用互不重叠的堆资源。完整的 <code>store_dll storeA head nodes</code> 因而同时保留节点顺序、链接结构与逐节点业务资源。</p>
+<p>在 <code>IdNode</code> 例子中，业务侧选择 <code>A = Z</code>、<code>storeA = store_idnode node_storeA</code>。链表库统一验证结构操作，业务代码需要恢复宿主并读取 ID 时，再展开具体的 <code>store_idnode</code>。</p>
+<p>删除规范体现了这个接口的收益。若 <code>nodes = prefix ++ [removed] ++ suffix</code> 且 <code>getPtr removed = x</code>，删除后返回：</p>
+<pre><code class="language-text">store_dll storeA head (prefix ++ suffix)
+** xizi_dll_detached x
+** storeA x (getData removed)
+</code></pre>
+<p>剩余节点的业务资源继续封装在链表中，被摘除节点的链接字段和业务资源交还调用者。<code>xizi_dll_detached x</code> 表示两个链接字段均指回 <code>x</code>。插入是相反的方向：调用者交出新节点的链接字段和业务资源，将它们一起封装进链表。</p>
+<p>这样，业务侧不必在每次结构操作后，重新维护一套独立的“节点地址对应哪份业务资源”的关系。同一套结构证明可以用于不同的 <code>storeA</code> 实例。</p>
+<h2>5. storeA 的资源边界</h2>
+<p>链表谓词已经持有 <code>next/prev</code> 字段，业务实例不能再次包含它们的独占所有权。对于 <code>IdNode</code>，链表负责 <code>link.node_next/link.node_prev</code>，<code>store_idnode</code> 负责 <code>id</code> 字段。它们虽然位于同一个对象中，仍是不同的内存位置。</p>
+<p>业务资源也可以放在链表断言之外，通过 frame rule 保留；<code>storeA</code> 的收益是把逐节点的数据与资源对应关系组织成可复用的接口。只关心链接结构时，可以取 <code>A = unit</code>、<code>storeA = fun _ _ =&gt; emp</code>。因此，使用非空 <code>storeA</code> 的动机来自业务验证的需要，而非内嵌链表结构本身。</p>
+    </article>
+    <div class="article-end"><a class="back-link" href="../index.html#writing">← 返回文章列表</a></div>
+  </main>
+  <footer class="site-footer"><div class="shell footer-inner"><span>© <span id="year">2026</span> Notes</span><a href="#top">返回顶部 ↑</a></div></footer>
+</body>
+</html>

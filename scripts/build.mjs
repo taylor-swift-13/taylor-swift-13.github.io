@@ -17,6 +17,12 @@ const markdown = new MarkdownIt({ html: false, linkify: true, typographer: false
 
 const articles = [
   {
+    slug: 'qcip-dll-storea',
+    title: '内嵌双链表为什么要设计 storeA',
+    description: '从地址级规范的边界出发，解释 storeA 如何连接业务对象与通用链表证明。',
+    category: '形式化验证',
+  },
+  {
     slug: 'cross-entropy-kl',
     title: '交叉熵与 KL 散度',
     description: '交叉熵的最小性、softmax 梯度与 KL 散度的参数顺序。',
@@ -111,7 +117,7 @@ for (const article of articles) {
   const output = path.join(root, 'posts', `${article.slug}.html`);
   const html = articleHtml(article);
   if (check) {
-    if (!existsSync(output) || readFileSync(output, 'utf8') !== html) {
+    if (!existsSync(output) || readFileSync(output, 'utf8').replaceAll('\r\n', '\n') !== html.replaceAll('\r\n', '\n')) {
       throw new Error(`Generated page is stale: posts/${article.slug}.html`);
     }
   } else {
