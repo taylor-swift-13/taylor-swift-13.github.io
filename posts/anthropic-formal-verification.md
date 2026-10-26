@@ -4,7 +4,7 @@
 
 [![Anthropic 原文封面](../assets/papers/anthropic-verification/cover.jpg)](../assets/papers/anthropic-verification/cover.jpg)
 
-*原文封面。下文按原文顺序介绍图 1–6，保留三个视频和一个 GIF，并提供内容完整的静态图。原文正文和六页附录没有独立表格；本文表 1–4 为归纳与评论。资料查阅日期：2026 年 10 月 26 日。*
+*原文封面。下文按原文顺序介绍图 1–6，保留三个视频和一个 GIF，并提供内容完整的静态图。原文正文和六页附录没有独立表格；本文表 1–6 为归纳与评论。资料查阅日期：2026 年 10 月 27 日；源码详解见第 6 节，附录逐节解读见第 7 节。*
 
 @@opinion-begin@@
 
@@ -355,7 +355,7 @@ LPS 的范围说明列出了单线程、静态可执行文件、信号处理及�
 
 @@opinion-end@@
 
-### 5.5 结语：更强的模型，要求更准确的保证表述
+### 5.5 更强的模型，要求更准确的保证表述
 
 @@opinion-begin@@
 
@@ -369,13 +369,281 @@ Anthropic 的这篇文章让人兴奋，因为它展示了大量真实程序证�
 
 @@opinion-end@@
 
-## 6. 原始资料与图表索引
+## 6. 源码里的 spec 与 LPS：命题究竟如何落到二进制上
+
+以下核对固定到公开证明仓库的 `98e995d4` 与 LPS 的 `f1006fe8`，避免将后续版本混在一起。代码片段分别注明原样节选与解释性示意；定义存在、命题被证明、命题适用于部署程序，是三个需要分别核对的状态。
+
+### 6.1 真实 spec：cJSON 的两条 Rocq 定义
+
+[`projects/cjson/cjson_read_fuzzer/Statements.v`](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/Statements.v) 中有以下定义，原样节选并调整换行：
+
+```coq
+Definition plain_halts : Prop :=
+  halts_within_budget
+    Budgets.Standard.lim_source
+    Exits.ok_or_refused
+    Images.plain.
+
+Definition asan_agrees : Prop :=
+  agrees_in
+    Env.alloc_forced_only
+    Budgets.Asan.lim_source
+    Budgets.Asan.lim_target
+    Images.plain Images.asan.
+```
+
+这里的 `Prop` 表明它们是命题。第一条把终止模板应用于普通二进制映像，第二条把无错误且行为一致的模板应用于普通构建和 ASan 构建。具体含义取决于模板、参数和映像；两行调用很短，并不意味着完整定义或证明也很短。
+
+**表 5：这个入口实际公开了哪些证明（按固定版本 README 整理）。**
+
+| 命题 | 主要要求 | 查阅版本中的状态 |
+| --- | --- | --- |
+| `plain_halts` | 资源与环境前提下，普通构建以允许状态终止 | 开放目标 |
+| `asan_agrees` | 两个构建无规定错误，有限可观察行为集合相同 | 已证明 |
+| `ubsan_agrees`、`asan_ubsan_agrees` | 对相应插桩构建提出一致性与无错误要求 | 已证明 |
+| 概率界和可判定性命题 | 针对输入分布的界，或识别一致输入的程序 | 开放目标 |
+
+表 5 的状态来自该入口的 [README](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/README.md)。其中还说明，入口会解析、打印和压缩 JSON 文本，但输出被释放，没有进一步比较内容。因此，这个例子的证明不能读成 JSON 解析与输出的完整功能正确性；已经完成的一致性证明也不能自动升级成尚未完成的终止证明。
+
+@@opinion-begin@@
+
+这是读取项目结果时很有用的一种顺序：先找具体入口，再看陈述，然后核对证明状态。仅看到一个命题写成 `Definition ... : Prop`，不能断言它已经被证完。即使入口调用了复杂算法，它是否有功能保证，仍取决于驱动程序实际观察了什么。
+
+@@opinion-end@@
+
+### 6.2 映像不是抽象函数，而是指定 ELF 的加载结果
+
+[`Images.v`](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/Images.v) 给普通构建的定义是：
+
+```coq
+Definition plain : Image :=
+  mkImage
+    Plain.M.loaded_segments
+    Plain.M.init_pc
+    Plain.M.phdrs.
+```
+
+三个参数分别来自该二进制的可加载段、入口地址和程序头信息。底层段数据由 `elf-snapshot` 在构建时生成；[`harness.yaml`](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/harness.yaml) 则记录源版本、构建和二进制 SHA-256。映像还要检查良构性，排除“根本没有合法启动状态，所以全称命题空泛成立”的情况。
+
+这个驱动会读取输入文件并调用 fuzz 入口。参数错误、文件不可读、头部不完整或文件达到 64 MiB 时，可以直接返回状态 2。允许的正常退出集合包含 0 和 2，因此“退出状态合法”不要求每个文件都成功进入库函数。各构建还固定了部分环境函数的结果，例如 `getenv()` 返回空指针、`getpid()` 返回 1。这些细节也属于被验证程序的身份。[入口与驱动说明](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/README.md)
+
+@@opinion-begin@@
+
+这也解释了为什么证明必须绑定软件产物。模型证明的是这些段里的指令及其允许的运行环境；源代码仓库里的相同文件名，不能替代二进制身份。驱动拒绝输入本身可以是正确行为，但要确认它没有把原本需要处理的正常输入排除掉。
+
+@@opinion-end@@
+
+### 6.3 展开 spec：量词、环境、内存前提和结论
+
+[`Shapes.v`](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/theories/Shapes.v) 中，一致性模板的前提包括以下原样节选；省略号表示后续结论未在代码块中展开：
+
+```coq
+valid_entry plain en_plain inp ->
+valid_entry san en_san inp ->
+valid_input inp ->
+~ run_scfg_budget_refused
+    env plain lim_plain
+    en_plain inp ->
+...
+```
+
+外层对两个构建的启动布局和进程输入分别全称量化。进程输入包括参数、环境变量、初始文件、标准输入等；启动布局包括栈、堆起点和相关随机字节。两个构建的布局不必相同。前提成立后，要得到普通构建无错误、插桩构建无错误，以及两者有限轨迹集合相同。
+
+用缩略记号表示这一结构，以下是解释性公式，并非仓库代码：
+
+$$
+\begin{aligned}
+&\forall e_p,e_s,i,\\
+&\quad\operatorname{Valid}_p(e_p,i)\land\operatorname{Valid}_s(e_s,i)\\
+&\quad\land\operatorname{ValidInput}(i)\land\operatorname{BudgetOK}_p\\
+&\qquad\Longrightarrow\operatorname{ErrorFree}(R_p)\\
+&\qquad\qquad\land\operatorname{ErrorFree}(R_s)\\
+&\qquad\qquad\land\operatorname{Traces}(R_p)=\operatorname{Traces}(R_s).
+\end{aligned}
+$$
+
+其中 $R_p$、$R_s$ 是对应环境、预算、布局和输入下的运行。cJSON 的 ASan 一致性目标采用普通构建 2 GiB、插桩构建 512 GiB 的预算；普通终止目标另用 16 GiB。`alloc_forced_only` 要求内存请求只在预算耗尽或找不到可用地址范围时失败，其他种类的请求仍可能失败。它们是不同命题的参数，不能混成一个统一资源保证。[参数与模板定义](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/theories/Shapes.v)
+
+@@opinion-begin@@
+
+真实 spec 的复杂性主要藏在这里。用中文概括为“所有输入都不崩溃”很方便，但允许哪些环境失败、预算条件放在哪个构建上、轨迹怎样比较，都会改变证明难度和结论范围。检查这些前提，比单看定理名称更能判断保证是否适用。
+
+@@opinion-end@@
+
+### 6.4 LPS 的源码结构：指令、机器状态、系统调用与整体行为
+
+**表 6：从 spec 向下阅读 LPS 的主要文件。**
+
+| 文件或目录 | 定义什么 | 与证明目标的关系 |
+| --- | --- | --- |
+| `Riscv/Instr.v`、`Decode.v`、`DecodeC.v` | 指令语法及普通、压缩指令解码 | 识别映像中的机器指令 |
+| `Riscv/Sem.v` | 指令对核心状态产生的效果 | 给算术、跳转、访存等指令含义 |
+| `LinuxProcessSem/RiscvSemantics.v` | 机器状态与虚拟内存上的指令步进 | 连接指令效果、映像和内存 |
+| `State.v` | 进程输入、系统调用效果、系统状态与事件 | 表达程序与环境交互的对象 |
+| `Sys/`、`Specs.v` | 各系统调用的许可结果与分派 | 规定环境允许怎样响应 |
+| `Run.v` | 进程转换关系、运行轨迹和错误 | 形成可供安全性命题引用的整体行为 |
+| `EquivalenceDefinition/` | 行为一致、终止等性质 | 给 spec 提供通用命题模板 |
+
+表 6 展示的是语义层次，而不是七个独立验证器。可以从具体映像沿解码、执行、系统调用一路读到整体行为，再回到上层 spec。[LPS 仓库结构](https://github.com/theorem-labs/rocq-linux-process-semantics/tree/f1006fe8178338a499b5e5c41be83006c4edd058/theories)
+
+机器状态的几个字段如下，来自 [`RiscvSemantics.v`](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/RiscvSemantics.v)。这是省略其他字段的结构节选，不是可直接编译的完整定义：
+
+```coq
+Record machine_state := {
+  ms_regs : bvmap 5 word;
+  ...
+  ms_pc_val : word;
+  ...
+  ms_mem : word -> option byte;
+  ...
+}.
+```
+
+寄存器文件、程序计数器和按地址查询的字节内存是其中一部分；完整状态还含浮点寄存器、待处理系统调用和只读内存等。指令语法也是真实的 Rocq 数据类型，例如 [`Instr.v`](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/Riscv/Instr.v) 用构造子区分加载、存储、跳转和运算。随后由解码与执行定义解释这些对象。
+
+@@opinion-begin@@
+
+因此，“直接在 Rocq 里证明二进制”并不省略程序语义。这个过程明确建立了一套机器与进程模型。它把源语言前端的复杂性移出了每个项目的证明入口，却仍需要承担目标架构、运行时和系统环境的复杂性。
+
+@@opinion-end@@
+
+### 6.5 一步如何执行，系统调用为什么是非确定的
+
+[`Sem.v`](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/Riscv/Sem.v) 将解码后的指令与核心状态映射到效果对象。访存效果交给机器层解释；系统调用则交给进程层处理。LPS 的 [`Specs.v`](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Specs.v) 用以下定义选择相应系统调用规约：
+
+```coq
+Definition syscall_spec
+  : Sys SyscallEffect :=
+  dispatch spec_table.
+```
+
+一个系统调用规约可以允许多个结果，例如读取部分可用字节，或在所选环境允许时返回失败。实际效果包括返回值、写入内存的字节，以及映射、清零等变化；进程转换关系再将允许的效果应用到状态。这里需要证明的是所有许可分支，而非一次解释器运行所选择的分支。[系统调用效果](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/State.v)
+
+因此，一步进程执行可以按下面的流程理解。这是阅读源码后的解释性示意，不是 Rocq 原码，也不是完整实现：
+
+```text
+进程状态
+  → 按程序计数器取指、解码
+  → 解释指令，更新状态
+  → 系统调用：选择许可结果
+  → 产生下一状态与可观察事件
+```
+
+这条流程在源码中被拆成机器步进、系统调用处理和 `sstep` 转换关系；最终的运行行为则收集任意有限步数所能产生的轨迹。[步进与运行关系](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v)
+
+机器层还区分正常结果、程序故障和模型未覆盖的情形。后两者都妨碍相应的无错误目标成立，但诊断意义不同：非法访存可能是真实错误，未支持的指令或系统调用也可能只是模型边界。这个区别保存在进程执行定义中。[机器结果与进程转换](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v)
+
+### 6.6 整体行为是什么，证明文件又交付什么
+
+[`Run.v`](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v) 的整体行为记录如下，原样节选：
+
+```coq
+Record behavior := mkBehavior {
+  bh_traces : list event -> Prop;
+  bh_errors : Prop;
+  bh_all_errors : Prop;
+  bh_unmodeled : Prop;
+}.
+```
+
+第一项表示有限事件序列的集合；其余项目分别记录是否存在错误执行、是否所有执行都进入错误，以及是否存在到达模型未覆盖部分的执行。集合式行为为非确定执行提供了表示，也说明仅比较某一条具体运行轨迹远远不够。
+
+证明文件最终要交付一个具有固定 spec 类型的证明项。检查程序独立生成包装定义，把候选证明放到指定目标的类型下，再审计依赖假设；目标被偷换时，正确类型也应匹配失败。[证明交付格式](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/proving.md)、[检查流程](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/checking.md)
+
+@@opinion-begin@@
+
+短 spec 背后是一整套可执行对象与行为定义。Rocq 检查了相对于这些定义的证明；定义是否准确描述真实程序，仍是信任基础的一部分。源码能够把这项义务具体定位出来，却不会仅因“定义也写在 Rocq 中”而自动证明其现实对应关系。
+
+@@opinion-end@@
+
+## 7. 六页附录逐节解读：正文之外还需要知道什么
+
+附录没有另外编号的图表，但有六个主题和一段 LZO 代码。以下依原顺序补充其含义；前文已经展示的六张图仍按正文顺序排列。
+
+### 7.1 三项义务：为什么一致性之外还要分别排除错误
+
+附录先要求 ASan 构建无错误，再比较它与普通构建的可观察行为，最后单独排除普通构建的错误。观察对象包括标准输入读取、标准输出和错误输出写入、退出状态或终止信号，以及最终文件系统；性能不在这个比较范围内。错误则包括故障、主动中止和语义未覆盖的行为。[附录第 1–2 页](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=1)
+
+这个拆分有实际原因：有限轨迹本身没有单独记录 crash，一个程序发生错误、另一个进入不再产生事件的死循环，可能仍具有相同的有限观察。因此，不能只靠轨迹相同，就把一个构建的无错误性质传给另一个。§6.3 的公开模板把两个 `error_free` 与轨迹一致性明确合在同一命题中，但终止仍是另外的目标。
+
+@@opinion-begin@@
+
+这是阅读“一致性证明”时最应检查的细节之一：一致的是哪些观察，错误与不终止怎样进入定义，结论是否足够强。一个关系名称叫 equivalence，并不意味着它自动保留所有关心的性质。
+
+@@opinion-end@@
+
+### 7.2 Python 解释器：部分正确性与现实对应分开建立
+
+解释器实验采用 safe Rust、Verus 和 Z3，按基于 λπ 的形式语义完成 17 个层次的证明。结论约束返回结果；与 CPython 的对应由测试检验。作者另外向早期版本注入七个错误，其中五个通过了随机测试，七个都使证明失败。选择 Verus 有 Rust 生态与实验安排方面的原因，并非只能用这一种证明系统。[附录第 2–3 页](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=2)
+
+@@opinion-begin@@
+
+这组结果说明证明可能发现测试遗漏的错误，同时也展示了信任边界：实现与形式模型之间有证明，形式模型与 CPython 之间有经验比较。若形式语义漏掉了需求，前一项证明仍可能全部成立。人工注入错误的结果也应按这七个案例理解，不能外推为所有缺陷的检出率。
+
+@@opinion-end@@
+
+### 7.3 大量证明究竟花在哪里
+
+附录用 cJSON 说明规模反差：391 行解析入口对应约 63 万行证明，只有约十分之一围绕 cJSON 本身；链接约 5.1 万行代码的 fftw3 对应约 48 万行证明。典型交付约 60 万行、1,400 个文件，不同库的证明约为 33 万至 90 万行。启动过程、分配器、输出函数、ASan 运行时和驱动都要处理，当时的证明还不能直接导入这些共同结果。超过一半的文本由代理编写的工具生成；检查一个证明可消耗半小时到数小时 CPU 时间。[附录第 3–4 页](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=3)
+
+@@opinion-begin@@
+
+库代码少，不代表进程行为简单。证明行数在这里混合了目标库、运行环境、生成数据和重复工作；这些部分的成本应分别测量。复用若能同时减少生成、维护与检查成本，价值会比单纯缩短文本更直接。
+
+@@opinion-end@@
+
+### 7.4 专家怎么看：短规约、冗长证明与抽象能力
+
+附录中的专家观察是，代理经常先写一个描述输出的短规约，再把两个构建分别与它联系起来；这类规约的中位数约 110 行，对应程序机器代码中位数约 86 KB，其中驱动实际涉及约 20%–50%。证明过程却反复展开寄存器、整数转换、地址互异、栈内容与各分支。代理也使用了 framing、布局无关推理和分配器抽象，但使用并不一致，证明规模改善仍有限。附录将更复杂程序上的规模扩展列为开放问题，并讨论了建立更好模块抽象的必要性。[附录第 4–5 页](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=4)
+
+@@opinion-begin@@
+
+短规约的出现值得关注，但“两个实现都满足同一规约”本身并不足以推出两者行为一致。例如，一个程序输出 0，另一个输出 1，两者都满足“输出非负”。中间规约必须具有足够的区分能力，或配合更强的对应定理。最终应检查实际证明出的关系，不能只看规约长度。
+
+冗长证明一旦通过同一目标的可靠检查，其逻辑效力不因写法而降低；抽象的价值主要体现在后续扩展、复用、调试和成本。能否自动找到合适的模块边界，比是否模仿人类的证明风格更值得验证。
+
+@@opinion-end@@
+
+### 7.5 图 4 的小任务与主实验相差在哪里
+
+比较模型的 36 个任务分为三组，每组 12 个：从较小程序的插桩无错误，到更大程序，再到同时要求两个构建无错误且行为一致。实验将输入缩为 64 字节，以少量函数替代 libc，用约百条指令的 mini-ASan 替代大型运行时，最终程序为 283–2,491 条指令。[附录第 5 页](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=5)
+
+@@opinion-begin@@
+
+这些任务能帮助比较模型在受控证明任务上的效率。把曲线换算成完整项目的报价，还需要补入真实运行时、输入范围、模型缺口、重试和证明复用的影响。任务缩减方式属于结果解释的一部分。
+
+@@opinion-end@@
+
+### 7.6 LZO 断言：安全性目标怎样携带功能要求
+
+附录第 6 页展示压缩后再解压的代码。以下原样摘出控制分支和两条断言，调整换行并省略实际函数调用，因此不是完整程序：
+
+```c
+assert(r == LZO_E_OK);
+if (compressed_len >= size)
+  goto join;
+...
+assert(r == LZO_E_OK &&
+       decompressed_len == size);
+```
+
+第一条检查压缩成功；当压缩结果小于原输入时，后续分支解压并检查成功状态及还原长度。断言失败会进入中止路径，因而排除 crash 的证明也覆盖这些要求。附录还以 p11-kit 的 PEM 块长度检查说明：维护者写在入口中的约束，可以直接成为证明需要排除的失败分支。[附录第 6 页代码与说明](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=6)
+
+@@opinion-begin@@
+
+这个例子纠正了“安全性完全没有功能内容”的笼统说法。入口断言可以要求算法返回成功并恢复正确长度。不过，展示的片段没有比较解压字节与原输入；仅依据这些断言，不能将结论扩大成完整的逐字节往返正确性。进一步的功能保证，要落实到完整入口、实际 spec 和已完成的定理上。
+
+@@opinion-end@@
+
+## 8. 原始资料与图表索引
 
 - [Anthropic 原文](https://www.anthropic.com/research/formal-verification)：2026 年 10 月 22 日发布，本文展示其全部六张编号图。
 - [六页附录](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf)：定理含义、Python 解释器案例、证明规模与小任务设置；无独立图表。
 - [公开证明仓库快照](https://github.com/theorem-labs/oss-verify-proofs/tree/98e995d4daced70a0a4aa2c810854b88720735f1)：查阅时 README 列出 25 个库、60 个入口的公开证明，与实验报告总量分开阅读。
 - [定理陈述说明](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/statements.md)、[检查流程](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/checking.md)、[信任基础](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/trust.md)：阅读单个证明时应核对的定义和前提。
+- [cJSON 的 spec](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/Statements.v)、[证明状态](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/README.md)、[通用命题模板](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/theories/Shapes.v)：第 6 节源码示例的固定来源。
+- [LPS 的指令语义](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/Riscv/Sem.v)、[机器状态与步进](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/RiscvSemantics.v)、[进程行为](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v)：从单条指令到整体运行的定义。
 - [LPS 语义与已知缺口](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/SCOPE.md)：固定到公开发布所使用的语义版本。
 - [OSS Verify 项目说明](https://theorem.dev/oss-verify/)、[软件栈路线图](https://theorem.dev/blog/verified-software-stack/)：项目工作方式，以及软件生态规模的成本预测。
 
-图表位置：图 1 见 §2.1，图 2 见 §2.2，图 3 见 §2.3，图 4 见 §3.2，图 5 见 §3.3，图 6 见 §3.4。表 1–4 均为本文整理，依次位于 §2.4、§3.5、§4.1、§5.4。全部原始图像和动画归 Anthropic 及相应权利人所有；本地媒体的来源与校验值记录在 [sources.json](../assets/papers/anthropic-verification/sources.json)。
+图表位置：图 1 见 §2.1，图 2 见 §2.2，图 3 见 §2.3，图 4 见 §3.2，图 5 见 §3.3，图 6 见 §3.4。表 1–6 均为本文整理，依次位于 §2.4、§3.5、§4.1、§5.4、§6.1、§6.4。附录的六个主题依次见 §7.1–7.6，其中代码示例见 §7.6。全部原始图像和动画归 Anthropic 及相应权利人所有；本地媒体的来源与校验值记录在 [sources.json](../assets/papers/anthropic-verification/sources.json)。
