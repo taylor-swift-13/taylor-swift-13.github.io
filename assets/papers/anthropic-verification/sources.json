@@ -1,0 +1,98 @@
+{
+  "source": "https://www.anthropic.com/research/formal-verification",
+  "accessed": "2026-10-26",
+  "numbered_figures": 6,
+  "html_tables": 0,
+  "media": [
+    {
+      "figure": 1,
+      "caption": "Fuzzing works by running huge numbers of generated inputs through one entry point to find the inputs that cause a crash. There are infinite inputs, so the search can never be complete.",
+      "url": "https://cdn.sanity.io/files/4zrzovbb/website/6851e539c36759ac1682d6b169d0319b1d97a0f7.mp4",
+      "file": "figure-1.mp4",
+      "sha256": "a544dd5cc3cb6953a9e60307114f7befe9b744d2519ddb361b8406fc138b7f4d",
+      "bytes": 3734525
+    },
+    {
+      "figure": 2,
+      "caption": "The open-source library and its existing fuzz test are compiled to a RISC-V executable. This executable, along with Theorem’s RISC-V and OS formal semantics and the desired no-crash property, mechanically yield a specification the proof must satisfy. Claude writes the proof; the Rocq kernel checks it against the specification. Green marks what’s proven, conditional on the trusted components being correct.",
+      "url": "https://cdn.sanity.io/files/4zrzovbb/website/ce66333a831ef2f37e91c2f0ecfdaca27cdfa2c9.mp4",
+      "file": "figure-2.mp4",
+      "sha256": "1d73d135bf0799c911a790c7478d30a56ed81957632687773dd919cefd3a49cb",
+      "bytes": 7862950
+    },
+    {
+      "figure": 3,
+      "caption": "A formal no-crash proof over all inputs rules out all crashes along any path reachable from the entry point. While iterating on its proof, Claude can also find and fix any remaining reachable crash-producing bug.",
+      "url": "https://cdn.sanity.io/files/4zrzovbb/website/53266e21746d781c80dbe9296b90da94b676dd67.mp4",
+      "file": "figure-3.mp4",
+      "sha256": "5c277a1f42341406ae4f32e5461a1349a94faae6bf2f45566ae4562aa31a1208",
+      "bytes": 3514725
+    },
+    {
+      "figure": 4,
+      "caption": "Opus 5.5 finishes proofs faster than earlier models. Share of 36 formal verification tasks proved by a single agent at a given token budget. Each task received three independent single-agent attempts at a 5M-token budget, and counts as proven when the first attempt finishes.",
+      "url": "https://www-cdn.anthropic.com/images/4zrzovbb/website/02207cbc6f46e272fe9a0fa7929cb8ec29578e74-1920x980.png",
+      "file": "figure-4.png",
+      "sha256": "6767051d6ab349e02abb194230ef9c241c086586e2871e49099b31a287084eac",
+      "bytes": 49041
+    },
+    {
+      "figure": 5,
+      "caption": "The 36 proofs from one shared workspace, in the order they finished. An arc joins any two proofs that share an unchanged file; bars show the tokens spent writing each proof, and black lines show the same task’s average cost for an agent working alone, which was higher in 30 of the 34 completed proofs (agents working alone were not able to complete two of the proofs).",
+      "url": "https://www-cdn.anthropic.com/images/4zrzovbb/website/5078468fa7e09774b1ab6e86984ec5691d3d11fa-1080x712.gif",
+      "file": "figure-5.gif",
+      "sha256": "b26618cab20e30fe207a8d635f4e8fb376e7a42956192d4c2b746612fe732967",
+      "bytes": 6126348
+    },
+    {
+      "figure": 6,
+      "caption": "Agents copied an existing proof and adapted it to each new program. Each column represents one program’s complete proof by share of bytes. Blocks are the parts of the proof and each block shows how much was kept identical, lightly edited (same file, size within 2%), edited more, or newly written. The shared parts gained almost no new code.",
+      "url": "https://www-cdn.anthropic.com/images/4zrzovbb/website/8e295614d599d548fbd2ff97ed3cc3e62f501b2b-1920x1248.png",
+      "file": "figure-6.png",
+      "sha256": "69587680ab148d6a64a16617fb9f40f598fb9c2e38ed40f059ac51eccbf5c4fa",
+      "bytes": 75969
+    },
+    {
+      "file": "cover.jpg",
+      "url": "https://www-cdn.anthropic.com/images/4zrzovbb/website/62ef4c44cbeeaca254eadaaaf982d1d32a7e9819-2000x1125.jpg",
+      "sha256": "fdca670d0387213abcd095e16d29ec80826638d255aa6e4a8a1cd06bc5f6fc71",
+      "bytes": 126626
+    },
+    {
+      "file": "appendix.pdf",
+      "url": "https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf",
+      "sha256": "5f6c6c3f4c086d6d7b7106e914af768bf27cadaad2267c8d11196662b5ff1f6a",
+      "bytes": 200376
+    }
+  ],
+  "derived_static_images": [
+    {
+      "file": "figure-1-poster.png",
+      "source": "figure-1.mp4",
+      "method": "frame extraction",
+      "position_fraction": 0.9,
+      "sha256": "86d8f7354cba1d1cebf626c69bd88a36ae8e12817e291bc6354abb118dd46e96"
+    },
+    {
+      "file": "figure-2-poster.png",
+      "source": "figure-2.mp4",
+      "method": "frame extraction",
+      "position_fraction": 0.9,
+      "sha256": "e9aa19b0d730d49df5676b7ca07189654998b62f3068f021d07b804056b8333c"
+    },
+    {
+      "file": "figure-3-poster.png",
+      "source": "figure-3.mp4",
+      "method": "frame extraction",
+      "position_fraction": 0.9,
+      "sha256": "d008c05af30e07fce182e0a9762d979192689f618b8b89146683e68e3111b03f"
+    },
+    {
+      "file": "figure-5-static.png",
+      "source": "figure-5.gif",
+      "method": "frame extraction",
+      "frame": 537,
+      "sha256": "61ff0425f9581639e2dc0bacf9b4b5b54fa7210ec12c5ff8d04be307512e82c4"
+    }
+  ]
+}

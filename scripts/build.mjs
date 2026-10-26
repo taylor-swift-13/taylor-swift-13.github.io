@@ -17,6 +17,13 @@ const markdown = new MarkdownIt({ html: false, linkify: true, typographer: false
 
 const articles = [
   {
+    slug: 'anthropic-formal-verification',
+    title: 'Anthropic 的大手终于伸到了程序验证：兴奋与压力并存的时代，我们该信任什么，我们还能做什么',
+    description: '从二进制操作语义与 fuzz 规约出发，讨论找 bug、功能正确性与大模型时代的信任取舍。',
+    category: '形式化验证',
+    sourceAware: true,
+  },
+  {
     slug: 'qcip-dll-storea',
     title: '内嵌双链表为什么要设计 storeA',
     description: '从地址级规范的边界出发，解释 storeA 如何连接业务对象与通用链表证明。',
@@ -67,11 +74,41 @@ function articleHtml(article) {
     }
   }
   if (body.includes('@@viz-')) throw new Error(`Unresolved visualization in ${article.slug}.md`);
+  body = body.replace(/<p>@@anthropic-figure-([1-35])@@<\/p>/g, (_, number) => {
+    if (article.slug !== 'anthropic-formal-verification') {
+      throw new Error(`Unexpected Anthropic figure in ${article.slug}.md`);
+    }
+    const base = `../assets/papers/anthropic-verification/figure-${number}`;
+    if (number === '5') {
+      return `<figure class="source-figure" aria-label="原文图 5，共享证明与计算成本">
+<a href="${base}-static.png"><img src="${base}-static.png" alt="原文图 5 完整静态图：证明复用弧线及各任务的 token 消耗"></a>
+<details class="source-animation"><summary>播放原始 GIF 动画</summary><a href="${base}.gif"><img src="${base}.gif" alt="原文图 5 动画：按顺序展示证明复用和成本比较" loading="lazy"></a></details>
+</figure>`;
+    }
+    return `<figure class="source-figure" aria-label="原文图 ${number}">
+<a href="${base}-poster.png"><img src="${base}-poster.png" alt="原文图 ${number} 的完整静态画面，点击放大"></a>
+<details class="source-animation"><summary>播放原始视频动画</summary>
+<video controls muted loop playsinline preload="metadata" poster="${base}-poster.png" aria-label="原文图 ${number}，播放查看完整动画">
+<source src="${base}.mp4" type="video/mp4">
+<a href="${base}.mp4">打开原文图 ${number} 动画</a>
+</video>
+</details>
+<figcaption><a href="${base}-poster.png">放大静态图 ↗</a> · <a href="${base}.mp4">单独打开动画 ↗</a></figcaption>
+</figure>`;
+  });
+  if (body.includes('@@anthropic-figure-')) throw new Error(`Unresolved source figure in ${article.slug}.md`);
+  if (article.slug === 'anthropic-formal-verification') {
+    body = '<p class="reading-key">黑色为资料介绍与图表说明；<span class="commentary-key">橙色为作者评价、工程判断与研究设想</span>。</p>\n' + body;
+  }
   const title = escapeHtml(article.title);
   const description = escapeHtml(article.description);
   const category = escapeHtml(article.category);
-  const styleVersion = article.slug === 'vero-coco-prover'
+  const sourceAware = article.sourceAware || article.slug === 'vero-coco-prover';
+  const styleVersion = sourceAware
     ? `?v=${createHash('sha256').update(readFileSync(path.join(root, 'css/style.css'))).digest('hex').slice(0, 12)}`
+    : '';
+  const articleStyle = article.slug === 'anthropic-formal-verification'
+    ? `\n  <link rel="stylesheet" href="../css/anthropic-verification.css?v=${createHash('sha256').update(readFileSync(path.join(root, 'css/anthropic-verification.css'))).digest('hex').slice(0, 12)}">`
     : '';
   return `<!doctype html>
 <html lang="zh-CN">
@@ -81,12 +118,12 @@ function articleHtml(article) {
   <meta name="theme-color" content="#faf9f6">
   <meta name="description" content="${description}">
   <title>${title} — Notes</title>
-  <link rel="stylesheet" href="../css/style.css${styleVersion}">
+  <link rel="stylesheet" href="../css/style.css${styleVersion}">${articleStyle}
   <link rel="stylesheet" href="../assets/katex/katex.min.css">
   <script src="../js/blog.js" defer></script>
   <script src="../js/visualizations.js" defer></script>
 </head>
-<body class="article-page${article.slug === 'vero-coco-prover' ? ' source-aware' : ''}" id="top">
+<body class="article-page${sourceAware ? ' source-aware' : ''}${article.slug === 'anthropic-formal-verification' ? ' source-figures' : ''}" id="top">
   <header class="site-header">
     <div class="shell header-inner">
       <a class="brand" href="../index.html" aria-label="Notes 首页">Notes</a>
