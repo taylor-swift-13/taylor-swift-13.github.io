@@ -35,11 +35,6 @@
 <p>2026 年 10 月 22 日，Anthropic 与 Theorem 发布了 <a href="https://www.anthropic.com/research/formal-verification"><em>LLMs are making formal software verification feasible at a much larger scale</em></a>。作者报告：在数周内，为 <strong>123 个开源库的 239 个 fuzz 入口</strong>完成了特定条件下的 RISC-V 二进制证明，成功证明包含约 <strong>1.8 亿行 Rocq</strong>。这组数字对应实验报告的结果，公开发布的证明只是其中一部分。</p>
 <p><a href="../assets/papers/anthropic-verification/cover.jpg"><img src="../assets/papers/anthropic-verification/cover.jpg" alt="Anthropic 原文封面"></a></p>
 <p><em>原文封面。下文按原文顺序介绍图 1–6，保留三个视频和一个 GIF，并提供内容完整的静态图。原文正文和六页附录没有独立表格；本文表 1–6 为归纳与评论。资料查阅日期：2026 年 10 月 27 日；源码详解见第 6 节，附录逐节解读见第 7 节。</em></p>
-<div class="author-opinion">
-<p>这项工作展示了大规模程序证明的可能性，也给程序验证研究带来了压力。它的办法在研究风格上相当“粗暴”：确定二进制执行的形式模型，把已有安全检查变成一个可以陈述的全称命题，然后让大模型去完成极其繁琐的证明。人类主要把握宏观设计，思考怎样把困难的工作组织成模型能够持续推进的任务。</p>
-<p>这种规模容易让小型研究团队感受到难以追赶的压力。真正值得追问的是，大模型公司放大了哪一部分能力，又把哪些正确性义务留在了可信基础里。模型能在既定语义和规约下疯狂发力，并不自动回答语义是否忠于真实机器、规约是否表达了真实功能需求。</p>
-<p>更值得认真对待的变化，是研究问题的重心。证明文本可以大量生成以后，更需要回答：<strong>机器究竟证明了什么？这个命题和真实软件有什么关系？预期软件满足的要求，是否已经写进了命题？</strong></p>
-</div>
 <h2>2. 从 fuzz 测试到二进制证明</h2>
 <h3>2.1 图 1：测试找到反例，证明覆盖一个明确的输入范围</h3>
 <p>OSS-Fuzz 中的 fuzz target 是开发者提供的测试入口。它接收输入、调用库代码，并可能用断言检查结果。Fuzzer 不断寻找会让入口崩溃的输入；OSS Verify 则尝试证明，在陈述规定的范围内不存在这样的输入。<a href="https://theorem.dev/oss-verify/">Theorem 项目说明</a></p>
