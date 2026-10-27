@@ -4,7 +4,7 @@
 
 [![Anthropic 原文封面](../assets/papers/anthropic-verification/cover.jpg)](../assets/papers/anthropic-verification/cover.jpg)
 
-*原文封面。下文按原文顺序介绍图 1–6，保留三个视频和一个 GIF，并提供内容完整的静态图。原文正文和六页附录没有独立表格；本文表 1–6 为归纳与评论。资料查阅日期：2026 年 10 月 27 日；源码详解见第 6 节，附录逐节解读见第 7 节。*
+*原文封面。下文按原文顺序介绍图 1–6，保留三个视频和一个 GIF，并提供内容完整的静态图。原文正文和六页附录没有独立表格；本文表 1–8 为归纳与评论。资料查阅日期：2026 年 10 月 27 日；源码详解见第 6 节，附录逐节解读见第 7 节，crash 与 sanitizer 的直观解释见第 8 节。*
 
 ## 2. 从 fuzz 测试到二进制证明
 
@@ -625,7 +625,159 @@ assert(r == LZO_E_OK &&
 
 @@opinion-end@@
 
-## 8. 原始资料与图表索引
+## 8. 找 crash、证明无 crash 与完整内存安全：从一次越界写说起
+
+### 8.1 到底在找什么 bug：先看入口怎样失败
+
+主实验把库、fuzz 驱动与插桩运行时编译成程序，寻找能使这个程序进入规定错误的输入。失败可能来自普通程序自身的故障，也可能来自 ASan 报告后中止，或入口中的断言失败。模型不支持的行为也被纳入证明要排除的错误，但单凭模型无法继续执行，还不能确认真实程序有漏洞；需要诊断并重放。
+
+原文举出的一个例子是：某个解压器只有在约 20 MB、布局特殊的输入下才出现计数器下溢，进而发生越界写。这说明证明过程中寻找输入，可以触及常规 fuzzing 很难碰到的组合条件。原文主实验的最终目标是修补后完成指定入口的无 crash 证明；寻找漏洞也是即使未能证完仍可交付的成果。[原文的漏洞发现与实验目标](https://www.anthropic.com/research/formal-verification)
+
+**这里的 crash 是检查程序的失败信号，不能与所有软件错误画等号。** ASan 可以把某些原本暂时不崩溃的内存错误变成报告与中止；维护者也可以用断言把算法要求变成失败分支。§7.6 的 LZO 示例检查成功状态与还原长度，就是后一种情况。入口没有观察的功能要求，不会仅因为“入口不崩溃”就自动得到验证。
+
+@@opinion-begin@@
+
+对找 bug 的目标，最有说服力的交付物是能够真实复现、并违反预期契约的输入及执行过程。证明失败只是线索；证明成功和漏洞复现则是两种不同的成果。报告结果时，把它们分别计数，能够更准确地体现这条路线的价值。
+
+@@opinion-end@@
+
+### 8.2 ASan 做了什么：越过箱子边界，不一定撞到仓库的墙
+
+可以把进程的可访问地址空间想成仓库，把一次分配得到的缓冲区想成箱子。操作系统的页级保护通常不会为每个小对象单独立墙：写出了箱子，却还在可写的仓库区域里，程序可能暂时正常运行，只是已经破坏了数据。
+
+ASan 通过编译时插桩与运行时库，为许多内存访问增加检查，并用影子内存记录地址是否允许访问。可以把它理解为在部分边界和失效区域布置警报。某次访问命中禁用区域，便报告错误并通常中止程序；这些机制并不等于完整跟踪所有对象归属与语言层面的内存合法性。[ASan 的组成与工作方式](https://clang.llvm.org/docs/AddressSanitizer.html)
+
+例如，假设驱动分配了 16 字节的堆缓冲区 `p`，输入控制索引 `i`，随后调用这个解释性示例；它不是论文项目中的原码：
+
+```c
+void put(char *p, size_t i) {
+    p[i] = 1;
+}
+```
+
+`i == 16` 时，尝试写入的是第 17 个字节。普通构建可能破坏邻近数据而没有立即崩溃；在 ASan 构建中，如果目标地址被标记为禁用区域，相应检查会报告越界并中止。于是，一个原本可能静默的内存错误，被转换成 fuzz 驱动与无错误命题能够观察到的失败。
+
+```text
+输入控制索引
+  → 执行一次写入
+  → ASan 检查目标地址
+  → 命中禁用区域，报告并中止
+```
+
+对某个输入运行一次，能够发现这次执行中的报告；形式证明进一步尝试排除前提范围内所有执行的这种失败。两者使用同一类可执行检查，但覆盖的量词不同。证明的是指定二进制中实际存在的检查，而非任意版本、任意配置的 sanitizer 都不可能报告。
+
+### 8.3 三种结论的量词和依据不同
+
+**表 7：找 crash、无 crash 保证与完整内存安全的区别。**
+
+| 目标 | 需要交付什么证据 | 不能直接推出什么 |
+| --- | --- | --- |
+| 找到并确认一个 crash | 一个输入和相应环境，在真实目标上复现规定失败，并确认违反预期契约 | 其他输入是否安全 |
+| 指定插桩构建无 crash | 对前提允许的全部执行，排除该构建中的规定错误，并建立模型与真实执行的对应 | 所有 sanitizer 都不报错、所有内存错误都不存在 |
+| 普通构建无 crash | 对普通二进制的全部允许执行，直接排除所定义的故障与中止等错误 | 没有静默内存破坏、没有错误输出、一定终止 |
+| 完整内存安全 | 对明确的内存安全定义，排除范围内所有执行的相关违规，例如对象边界和生命周期违规 | 全部功能正确、不会主动中止或挂起 |
+
+表 7 中的“全部”同时受入口、输入、内存布局、环境响应和资源前提约束；“完整内存安全”也必须先说明采用什么语言或机器层定义。**无 crash 与内存安全不是简单的线性包含关系：程序可以内存安全却触发失败断言，也可以越界写却暂时不崩溃。**
+
+公开的 `agrees_in` 并非只要求 ASan 不报告。它还直接要求普通构建无模型错误。将其结论缩写，结构是：
+
+$$
+\begin{aligned}
+&\operatorname{ErrorFree}_{M}(P)\\
+&\quad\land\operatorname{ErrorFree}_{M}(S)\\
+&\quad\land\operatorname{Traces}_{M}(P)
+=\operatorname{Traces}_{M}(S).
+\end{aligned}
+$$
+
+这里 $P$ 是普通二进制，$S$ 是指定插桩二进制，$M$ 是形式语义；外层量词和前提见 §6.3。既然普通构建的无错误性本身就在证明目标中，它不必通过“ASan 能捕获所有 crash”来间接获得。[实际命题模板](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/theories/Shapes.v)
+
+如果只有“ASan 从不报告”这一结论，却要推出“任何内存错误都不存在”，则需要额外证明：每一种目标内存错误都会在相应插桩执行中被报告。现有 ASan 不提供这样的完整覆盖。普通构建无模型错误，也不能补上模型并未定义为错误的对象归属或子对象边界违规。[cJSON 陈述中的覆盖限制](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/Statements.v)
+
+@@opinion-begin@@
+
+评价这项工作时，应分别承认三类价值：真实复现的缺陷、指定语义与前提下的无错误证明，以及进一步建立的功能或内存安全性质。把第一类成果贬成“没有完整保证所以没用”，会低估找漏洞的工程价值；把第二类成果直接写成完整内存安全，又会扩大它的证明范围。
+
+@@opinion-end@@
+
+### 8.4 形式化不可信，会影响哪一条结论
+
+继续使用仓库的比喻：形式语义像一份描述通道、边界和警报器的地图。依据地图找到可疑位置，再到真实仓库确认确实出错，这个发现不因地图其他地方画错而失效。反过来，仅在地图上证明所有路线都安全，结论能否适用于仓库，就取决于地图是否保留了真实可能发生的危险。
+
+```text
+找 bug：
+  模型提供候选输入
+  → 真实目标复现失败
+
+提供保证：
+  模型内完成全称证明
+  ＋ 模型与真实执行的可靠对应
+  → 前提范围内排除规定错误
+```
+
+因此，错误或尚未充分验证的形式化，可能使寻找漏洞的过程遗漏真实错误，也可能产生无法复现的线索；但一个已经在真实目标上复现并确认的 bug，仍然有效。对于“所有允许执行都安全”，若模型漏掉真实执行、把错误当作正常结果，或错误处理了运行环境，则模型内证明不足以支持现实中的全称保证。
+
+这里需要的是适合目标性质的语义对应。对全称安全性质，保守覆盖真实执行可以足够，并不要求模型中的每条行为都真实可发生；但不能悄悄丢掉真实错误。语义的依据可以由差分执行、独立审计和与参考模型的对应证明加强；通常的有限样本测试不能完成对所有执行的对应论证。§4.2 讨论了过近似对安全性和行为等价的不同影响。
+
+还应区分语义与检查器：如果只有语义偏离现实，而 Rocq 检查链可靠，那么已检查的形式命题仍然成立，缺少的是将它应用到现实的依据。若检查链本身也不可靠，连模型内的证明结论都需要重新核验。[项目的信任基础](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/trust.md)
+
+@@opinion-begin@@
+
+“形式化需要信任”不意味着只能凭感觉接受，也不意味着所有结果一并作废。更有用的做法是明确哪部分尚未建立对应、哪些已复现的发现不受影响、哪些无错误保证仍带着假设。找漏洞允许先采用有用但不完美的地图；提供保证则要交代地图与现实之间的证据。
+
+@@opinion-end@@
+
+### 8.5 ASan 会漏掉什么：地址可访问，不代表访问合法
+
+**表 8：ASan 的典型盲区，以及其他检查的分工。**
+
+| 情形 | 直观例子 | 覆盖边界或补充方式 |
+| --- | --- | --- |
+| 对象内部越界 | 数组成员越界，覆盖同一结构体中的后续成员 | 默认 ASan 未必区分内部成员边界；部分额外检查可补充 |
+| 错误访问落入另一个活对象 | 本应写对象 A，算错地址后写进仍存活的对象 B | 地址可访问，不等于指针归属与访问意图合法 |
+| 未插桩代码中的访问 | 库或汇编中的普通读写没有相应检查 | 拦截器可能覆盖部分操作，不能视为全面覆盖 |
+| 超过逻辑有效长度 | 分配 1,024 字节，只有前 64 字节有效，却读取第 100 字节 | 分配边界内的访问可能不报；需要长度不变量或相应标注 |
+| 使用未初始化值 | 根据未初始化变量选择分支 | 主要由 MemorySanitizer 检查 |
+| 整数与其他未定义行为 | 有符号溢出、非法移位等 | 需要启用相应 UBSan 检查，并核对具体配置 |
+| 数据竞争 | 两线程无同步地访问同一数据且至少一次写入 | 由 ThreadSanitizer 等检查；主实验限定单线程 |
+| 功能或权限错误 | 输出内容不对，或遗漏权限检查 | 通用 sanitizer 通常不知道预期结果，需要功能规约或断言 |
+
+表 8 的前三行涉及内存访问检查本身的缺口；后面还包含 ASan 不负责的其他性质。公开 cJSON 命题明确列出“访问落入另一个活对象”和“未插桩代码”两类限制。[项目中的明确说明](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/Statements.v) 容器内部逻辑边界可以通过专门标注增强检查；没有标注时，不能自动把分配边界理解为有效数据边界。[ASan 容器检查说明](https://clang.llvm.org/docs/AddressSanitizer.html#disabling-container-overflow-checks)
+
+一个更容易看见的对象内部越界例子如下，同样是解释性示例：
+
+```c
+struct S {
+    char data[8];
+    int allowed;
+};
+
+void put_member(struct S *s, int i) {
+    s->data[i] = 1;
+}
+```
+
+在常见布局下，`i == 8` 可能写到 `allowed` 的字节。它已经越过 `data` 的数组边界，却仍处于整个结构体对象内部；默认 ASan 可能不报警。用箱子比喻，这相当于破坏了箱子内部的隔间，但没有碰到外侧警报。某些 UBSan 边界检查或额外布局插桩可以覆盖部分此类情况，不能据此宣称所有内部越界都被排除。[ASan 开发者对内部越界的说明](https://github.com/google/sanitizers/wiki/AddressSanitizerIntraObjectOverflow)
+
+其他 sanitizer 也各有目标：[MemorySanitizer](https://clang.llvm.org/docs/MemorySanitizer.html) 关注未初始化值的使用，[UBSan](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html) 覆盖启用的未定义行为检查，[ThreadSanitizer](https://clang.llvm.org/docs/ThreadSanitizer.html) 检测数据竞争。启用了某个工具，不等于已经启用这个工具族里的全部检查；全部检查都通过，也不会自动生成业务功能要求。
+
+@@opinion-begin@@
+
+最需要避免的跳跃，是从“警报没有响”推到“所有错误都不存在”。证明能把指定警报在有限样本上的沉默，提升为前提范围内所有执行都不触发它；证明的量词变强了，警报本身的检测边界仍然存在。要进一步获得完整内存安全或功能正确性，就要把那些遗漏的要求真正放进模型与命题。
+
+@@opinion-end@@
+
+### 8.6 排除证据更强，不等于找漏洞的效率必然更高
+
+@@opinion-begin@@
+
+相对于有限次运行，一个完成的全称证明能够提供更强的排除证据。证明过程也可能帮助定位大输入、稀有分支和复杂调用历史中的错误。然而，这不推出它在所有项目、相同预算下都必然胜过直接让模型找漏洞或运行 fuzzer。
+
+比较找漏洞能力，应统一入口、输入范围、构建与资源，比较确认缺陷的数量、失败与遗漏、总时间及总成本。比较保证能力，则应核对完成了什么命题及其信任前提。把发现效率与排除证据分别评价，才能同时保留这项工作的实际进展和它尚未解决的问题。
+
+@@opinion-end@@
+
+## 9. 原始资料与图表索引
 
 - [Anthropic 原文](https://www.anthropic.com/research/formal-verification)：2026 年 10 月 22 日发布，本文展示其全部六张编号图。
 - [六页附录](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf)：定理含义、Python 解释器案例、证明规模与小任务设置；无独立图表。
@@ -634,6 +786,7 @@ assert(r == LZO_E_OK &&
 - [cJSON 的 spec](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/Statements.v)、[证明状态](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/README.md)、[通用命题模板](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/theories/Shapes.v)：第 6 节源码示例的固定来源。
 - [LPS 的指令语义](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/Riscv/Sem.v)、[机器状态与步进](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/RiscvSemantics.v)、[进程行为](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v)：从单条指令到整体运行的定义。
 - [LPS 语义与已知缺口](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/SCOPE.md)：固定到公开发布所使用的语义版本。
+- [ASan 官方文档](https://clang.llvm.org/docs/AddressSanitizer.html)、[对象内部越界说明](https://github.com/google/sanitizers/wiki/AddressSanitizerIntraObjectOverflow)、[UBSan](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html)、[MemorySanitizer](https://clang.llvm.org/docs/MemorySanitizer.html)、[ThreadSanitizer](https://clang.llvm.org/docs/ThreadSanitizer.html)：第 8 节对检查机制、盲区与工具分工的补充来源。
 - [OSS Verify 项目说明](https://theorem.dev/oss-verify/)、[软件栈路线图](https://theorem.dev/blog/verified-software-stack/)：项目工作方式，以及软件生态规模的成本预测。
 
-图表位置：图 1 见 §2.1，图 2 见 §2.2，图 3 见 §2.3，图 4 见 §3.2，图 5 见 §3.3，图 6 见 §3.4。表 1–6 均为本文整理，依次位于 §2.4、§3.5、§4.1、§5.4、§6.1、§6.4。附录的六个主题依次见 §7.1–7.6，其中代码示例见 §7.6。全部原始图像和动画归 Anthropic 及相应权利人所有；本地媒体的来源与校验值记录在 [sources.json](../assets/papers/anthropic-verification/sources.json)。
+图表位置：图 1 见 §2.1，图 2 见 §2.2，图 3 见 §2.3，图 4 见 §3.2，图 5 见 §3.3，图 6 见 §3.4。表 1–8 均为本文整理，依次位于 §2.4、§3.5、§4.1、§5.4、§6.1、§6.4、§8.3、§8.5。附录的六个主题依次见 §7.1–7.6，其中代码示例见 §7.6。全部原始图像和动画归 Anthropic 及相应权利人所有；本地媒体的来源与校验值记录在 [sources.json](../assets/papers/anthropic-verification/sources.json)。
