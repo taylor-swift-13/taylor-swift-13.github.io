@@ -17,6 +17,12 @@ const markdown = new MarkdownIt({ html: false, linkify: true, typographer: false
 
 const articles = [
   {
+    slug: 'on-policy-distillation-kl',
+    title: '从全词表到采样梯度：理解 OPD 中的 Forward KL 与 Reverse KL',
+    description: '推导学生采样下的两种 KL 梯度，解释固定权重、重要性采样与 reverse KL 的选择动机。',
+    category: '模型蒸馏',
+  },
+  {
     slug: 'anthropic-formal-verification',
     title: 'Anthropic 的大手终于伸到了程序验证：兴奋与压力并存的时代，什么值得信任，还有哪些方向值得探索',
     description: '从二进制操作语义与 fuzz 规约出发，讨论找 bug、功能正确性与大模型时代的信任取舍。',
