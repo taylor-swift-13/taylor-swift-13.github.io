@@ -4097,58 +4097,22 @@ Qed.
 <p>专家观察到，证明反复写出寄存器内容、整数转换、地址互异、栈内容和各条分支。人类证明工程师通常会引入函数调用约定、不相交指针集合、分配器与栈的抽象，并合并相似分支。代理已经使用 framing、布局无关推理和分配器抽象，但使用并不一致，证明规模仅小幅改善。</p>
 <p>附录指出，这些已检查证明与同一定理的其他证明具有相同逻辑效力；接下来的问题是如何扩展到更复杂程序。MachCSL 等项目曾遇到冗长证明造成的复杂度瓶颈，因此作者提出：由专家指导寻找抽象，还是提炼通用原则，让代理自行发现模块化抽象？<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=4">附录第 4–5 页</a></p>
 <h3>2.6 源码补充：cJSON 的顶层目标与中间规约</h3>
-<p>这里区分三项工作。<strong>人类参与测试和任务设计</strong>：维护者提供 fuzz 入口，研究团队选定执行模型、验证性质及输入与资源条件。<strong>工具机械生成顶层命题</strong>：将任务配置和二进制映像填入既定模板。<strong>代理构造中间规约与证明</strong>：附录第 4 页说明，代理在给定的等价目标下自行提出短规约，再证明两个构建与它的关系。下面固定到公开仓库 <code>98e995d4</code> 与 LPS <code>f1006fe8</code>。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=4">原文与附录的分工</a></p>
-<h4>2.6.1 顶层 spec 怎样机械生成</h4>
-<p>cJSON 的 <code>harness.yaml</code> 记录了以下目标字段，原样节选：</p>
-<pre><code class="language-yaml">  asan_agrees:
-    kind: agreement
-    builds:
-    - plain
-    - asan
-    reading: alloc-forced-only
-    budgets: asan
-</code></pre>
-<p><code>kind</code> 选择行为一致目标，<code>builds</code> 指定普通构建和 ASan 构建，<code>reading</code> 选择环境失败策略，<code>budgets</code> 选择预算组。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/harness.yaml">实际配置</a></p>
-<p><code>shapes.py</code> 的 <code>term</code> 函数将这些字段转换成 Rocq 项。以下为完整的 <code>agreement</code> 分支：</p>
-<pre><code class="language-python">    if kind == &quot;agreement&quot;:
-        key = (reading, st.get(&quot;abort&quot;, &quot;error&quot;), st.get(&quot;machine&quot;, &quot;rv64g&quot;))
-        shape = AGREEMENT.get(key)
-        if shape is None:
-            raise ShapeError(&quot;no agreement shape for reading/abort/machine %r&quot; % (key,))
-        if &quot;budgets&quot; not in st:
-            raise ShapeError(&quot;an agreement statement names its budgets&quot;)
-        mod = BUDGETS[st[&quot;budgets&quot;]][0]
-        env = (ENV[reading] + &quot; &quot;) if reading == &quot;alloc-forced-only&quot; else &quot;&quot;
-        return &quot;&quot;, &quot;%s %s%s.lim_source %s.lim_target %s %s&quot; % (shape, env, mod, mod, plain, san)
-</code></pre>
-<p><code>AGREEMENT</code> 按环境策略、中止解释和架构选择模板；本例选中 <code>agrees_in</code>。<code>BUDGETS[&quot;asan&quot;]</code> 选中 <code>Budgets.Asan</code>，<code>image()</code> 把构建名转换为 <code>Images.plain</code>、<code>Images.asan</code>。最后一行将模板名与参数拼成命题正文。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/shapes.py#L45">形状映射与转换函数</a></p>
-<p><code>generate.py</code> 调用 <code>shapes.term(st.data)</code>，再填入下面这段实际模板：</p>
-<pre><code class="language-text">Definition $name$params : Prop :=
-  $body.
-</code></pre>
-<div class="author-opinion">
-<p><strong>生成命题的模板</strong></p>
-<ul>
-<li><strong>名称与参数</strong>：将 <code>$name</code> 换成命题名，将 <code>$params</code> 换成需要的形式参数；没有额外参数时，这一项为空。</li>
-<li><strong>命题正文</strong>：将 <code>$body</code> 换成生成器选出的性质模板及其实际参数。</li>
-<li><strong>产物</strong>：生成一条类型为 <code>Prop</code> 的命题定义，后续证明文件需要提供它的证明。</li>
-</ul>
-</div>
-<p>本例得到的结果与公开 <code>Statements.v</code> 一致：</p>
+<p>这一节只看四步：<strong>工具生成目标 → 展开目标 → 定义错误 → 模型完成证明</strong>。源码固定到公开仓库 <code>98e995d4</code> 与 LPS <code>f1006fe8</code>。</p>
+<h4>2.6.1 工具生成目标</h4>
+<p>维护者提供 fuzz 入口，研究团队选定验证任务。cJSON 的 <code>harness.yaml</code> 指定比较普通构建与 ASan 构建，采用 <code>alloc-forced-only</code> 环境策略和 <code>asan</code> 预算组。生成器读取这些字段，选择 <code>agrees_in</code> 模板，自动生成下面的命题。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/harness.yaml">任务配置</a>、<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/shapes.py#L45">生成代码</a></p>
 <pre><code class="language-coq">Definition asan_agrees : Prop :=
   agrees_in Env.alloc_forced_only Budgets.Asan.lim_source Budgets.Asan.lim_target Images.plain Images.asan.
 </code></pre>
 <div class="author-opinion">
 <p><strong>cJSON 的顶层命题</strong></p>
 <ul>
-<li><strong>命名</strong>：把下面这个命题命名为 <code>asan_agrees</code>。</li>
-<li><strong>比较对象</strong>：普通二进制 <code>Images.plain</code> 与 ASan 二进制 <code>Images.asan</code>。</li>
-<li><strong>执行条件</strong>：采用 <code>Env.alloc_forced_only</code> 环境策略，以及 <code>Budgets.Asan</code> 的普通侧、ASan 侧预算参数。</li>
-<li><strong>要求</strong>：这两个程序满足 <code>agrees_in</code>，即下一块代码展开的无错误与行为一致条件。</li>
+<li><strong>对象</strong>：普通程序 <code>Images.plain</code> 和 ASan 程序 <code>Images.asan</code>。</li>
+<li><strong>条件</strong>：指定环境策略和两边的内存预算。</li>
+<li><strong>目标</strong>：把两边无错误、行为一致的要求命名为 <code>asan_agrees</code>，等待证明。</li>
 </ul>
 </div>
-<p>这一步由配置读取、模板选择和文本生成完成。<code>Images.v</code> 同样由生成器写出，把二进制的加载段、入口地址和程序头组成映像。检查器的 <code>fingerprint</code> 还绑定命题正文、相关二进制 SHA-256、<code>Shapes.v</code>、映像定义及 LPS 版本；<code>oft check</code> 生成包装定义，要求提交证明具有这一固定命题的类型，再检查依赖假设。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/generate.py#L87">生成器</a>、<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/templates/Statements.v.tmpl#L71">定义模板</a>、<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/facts.py#L331">指纹计算</a>、<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/check.py#L252">检查包装</a></p>
-<h4>2.6.2 实际要证明什么</h4>
+<p><code>Images.v</code> 也由工具生成，记录二进制映像。检查器用指纹绑定命题、二进制和 LPS 版本，检查提交的证明是否对应这一目标。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/generate.py#L87">生成器</a>、<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/check.py#L252">检查器</a></p>
+<h4>2.6.2 目标：两边无错误，行为一致</h4>
 <p><a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/theories/Shapes.v"><code>Shapes.v</code></a> 中的 <code>agrees_in</code> 完整定义如下：</p>
 <pre><code class="language-coq">Definition agrees_in (env : SpuriousCfg) (lim_plain lim_san : Z) (plain san :
   Image) : Prop :=
@@ -4165,18 +4129,16 @@ Qed.
 <div class="author-opinion">
 <p><strong>行为一致目标的完整条件</strong></p>
 <ul>
-<li><strong>给定</strong>：环境策略 <code>env</code>、普通侧和插桩侧的预算，以及两份二进制映像。</li>
-<li><strong>任取</strong>：同一个进程输入 <code>inp</code>，以及两个构建各自的启动布局 <code>en_plain</code>、<code>en_san</code>。</li>
-<li><strong>前提</strong>：两份映像在相应布局下都能合法启动；输入合法；普通构建在该环境和预算下不会因预算不足而被拒绝。</li>
-<li><strong>结论一、二</strong>：普通构建的全部许可执行无错误，插桩构建的全部许可执行也无错误。</li>
-<li><strong>结论三</strong>：两份构建允许产生的有限事件轨迹集合相同。最后两行比较的是轨迹集合，而非挑选两次运行逐步比较。</li>
+<li><strong>任取输入</strong>：同一输入 <code>inp</code>，两边各自合法的启动布局。</li>
+<li><strong>前提</strong>：输入合法，普通程序不会因预算不足被拒绝。</li>
+<li><strong>必须证明三件事</strong>：普通程序无错误；ASan 程序无错误；两边允许的可观察轨迹集合相同。</li>
 </ul>
 </div>
 <p>输入包括参数、环境变量、初始文件和标准输入；布局包括栈、堆起点与随机字节。cJSON 的目标采用普通构建 2 GiB、ASan 构建 512 GiB 的预算。<code>alloc_forced_only</code> 要求内存请求只在预算耗尽或缺少地址空间时失败，其他请求仍可能失败。</p>
 <p>行为观察包括标准输入读取、标准输出和错误输出、退出状态或终止信号、最终文件系统；性能不在其中。有限轨迹没有单独记下 crash，因此发生错误与不再产生事件的死循环可能具有相同前缀。这也是模板分别要求两个构建无错误的原因。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=1">附录第 1–2 页</a></p>
 <p><strong>该入口的已完成目标是 <code>asan_agrees</code>、<code>ubsan_agrees</code> 和 <code>asan_ubsan_agrees</code>。</strong> <code>plain_halts</code> 仍是开放目标：它另用 16 GiB 预算，要求所有许可执行最终以 0 或 2 退出，排除无限执行、卡住、错误与信号终止。其环境策略 <code>forced_only_cfg</code> 要求环境只在被状态强制时拒绝请求。ASan 的地址空间预留在被拒绝后会等待，因此仓库没有为它提供任意环境失败下的同类 <code>halts_may_fail</code> 目标。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/README.md">证明状态与环境</a></p>
 <p>驱动在参数、文件或输入头部不合要求，或文件达到 64 MiB 时可返回 2；部分环境函数被固定为 <code>getenv()</code> 返回 NULL、<code>getpid()</code> 返回 1。入口调用 JSON 解析、打印与压缩，但释放输出而不比较内容。概率界和可判定性命题也仍为开放目标。</p>
-<h4>2.6.3 LPS 怎样执行系统调用并定义 crash</h4>
+<h4>2.6.3 错误：存在一条路径进入 SError</h4>
 <p>遇到 <code>ecall</code> 后，LPS 收集系统调用号、参数寄存器、可读内存和可写范围，交给 <code>syscall_spec</code>。对应的规约用 <code>Sys</code> Monad 描述许可结果：返回值、内存及文件状态变化、可观察事件。<code>sstep_syscall</code> 把任一满足规约的效果应用到进程状态，再继续执行。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v#L394">参数与转换</a>、<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Specs.v">系统调用规约</a></p>
 <p>例如 <code>read</code> 的输入字节由进程输入固定，非确定的是一次读出多少字节；规约允许短读，并描述输入耗尽和相应失败情形。<code>SpuriousCfg</code> 再约束哪些环境失败被允许。证明需要覆盖全部许可后继。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Sys/Fs/ReadWrite.v#L345">官方 read 规约</a></p>
 <p>对普通指令，以下是实际的故障转换规则：</p>
@@ -4189,9 +4151,8 @@ Qed.
 <div class="author-opinion">
 <p><strong>一条指令怎样进入错误状态</strong></p>
 <ul>
-<li><strong>当前情况</strong>：进程尚未正常退出，且没有待处理的系统调用。</li>
-<li><strong>前提</strong>：执行当前机器指令并记入资源开销，得到 <code>MachineFault</code>。</li>
-<li><strong>推出的一步</strong>：从当前配置 <code>mkCfg ms model</code> 转到 <code>SError</code>；中间的空列表 <code>[]</code> 表示这一步没有产生可观察事件。</li>
+<li><strong>前提</strong>：尚未退出、没有待处理系统调用，当前指令产生 <code>MachineFault</code>。</li>
+<li><strong>结果</strong>：一步进入 <code>SError</code>；<code>[]</code> 表示这一步没有可观察事件。</li>
 </ul>
 </div>
 <p>模型未覆盖的指令另有进入 <code>SError</code> 的规则。错误可达性定义为：</p>
@@ -4201,9 +4162,8 @@ Qed.
 <div class="author-opinion">
 <p><strong>什么叫“能够到达错误”</strong></p>
 <ul>
-<li><strong>起点</strong>：给定初始配置 <code>c0</code>。</li>
-<li><strong>寻找一条路径</strong>：存在事件序列 <code>tr</code> 和中间配置 <code>c</code>，从 <code>c0</code> 经过零步或多步正常转换到达 <code>c</code>。</li>
-<li><strong>最后一步</strong>：从 <code>c</code> 再执行一步，产生事件列表 <code>evs</code> 并进入 <code>SError</code>。只要有这样一条路径，<code>reaches_error c0</code> 就成立。</li>
+<li><strong>路径</strong>：从 <code>c0</code> 经过零步或多步到达 <code>c</code>，再一步进入 <code>SError</code>。</li>
+<li><strong>含义</strong>：存在这样一条路径，<code>reaches_error c0</code> 就成立。</li>
 </ul>
 </div>
 <p>运行定义把这一可达性记录在 <code>bh_errors</code> 中，最终的无错误谓词就是：</p>
@@ -4213,21 +4173,20 @@ Qed.
 <div class="author-opinion">
 <p><strong>什么叫“无错误”</strong></p>
 <ul>
-<li><strong>对象</strong>：程序的整体行为记录 <code>b</code>。</li>
-<li><strong>要求</strong>：否定 <code>bh_errors b</code>，也就是排除这份行为记录所允许的错误执行。<code>~</code> 是逻辑否定，整条定义给出的是待证明的命题。</li>
+<li><strong>对象</strong>：程序行为 <code>b</code>。</li>
+<li><strong>要求</strong>：<code>~ bh_errors b</code>，即不存在允许的错误执行。</li>
 </ul>
 </div>
 <p>因此，目标要求在许可初态和执行关系下排除所有错误路径。ASan 插入的地址检查也属于二进制指令，检查失败后的中止路径同样需要排除。显式建模 <code>abort</code> 的命题族还会使用 <code>KillEv</code> 与 <code>error_free_unkilled</code> 禁止信号终止。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v">运行与错误定义</a>、<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/EquivalenceDefinition/Equivalence.v#L194">信号终止定义</a></p>
-<h4>2.6.4 代理生成的中间 spec 怎样帮助证明</h4>
+<h4>2.6.4 证明：用同一个中间规约连接两边</h4>
 <p>顶层目标固定以后，代理可以为组织证明引入中间规约。cJSON 使用的类型是：</p>
 <pre><code class="language-coq">Definition TSet := list event -&gt; Prop.
 </code></pre>
 <div class="author-opinion">
 <p><strong>用谓词表示轨迹规约</strong></p>
 <ul>
-<li><strong>输入</strong>：一段有限的事件序列，类型为 <code>list event</code>。</li>
-<li><strong>给出的内容</strong>：关于这段事件序列的一个命题，类型为 <code>Prop</code>。</li>
-<li><strong>规约含义</strong>：某个 <code>T : TSet</code> 描述哪些轨迹被允许；<code>T tr</code> 表示轨迹 <code>tr</code> 属于它描述的集合。</li>
+<li><strong>输入</strong>：一条有限事件序列 <code>tr</code>。</li>
+<li><strong>含义</strong>：<code>T tr</code> 是命题，表示这条轨迹符合规约 <code>T</code>。</li>
 </ul>
 </div>
 <p>实际 <code>t_body</code> 规约按驱动头部决定拒绝还是调用：输入上限为 <code>67108864</code> 字节，即 64 MiB；合法输入触发 1–4 次调用，输出相应数量的 <code>0</code> 加换行，最后以状态 0 退出；拒绝分支写错误消息并以状态 2 退出。这里描述的是驱动的可观察行为。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/ShapeSpec.v">实际中间规约</a></p>
@@ -4243,16 +4202,12 @@ Qed.
 <div class="author-opinion">
 <p><strong>怎样把中间规约接回最终结论</strong></p>
 <ul>
-<li><strong>已经有的证明</strong>：<code>Hsource</code> 说明普通构建实现中间规约 <code>T</code>；<code>Htarget</code> 说明 ASan 构建实现同一个 <code>T</code>。</li>
-<li><strong>拆成三项</strong>：<code>split; [| split]</code> 把目标拆为普通构建无错误、ASan 构建无错误、两者轨迹一致。</li>
-<li><strong>前两项</strong>：化简后分别应用 <code>realizes_no_error</code> 与 <code>srealizes_no_error</code>，再提交已有的 <code>Hsource</code>、<code>Htarget</code>。</li>
-<li><strong>第三项</strong>：任取轨迹 <code>tr</code>，用两条 <code>*_obs_iff</code> 把两边“能产生 <code>tr</code>”都改写为 <code>T tr</code>。两边相同，<code>reflexivity</code> 完成证明。</li>
+<li><strong>已有证明</strong>：<code>Hsource</code>、<code>Htarget</code> 分别证明两边实现同一规约 <code>T</code>。</li>
+<li><strong>前两项</strong>：用 <code>*_no_error</code> 得到两边无错误。</li>
+<li><strong>第三项</strong>：用两条 <code>*_obs_iff</code> 把两边“能产生轨迹 <code>tr</code>”都改写成 <code>T tr</code>，最后用 <code>reflexivity</code> 收尾。</li>
 </ul>
 </div>
-<p>这里，维护者提供的测试、框架给定的性质模板和工具生成的顶层命题，是任务输入；代理提出的中间 <code>T</code>、执行不变量、辅助引理及证明步骤，是为完成该任务构造的证明产物。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=4">附录对代理短规约的观察</a></p>
-<div class="author-opinion">
-<p><strong>模型可自动完成</strong> 中间规约、执行不变量、辅助引理和证明搜索，由 Rocq 检查它们能否推出固定的顶层目标，无需人类逐条批准。若把某个中间规约另作对外承诺或新的任务目标，人类再审查它表达的要求。</p>
-</div>
+<p>代理自行提出中间规约、执行不变量和辅助引理，Rocq 检查它们是否推出固定的顶层目标。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=4">附录第 4 页</a></p>
 <h3>2.7 Rocq、生成脚本与证明工具</h3>
 <p>公开主实验的检查流程以 Rocq 为核心：给定二进制映像与固定命题，编译代理提交的证明，再检查假设。检查镜像包含 Rocq、LPS 及相关库，并不携带额外的证明自动化；编译、sanitizer 插桩、映像提取和生成脚本仍然参与整个流程。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/checking.md">检查环境</a></p>
 <p>主实验在 Rocq 中检查二进制证明；Rust 解释器实验采用 Verus 的契约与循环不变量，并由 Z3 完成相应证明义务。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf">附录第 3 页</a></p>
