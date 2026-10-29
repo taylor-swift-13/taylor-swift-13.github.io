@@ -24,7 +24,7 @@ const articles = [
   },
   {
     slug: 'anthropic-formal-verification',
-    title: 'Anthropic 的程序验证实验：证明了什么，又该信任什么',
+    title: 'Anthropic 的程序验证：测试 formalization 而不是实现，功能性检查编码到 crash，不写 spec 只写证明',
     description: '从二进制操作语义与 fuzz 规约出发，讨论找 bug、功能正确性与大模型时代的信任取舍。',
     category: '形式化验证',
     sourceAware: true,
