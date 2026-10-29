@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#faf9f6">
   <meta name="description" content="从二进制操作语义与 fuzz 规约出发，讨论找 bug、功能正确性与大模型时代的信任取舍。">
-  <title>Anthropic 的程序验证：测试 formalization 而不是实现，功能性检查编码到 crash，不写 spec 只写证明 — Notes</title>
+  <title>fuzz crash — Notes</title>
   <link rel="stylesheet" href="../css/style.css?v=149001e1ded1">
   <link rel="stylesheet" href="../css/anthropic-verification.css?v=f4ba967efa35">
   <link rel="stylesheet" href="../assets/katex/katex.min.css">
@@ -26,7 +26,7 @@
     <a class="back-link" href="../index.html#writing">← 返回文章列表</a>
     <header class="article-header">
       <p class="eyebrow">形式化验证</p>
-      <h1>Anthropic 的程序验证：测试 formalization 而不是实现，功能性检查编码到 crash，不写 spec 只写证明</h1>
+      <h1>fuzz crash</h1>
       <p class="article-deck">从二进制操作语义与 fuzz 规约出发，讨论找 bug、功能正确性与大模型时代的信任取舍。</p>
     </header>
     <article class="prose">
@@ -4386,6 +4386,7 @@ p \in \mathrm{Paths}_G(s,t) \land \forall q \in \mathrm{Paths}_G(s,t),\quad \mat
 </div>
 <h3>5.5 形式化错误影响什么结论</h3>
 <div class="author-opinion">
+<p><strong>测试 formalization 而不是实现</strong>：把测试用于检查形式模型与真实执行的对应，再在模型上证明实现满足指定性质。</p>
 <p>模型给出的候选 bug 可以在真实程序中重放；已复现并确认的错误具有独立证据。要把模型内的无错误证明用于真实程序，则需要模型保留实际可能的执行与错误。语义偏差影响这条现实对应，检查链错误则影响模型内证明的有效性。</p>
 <p><strong>模型与工具</strong> 可以寻找语义反例、执行差分测试并补充对应证明。人类审查发现的偏差和目标覆盖范围，决定何时采用某个语义版本；已有结论的适用性随相关变更重新核对。</p>
 </div>
