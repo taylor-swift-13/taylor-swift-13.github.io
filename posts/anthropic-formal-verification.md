@@ -596,7 +596,7 @@ LPS 的 `machine_result` 区分正常结果、执行故障与语义未覆盖。`
 
 ## 6. 结论（Conclusion）
 
-原文展望，随着模型能力、证明复用与开发流程改进，形式验证将像类型系统和测试框架一样，逐步成为生产软件开发的内置环节。此次工作展示的是：从现有测试形成目标，直接验证编译后的二进制，由 Claude 构造大规模证明，再交给 Rocq 检查。[原文结论](https://www.anthropic.com/research/formal-verification)
+随着模型能力、证明复用与开发流程改进，形式验证将像类型系统和测试框架一样，逐步成为生产软件开发的内置环节。此次工作展示的是：从现有测试形成目标，直接验证编译后的二进制，由 Claude 构造大规模证明，再交给 Rocq 检查。[原文结论](https://www.anthropic.com/research/formal-verification)
 
 @@wechat-quote-begin@@
 
@@ -604,8 +604,3 @@ LPS 的 `machine_result` 区分正常结果、执行故障与语义未覆盖。`
 
 @@wechat-quote-end@@
 
-@@opinion-begin@@
-
-人类把关需求、语义与补丁的含义；模型构造中间模型、补丁和证明；工具完成构建、重放与形式检查。已经固定并审查过的目标可以持续自动验证，人工审查重点随需求、语义和程序行为的变化而移动。
-
-@@opinion-end@@
