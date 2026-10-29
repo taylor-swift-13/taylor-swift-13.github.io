@@ -61,7 +61,17 @@ void put_member(struct S *s, int i) {
       (λ v, EDone (rset rd v cn))
 ```
 
-`rget c rs1 + sext 64 imm` 计算读取地址，`load_val` 读取数据，`rset rd v` 把结果写入目标寄存器。读不到所需字节时，机器层返回 `MachineFault`，进程层通过 `sstep_instr_fault` 进入 `SError`。[访存解释](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/RiscvSemantics.v#L879)、[故障转换](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v)
+@@opinion-begin@@
+
+**结构化译文：加载指令**
+
+- **输入**：当前状态中的基址寄存器 `rs1`、偏移量 `imm`、读取宽度 `msz`、有符号标记 `sgn`，以及目标寄存器 `rd`。
+- **计算地址**：读取 `rs1`，把 `imm` 符号扩展到 64 位，再将两者相加。
+- **读取并继续**：`load_val` 按宽度和符号规则读取数值；`λ v` 表示拿到结果 `v` 后，把它写入已准备的下一状态 `cn` 的 `rd` 寄存器，再以 `EDone` 返回结果状态。
+
+@@opinion-end@@
+
+读不到所需字节时，机器层返回 `MachineFault`，进程层通过 `sstep_instr_fault` 进入 `SError`。[访存解释](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/RiscvSemantics.v#L879)、[故障转换](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v)
 
 ## 1. 引言：程序验证开始规模化
 
@@ -200,12 +210,33 @@ Definition $name$params : Prop :=
   $body.
 ```
 
+@@opinion-begin@@
+
+**结构化译文：生成命题的模板**
+
+- **名称与参数**：将 `$name` 换成命题名，将 `$params` 换成需要的形式参数；没有额外参数时，这一项为空。
+- **命题正文**：将 `$body` 换成生成器选出的性质模板及其实际参数。
+- **产物**：生成一条类型为 `Prop` 的命题定义，后续证明文件需要提供它的证明。
+
+@@opinion-end@@
+
 本例得到的结果与公开 `Statements.v` 一致：
 
 ```coq
 Definition asan_agrees : Prop :=
   agrees_in Env.alloc_forced_only Budgets.Asan.lim_source Budgets.Asan.lim_target Images.plain Images.asan.
 ```
+
+@@opinion-begin@@
+
+**结构化译文：cJSON 的顶层命题**
+
+- **命名**：把下面这个命题命名为 `asan_agrees`。
+- **比较对象**：普通二进制 `Images.plain` 与 ASan 二进制 `Images.asan`。
+- **执行条件**：采用 `Env.alloc_forced_only` 环境策略，以及 `Budgets.Asan` 的普通侧、ASan 侧预算参数。
+- **要求**：这两个程序满足 `agrees_in`，即下一块代码展开的无错误与行为一致条件。
+
+@@opinion-end@@
 
 这一步由配置读取、模板选择和文本生成完成。`Images.v` 同样由生成器写出，把二进制的加载段、入口地址和程序头组成映像。检查器的 `fingerprint` 还绑定命题正文、相关二进制 SHA-256、`Shapes.v`、映像定义及 LPS 版本；`oft check` 生成包装定义，要求提交证明具有这一固定命题的类型，再检查依赖假设。[生成器](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/generate.py#L87)、[定义模板](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/templates/Statements.v.tmpl#L71)、[指纹计算](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/facts.py#L331)、[检查包装](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/check.py#L252)
 
@@ -217,7 +248,7 @@ Definition asan_agrees : Prop :=
 
 #### 2.6.2 实际要证明什么
 
-`Shapes.v` 中的 `agrees_in` 完整定义如下：
+[`Shapes.v`](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/theories/Shapes.v) 中的 `agrees_in` 完整定义如下：
 
 ```coq
 Definition agrees_in (env : SpuriousCfg) (lim_plain lim_san : Z) (plain san :
@@ -233,7 +264,17 @@ Definition agrees_in (env : SpuriousCfg) (lim_plain lim_san : Z) (plain san :
                    (bh_traces (run_scfg env san lim_san en_san inp)).
 ```
 
-逐行读这段 Rocq：`forall` 量化合法进程输入和两个独立的启动布局；连续的 `->` 给出前提；预算前提约束普通构建。最后三个结论分别是普通构建无错误、ASan 构建无错误，以及两者有限可观察轨迹集合相同。[完整模板](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/theories/Shapes.v)
+@@opinion-begin@@
+
+**结构化译文：行为一致目标的完整条件**
+
+- **给定**：环境策略 `env`、普通侧和插桩侧的预算，以及两份二进制映像。
+- **任取**：同一个进程输入 `inp`，以及两个构建各自的启动布局 `en_plain`、`en_san`。
+- **前提**：两份映像在相应布局下都能合法启动；输入合法；普通构建在该环境和预算下不会因预算不足而被拒绝。
+- **结论一、二**：普通构建的全部许可执行无错误，插桩构建的全部许可执行也无错误。
+- **结论三**：两份构建允许产生的有限事件轨迹集合相同。最后两行比较的是轨迹集合，而非挑选两次运行逐步比较。
+
+@@opinion-end@@
 
 输入包括参数、环境变量、初始文件和标准输入；布局包括栈、堆起点与随机字节。cJSON 的目标采用普通构建 2 GiB、ASan 构建 512 GiB 的预算。`alloc_forced_only` 要求内存请求只在预算耗尽或缺少地址空间时失败，其他请求仍可能失败。
 
@@ -259,12 +300,32 @@ Definition agrees_in (env : SpuriousCfg) (lim_plain lim_san : Z) (plain san :
     sstep (mkCfg ms model) [] SError
 ```
 
-机器步进返回 `MachineFault` 时，进程进入 `SError`；`MachineUnmodeled` 也有进入 `SError` 的规则。零步或多步正常执行后再走一步错误，就构成错误可达：
+@@opinion-begin@@
+
+**结构化译文：一条指令怎样进入错误状态**
+
+- **当前情况**：进程尚未正常退出，且没有待处理的系统调用。
+- **前提**：执行当前机器指令并记入资源开销，得到 `MachineFault`。
+- **推出的一步**：从当前配置 `mkCfg ms model` 转到 `SError`；中间的空列表 `[]` 表示这一步没有产生可观察事件。
+
+@@opinion-end@@
+
+模型未覆盖的指令另有进入 `SError` 的规则。错误可达性定义为：
 
 ```coq
 Definition reaches_error (c0 : config) : Prop :=
   exists tr c evs, star c0 tr c /\ sstep c evs SError.
 ```
+
+@@opinion-begin@@
+
+**结构化译文：什么叫“能够到达错误”**
+
+- **起点**：给定初始配置 `c0`。
+- **寻找一条路径**：存在事件序列 `tr` 和中间配置 `c`，从 `c0` 经过零步或多步正常转换到达 `c`。
+- **最后一步**：从 `c` 再执行一步，产生事件列表 `evs` 并进入 `SError`。只要有这样一条路径，`reaches_error c0` 就成立。
+
+@@opinion-end@@
 
 运行定义把这一可达性记录在 `bh_errors` 中，最终的无错误谓词就是：
 
@@ -272,6 +333,15 @@ Definition reaches_error (c0 : config) : Prop :=
 Definition error_free (b : behavior)
   : Prop := ~ bh_errors b.
 ```
+
+@@opinion-begin@@
+
+**结构化译文：什么叫“无错误”**
+
+- **对象**：程序的整体行为记录 `b`。
+- **要求**：否定 `bh_errors b`，也就是排除这份行为记录所允许的错误执行。`~` 是逻辑否定，整条定义给出的是待证明的命题。
+
+@@opinion-end@@
 
 因此，目标要求在许可初态和执行关系下排除所有错误路径。ASan 插入的地址检查也属于二进制指令，检查失败后的中止路径同样需要排除。显式建模 `abort` 的命题族还会使用 `KillEv` 与 `error_free_unkilled` 禁止信号终止。[运行与错误定义](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v)、[信号终止定义](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/EquivalenceDefinition/Equivalence.v#L194)
 
@@ -283,9 +353,19 @@ Definition error_free (b : behavior)
 Definition TSet := list event -> Prop.
 ```
 
-一个 `TSet` 描述允许出现哪些有限事件序列。实际 `t_body` 规约按驱动头部决定拒绝还是调用：输入上限为 `67108864` 字节，即 64 MiB；合法输入触发 1–4 次调用，输出相应数量的 `0` 加换行，最后以状态 0 退出；拒绝分支写错误消息并以状态 2 退出。这里描述的是驱动的可观察行为。[实际中间规约](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/ShapeSpec.v)
+@@opinion-begin@@
 
-代理分别建立 `Hsource` 和 `Htarget`，证明普通构建与 ASan 构建实现同一个中间规约 `T`。组合引理的证明体如下，原样节选：
+**结构化译文：用谓词表示轨迹规约**
+
+- **输入**：一段有限的事件序列，类型为 `list event`。
+- **给出的内容**：关于这段事件序列的一个命题，类型为 `Prop`。
+- **规约含义**：某个 `T : TSet` 描述哪些轨迹被允许；`T tr` 表示轨迹 `tr` 属于它描述的集合。
+
+@@opinion-end@@
+
+实际 `t_body` 规约按驱动头部决定拒绝还是调用：输入上限为 `67108864` 字节，即 64 MiB；合法输入触发 1–4 次调用，输出相应数量的 `0` 加换行，最后以状态 0 退出；拒绝分支写错误消息并以状态 2 退出。这里描述的是驱动的可观察行为。[实际中间规约](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/ShapeSpec.v)
+
+代理分别建立 `Hsource` 和 `Htarget`，证明普通构建与 ASan 构建实现同一个中间规约 `T`。以下从[组合引理](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/A/ATop.v#L27)的证明体中原样节选：
 
 ```coq
   split; [| split].
@@ -297,7 +377,16 @@ Definition TSet := list event -> Prop.
     reflexivity.
 ```
 
-`Hsource` 是普通构建实现 `T` 的证明，`Htarget` 是 ASan 构建实现 `T` 的证明。`split` 拆开两个无错误目标和一个轨迹一致目标；前两项使用 `*_no_error`，第三项用两个 `*_obs_iff` 将两边轨迹都改写为 `T tr`，再由 `reflexivity` 完成。[实际组合证明](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/A/ATop.v#L27)
+@@opinion-begin@@
+
+**结构化译文：怎样把中间规约接回最终结论**
+
+- **已经有的证明**：`Hsource` 说明普通构建实现中间规约 `T`；`Htarget` 说明 ASan 构建实现同一个 `T`。
+- **拆成三项**：`split; [| split]` 把目标拆为普通构建无错误、ASan 构建无错误、两者轨迹一致。
+- **前两项**：化简后分别应用 `realizes_no_error` 与 `srealizes_no_error`，再提交已有的 `Hsource`、`Htarget`。
+- **第三项**：任取轨迹 `tr`，用两条 `*_obs_iff` 把两边“能产生 `tr`”都改写为 `T tr`。两边相同，`reflexivity` 完成证明。
+
+@@opinion-end@@
 
 这里，维护者提供的测试、框架给定的性质模板和工具生成的顶层命题，是任务输入；代理提出的中间 `T`、执行不变量、辅助引理及证明步骤，是为完成该任务构造的证明产物。[附录对代理短规约的观察](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=4)
 

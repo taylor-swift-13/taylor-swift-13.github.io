@@ -9,4 +9,5 @@
 .source-code-full[open] summary{margin-bottom:12px}
 .source-code-full .source-code-meta{font-size:12px;line-height:1.7;margin-bottom:12px}
 .source-code-full pre{max-height:70vh;margin-bottom:0;overflow:auto}
+.source-code-full .code-translation{margin-top:18px}
 @media(max-width:640px){.source-figures .prose pre,.source-figures .prose pre code{white-space:pre-wrap;overflow-wrap:anywhere}}

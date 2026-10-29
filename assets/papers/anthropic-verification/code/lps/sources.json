@@ -9,7 +9,29 @@
       "raw_source": "https://raw.githubusercontent.com/theorem-labs/rocq-linux-process-semantics/f1006fe8178338a499b5e5c41be83006c4edd058/theories/Riscv/Decode.v",
       "lines": 380,
       "bytes": 15888,
-      "sha256": "07de82ebeb5748de01d88243f27b1bbef9da222dece2213e412bfd6137883414"
+      "sha256": "07de82ebeb5748de01d88243f27b1bbef9da222dece2213e412bfd6137883414",
+      "translation": [
+        {
+          "label": "输入",
+          "text": "一个 32 位机器指令字 w。"
+        },
+        {
+          "label": "拆字段",
+          "text": "从指令字提取操作码、寄存器编号、功能码和各类立即数；立即数在这一层保留编码宽度。"
+        },
+        {
+          "label": "选择指令",
+          "text": "依据操作码与功能码，构造跳转、加载、存储、整数运算、原子操作、浮点或控制状态寄存器指令。"
+        },
+        {
+          "label": "输出",
+          "text": "识别成功返回 Some 指令；编码不属于这里支持的有效 32 位指令时返回 None。"
+        },
+        {
+          "label": "与执行层的连接",
+          "text": "这里还原指令结构；寄存器和内存怎样变化，由后续指令执行语义规定。"
+        }
+      ]
     },
     {
       "name": "Run.v",
@@ -17,7 +39,41 @@
       "raw_source": "https://raw.githubusercontent.com/theorem-labs/rocq-linux-process-semantics/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v",
       "lines": 3538,
       "bytes": 174911,
-      "sha256": "90e236539de3fae3d3e2218f28ccf096085b4cc3d3ad19e9e8814d1bc814b015"
+      "sha256": "90e236539de3fae3d3e2218f28ccf096085b4cc3d3ad19e9e8814d1bc814b015",
+      "translation": [
+        {
+          "label": "输入与初态",
+          "text": "根据二进制映像、启动布局、进程输入和内存预算建立初始寄存器、内存及 Linux 进程状态。"
+        },
+        {
+          "label": "一步执行 sstep",
+          "text": "普通指令调用机器语义；系统调用采用其规约允许的结果，再更新寄存器、内存和文件状态。正常退出、信号终止与错误分别按对应规则处理。"
+        },
+        {
+          "label": "多步执行 star",
+          "text": "把零步或多步正常转换连接起来，并把各步产生的事件串成有限轨迹。"
+        },
+        {
+          "label": "错误可达性",
+          "text": "reaches_error 表示存在一条路径进入 SError；文件也单独记录能否到达未建模情形，以及是否所有执行都出错。"
+        },
+        {
+          "label": "环境选择",
+          "text": "SpuriousCfg 指定哪些类别的系统调用允许额外失败；带 cfg 的转换和轨迹定义只采用相应策略许可的分支。"
+        },
+        {
+          "label": "预算记账",
+          "text": "为需要内存支撑的匿名映射记账；延迟分配页在首次访问时计入预算，并记录预算导致的拒绝或故障。"
+        },
+        {
+          "label": "运行结果",
+          "text": "run 和 run_scfg 汇总一个程序可能产生的有限轨迹及错误情况，供上层无错误、行为一致和终止命题使用。"
+        },
+        {
+          "label": "合法性与配套引理",
+          "text": "valid_input、valid_entry 等定义允许的输入和启动条件，其余引理证明这些执行关系之间的联系与保持性质。"
+        }
+      ]
     }
   ]
 }
