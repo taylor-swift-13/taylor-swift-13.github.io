@@ -214,6 +214,43 @@ Definition agrees_in (env : SpuriousCfg) (lim_plain lim_san : Z) (plain san :
 
 @@opinion-end@@
 
+@@opinion-begin@@
+
+**为什么要同时证明“两边无错误、行为一致”？** 设普通构建为 A，ASan 构建为 B，三个结论各有作用：
+
+- **B 无错误**：在允许输入与环境下，ASan 检查不会触发；普通执行中没有直接崩溃的越界，也可能被这些检查捕获。
+- **A 无错误**：保证普通构建自身也不出错。ASan 改变了内存布局、分配器和运行时，不能仅由 B 无错误推出 A 无错误。
+- **行为一致**：保证插桩保持可观察计算。A 输出解析结果、B 输出空字符串，也可能两边都不崩溃；仅证明安全性排除不了这种差异。
+
+错误可达性与有限轨迹在 LPS 中分别记录，因此轨迹一致不能替代无错误条件。三个条件合起来仍允许两边输出同一个错误结果，也不自动排除无限执行：功能正确性需要相应检查，终止性需要另证 `halts`。
+
+**本地构造的反例：ASan 不崩溃，普通构建却断言失败。** ASan 会暂时隔离已释放内存，延迟地址复用。下面是完整测试程序；它错误地要求下一次分配不能复用刚释放的地址：
+
+```c
+#include <assert.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+int main(void) {
+    void *p = malloc(32);
+    if (!p) return 2;
+    uintptr_t old_address = (uintptr_t)p;
+    free(p);
+    void *q = malloc(32);
+    if (!q) return 2;
+    fprintf(stderr, "reused=%d\n", (uintptr_t)q == old_address);
+    assert((uintptr_t)q != old_address);
+    free(q);
+    return 0;
+}
+```
+
+用 GCC 的 `-O0 -fno-builtin` 编译普通版本，再加 `-fsanitize=address` 编译 ASan 版本。本地 Ubuntu 实测：普通版本打印 `reused=1`，断言失败并收到 `SIGABRT`；ASan 版本打印 `reused=0`，以状态 0 退出。程序在释放前把地址保存为整数，随后没有解引用已释放内存。
+
+这是依赖分配器行为的演示，**不是论文发现的 bug**。它说明 ASan 可能改变控制流，使普通构建触发的失败分支没有被执行；因此，“ASan 构建无错误”不能普遍推出“普通构建无错误”。[ASan 的内存隔离机制](https://github.com/google/sanitizers/wiki/AddressSanitizerAlgorithm)、[三个证明条件的定义](https://github.com/theorem-labs/oss-verify-proofs/blob/a6839bb9e433b34c0d0710df5280194528877139/docs/statements.md)
+
+@@opinion-end@@
+
 输入包括参数、环境变量、初始文件和标准输入；布局包括栈、堆起点与随机字节。cJSON 的目标采用普通构建 2 GiB、ASan 构建 512 GiB 的预算。`alloc_forced_only` 要求内存请求只在预算耗尽或缺少地址空间时失败，其他请求仍可能失败。
 
 行为观察包括标准输入读取、标准输出和错误输出、退出状态或终止信号、最终文件系统；性能不在其中。有限轨迹没有单独记下 crash，因此发生错误与不再产生事件的死循环可能具有相同前缀。这也是模板分别要求两个构建无错误的原因。[附录第 1–2 页](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=1)

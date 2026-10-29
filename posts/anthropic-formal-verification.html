@@ -4134,6 +4134,35 @@ Qed.
 <li><strong>必须证明三件事</strong>：普通程序无错误；ASan 程序无错误；两边允许的可观察轨迹集合相同。</li>
 </ul>
 </div>
+<div class="author-opinion">
+<p><strong>为什么要同时证明“两边无错误、行为一致”？</strong> 设普通构建为 A，ASan 构建为 B，三个结论各有作用：</p>
+<ul>
+<li><strong>B 无错误</strong>：在允许输入与环境下，ASan 检查不会触发；普通执行中没有直接崩溃的越界，也可能被这些检查捕获。</li>
+<li><strong>A 无错误</strong>：保证普通构建自身也不出错。ASan 改变了内存布局、分配器和运行时，不能仅由 B 无错误推出 A 无错误。</li>
+<li><strong>行为一致</strong>：保证插桩保持可观察计算。A 输出解析结果、B 输出空字符串，也可能两边都不崩溃；仅证明安全性排除不了这种差异。</li>
+</ul>
+<p>错误可达性与有限轨迹在 LPS 中分别记录，因此轨迹一致不能替代无错误条件。三个条件合起来仍允许两边输出同一个错误结果，也不自动排除无限执行：功能正确性需要相应检查，终止性需要另证 <code>halts</code>。</p>
+<p><strong>本地构造的反例：ASan 不崩溃，普通构建却断言失败。</strong> ASan 会暂时隔离已释放内存，延迟地址复用。下面是完整测试程序；它错误地要求下一次分配不能复用刚释放的地址：</p>
+<pre><code class="language-c">#include &lt;assert.h&gt;
+#include &lt;stdint.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;stdio.h&gt;
+int main(void) {
+    void *p = malloc(32);
+    if (!p) return 2;
+    uintptr_t old_address = (uintptr_t)p;
+    free(p);
+    void *q = malloc(32);
+    if (!q) return 2;
+    fprintf(stderr, &quot;reused=%d\n&quot;, (uintptr_t)q == old_address);
+    assert((uintptr_t)q != old_address);
+    free(q);
+    return 0;
+}
+</code></pre>
+<p>用 GCC 的 <code>-O0 -fno-builtin</code> 编译普通版本，再加 <code>-fsanitize=address</code> 编译 ASan 版本。本地 Ubuntu 实测：普通版本打印 <code>reused=1</code>，断言失败并收到 <code>SIGABRT</code>；ASan 版本打印 <code>reused=0</code>，以状态 0 退出。程序在释放前把地址保存为整数，随后没有解引用已释放内存。</p>
+<p>这是依赖分配器行为的演示，<strong>不是论文发现的 bug</strong>。它说明 ASan 可能改变控制流，使普通构建触发的失败分支没有被执行；因此，“ASan 构建无错误”不能普遍推出“普通构建无错误”。<a href="https://github.com/google/sanitizers/wiki/AddressSanitizerAlgorithm">ASan 的内存隔离机制</a>、<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/a6839bb9e433b34c0d0710df5280194528877139/docs/statements.md">三个证明条件的定义</a></p>
+</div>
 <p>输入包括参数、环境变量、初始文件和标准输入；布局包括栈、堆起点与随机字节。cJSON 的目标采用普通构建 2 GiB、ASan 构建 512 GiB 的预算。<code>alloc_forced_only</code> 要求内存请求只在预算耗尽或缺少地址空间时失败，其他请求仍可能失败。</p>
 <p>行为观察包括标准输入读取、标准输出和错误输出、退出状态或终止信号、最终文件系统；性能不在其中。有限轨迹没有单独记下 crash，因此发生错误与不再产生事件的死循环可能具有相同前缀。这也是模板分别要求两个构建无错误的原因。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=1">附录第 1–2 页</a></p>
 <p><strong>该入口的已完成目标是 <code>asan_agrees</code>、<code>ubsan_agrees</code> 和 <code>asan_ubsan_agrees</code>。</strong> <code>plain_halts</code> 仍是开放目标：它另用 16 GiB 预算，要求所有许可执行最终以 0 或 2 退出，排除无限执行、卡住、错误与信号终止。其环境策略 <code>forced_only_cfg</code> 要求环境只在被状态强制时拒绝请求。ASan 的地址空间预留在被拒绝后会等待，因此仓库没有为它提供任意环境失败下的同类 <code>halts_may_fail</code> 目标。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/README.md">证明状态与环境</a></p>
