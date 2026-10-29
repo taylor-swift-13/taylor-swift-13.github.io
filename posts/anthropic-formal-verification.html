@@ -4068,9 +4068,6 @@ Qed.
 <p>附录第 1 页比较了三种做法：把 fuzz 测试翻译成 Rocq，需要处理翻译与原程序的对应；解释测试源码，需要处理源码解释器与实际编译结果的对应；本实验选择直接解释编译后的二进制，将指令、运行库和进程行为统一纳入 LPS。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=1">附录第 1 页</a></p>
 <p>附录接着解释为何同时验证两个构建：ASan 构建便于把内存错误变成中止，实际用户通常运行普通构建，因此还要比较两者行为，并分别排除错误。顶层目标的实际生成代码见 §2.6.1。</p>
 <p>LPS 定义目标指令集的语法、执行规则和系统环境。不同源语言编译到受支持的机器代码后，共享这一层语义；运行时、并发和动态加载等行为由模型的支持范围决定。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/README.md">LPS 结构说明</a></p>
-<div class="author-opinion">
-<p><strong>人工审查</strong> 集中在指令、系统调用和错误分类是否符合目标平台，结合参考规范、差分测试与独立核对建立信任。模型可以生成候选语义和测试；审查过的同一版本可以被多个项目共用。</p>
-</div>
 <h3>2.3 图 3：把可执行检查变成规约，并在证明途中找 bug</h3>
 <p>入口、被调用的实现、sanitizer 和已有断言共同构成可执行的检查；项目再要求，在给定输入和环境范围内，这个检查程序不会到达规定的错误。已有断言检查了什么，生成的证明目标就可能间接约束什么。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/statements.md">定理陈述说明</a></p>
 <figure class="source-figure" aria-label="原文图 3">
