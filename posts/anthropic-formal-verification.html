@@ -4357,7 +4357,7 @@ p \in \mathrm{Paths}_G(s,t) \land \forall q \in \mathrm{Paths}_G(s,t),\quad \mat
 <h2>6. 结论（Conclusion）</h2>
 <p>原文展望，随着模型能力、证明复用与开发流程改进，形式验证将像类型系统和测试框架一样，逐步成为生产软件开发的内置环节。此次工作展示的是：从现有测试形成目标，直接验证编译后的二进制，由 Claude 构造大规模证明，再交给 Rocq 检查。<a href="https://www.anthropic.com/research/formal-verification">原文结论</a></p>
 <div class="external-commentary">
-<p>QCP 团队的微信文章把取舍归纳为三个方面：机器码路线带来跨语言通用性，也增加底层执行与编译优化的推理工作；现有测试降低规约构建门槛，复杂功能要求仍需要充分表达；逐入口、绑定特定二进制的证明，需要持续处理复用和版本维护。<a href="https://mp.weixin.qq.com/s/-ITZmEqXeOo4g7TVBvzluA">微信文章的总结</a></p>
+<p>机器码路线带来跨语言通用性，也增加底层执行与编译优化的推理工作；现有测试降低规约构建门槛，复杂功能要求仍需要充分表达；逐入口、绑定特定二进制的证明，需要持续处理复用和版本维护。<a href="https://mp.weixin.qq.com/s/-ITZmEqXeOo4g7TVBvzluA">微信文章的总结</a></p>
 </div>
 <div class="author-opinion">
 <p>人类把关需求、语义与补丁的含义；模型构造中间模型、补丁和证明；工具完成构建、重放与形式检查。已经固定并审查过的目标可以持续自动验证，人工审查重点随需求、语义和程序行为的变化而移动。</p>
