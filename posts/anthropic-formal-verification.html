@@ -34,34 +34,37 @@
 <h2>0. 背景知识：Fuzz、sanitizer、ASan 与 LPS</h2>
 <h3>0.1 Fuzz：自动生成输入，寻找失败执行</h3>
 <p><strong>Fuzz testing（模糊测试）</strong> 反复生成半随机输入或变异已有输入，再把它们交给开发者编写的 <strong>fuzz target（测试入口）</strong>。入口调用库 API，并可用断言检查结果；导致 crash 的输入被保留下来。原文从 OSS-Fuzz 已有的入口出发，把“继续寻找失败输入”改成“证明指定范围内的所有输入都通过检查”。<a href="https://www.anthropic.com/research/formal-verification">原文对 fuzzing 的说明</a></p>
+<p>本文复用的 OSS-Fuzz 测试已经配有 sanitizer 和维护者写在入口中的 <code>assert</code>：前者检查内存等运行时错误，后者检查编码与解码往返、幂等性、与参考实现一致等性质。违反检查会使测试失败，部分功能正确性要求也由此进入可执行规约。项目直接把这些现成检查转为证明目标。<a href="https://www.anthropic.com/research/formal-verification">原文的测试规约与功能性质</a></p>
 <div class="author-opinion">
+<p><strong>检查什么，已经由现有工具和维护者的断言给出；大模型接手的是证明这些检查对所有允许输入都成立。</strong></p>
 <p>以图片解析器为例：不断改动文件头、尺寸和压缩数据，再调用解析函数，就是 fuzzing。libFuzzer 还会记录触及了哪些代码，把到达新路径的输入留下来继续变异；这叫覆盖率引导。<a href="https://llvm.org/docs/LibFuzzer.html">libFuzzer 官方说明</a></p>
 </div>
 <h3>0.2 Sanitizer：给执行中的程序增加检查</h3>
 <p><strong>Sanitizer</strong> 是本文所用运行时检查工具的统称。编译器把检查插入程序；运行时一旦发现对应违规，就报告错误并按配置中止或触发 trap。<strong>ASan（AddressSanitizer）</strong> 用于发现缓冲区越界、释放后使用等内存错误。原文把它加入 fuzz 程序，使这些内存错误能够表现为测试失败。<a href="https://www.anthropic.com/research/formal-verification">原文脚注 4</a></p>
 <p>公开证明仓库还分别提供 ASan、UBSan 和二者组合构建的目标。证明对象包含这些实际编译进去的检查。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/Statements.v">cJSON 的构建与目标</a></p>
-<h3>0.3 ASan 的直观例子：在对象边界布置警报</h3>
+<h3>0.3 ASan 的直观例子：能发现什么，会漏掉什么</h3>
 <div class="author-opinion">
-<p>可以把进程的可访问地址空间想成仓库，把一次分配得到的缓冲区想成箱子。操作系统的页级保护通常不会为每个小对象单独立墙：写出了箱子，却还在可写的仓库区域里，程序可能暂时正常运行，只是已经破坏了数据。</p>
-<p>ASan 通过编译时插桩与运行时库，为许多内存访问增加检查，并用影子内存记录地址是否允许访问。可以把它理解为在部分边界和失效区域布置警报。某次访问命中禁用区域，便报告错误并通常中止程序。<a href="https://clang.llvm.org/docs/AddressSanitizer.html">ASan 的组成与工作方式</a></p>
-<p>例如，假设驱动分配了 16 字节的堆缓冲区 <code>p</code>，输入控制索引 <code>i</code>，随后调用这个解释性示例：</p>
-<pre><code class="language-c">void put(char *p, size_t i) {
-    p[i] = 1;
+<p>把内存对象看成箱子，ASan 在箱子外侧和已释放区域布置警报。对一个分配了 16 字节的堆缓冲区写入 <code>p[16]</code>，通常就会触发越界报告。<a href="https://clang.llvm.org/docs/AddressSanitizer.html">ASan 官方说明</a></p>
+<p>箱子内部的越界可能漏检：</p>
+<pre><code class="language-c">struct S { char data[8]; int allowed; };
+
+void put_member(struct S *s, int i) {
+    s-&gt;data[i] = 1;
 }
 </code></pre>
-<p><code>i == 16</code> 时，尝试写入的是第 17 个字节。普通构建可能破坏邻近数据而没有立即崩溃；在 ASan 构建中，如果目标地址被标记为禁用区域，相应检查会报告越界并中止。于是，一个原本可能静默的内存错误，被转换成 fuzz 驱动与无错误命题能够观察到的失败。</p>
-<pre><code class="language-text">输入控制索引
-  → 执行一次写入
-  → ASan 检查目标地址
-  → 命中禁用区域，报告并中止
-</code></pre>
-<p>对某个输入运行一次，能够发现这次执行中的报告；形式证明进一步尝试排除前提范围内所有执行的这种失败。两者使用同一类可执行检查，但覆盖的量词不同。检查配置和二进制共同固定证明对象。</p>
+<p>在常见布局下，<code>i == 8</code> 会越过 <code>data</code>，写坏后面的 <code>allowed</code>，却仍落在整个结构体内部，默认 ASan 可能不报警。<a href="https://github.com/google/sanitizers/wiki/AddressSanitizerIntraObjectOverflow">ASan 的对象内部越界说明</a></p>
 </div>
 <h3>0.4 LPS：在 Rocq 中定义二进制怎样运行</h3>
 <p><strong>LPS（Linux process semantics）</strong> 是 Theorem 用 Rocq 写出的 Linux 进程形式模型。它描述 64 位 RISC-V（RV64GC）二进制的指令执行、内存、系统调用和可观察事件，并提供行为一致、无错误和终止等命题及证明库。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/README.md">LPS 仓库说明</a></p>
 <p>在主实验中，<strong>二进制</strong> 给出要执行的指令，<strong>LPS</strong> 规定指令和进程怎样执行，<strong>spec</strong> 规定要排除什么错误及比较什么行为，<strong>Claude</strong> 生成证明，<strong>Rocq 内核</strong> 检查证明项是否具有指定命题的类型。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/checking.md">原文图 2 与公开检查流程</a></p>
+<p>官方仓库的 <a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/Riscv/Sem.v#L456"><code>Sem.v</code></a> 这样定义加载指令，以下原样节选：</p>
+<pre><code class="language-coq">| Load msz sgn rd rs1 imm =&gt;
+    load_val msz sgn (rget c rs1 + sext 64 imm)
+      (λ v, EDone (rset rd v cn))
+</code></pre>
+<p><code>rget c rs1 + sext 64 imm</code> 计算读取地址，<code>load_val</code> 读取数据，<code>rset rd v</code> 把结果写入目标寄存器。读不到所需字节时，机器层返回 <code>MachineFault</code>，进程层通过 <code>sstep_instr_fault</code> 进入 <code>SError</code>。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/RiscvSemantics.v#L879">访存解释</a>、<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v">故障转换</a></p>
 <div class="author-opinion">
-<p>可以把 LPS 想成写在证明器里的机器说明书：一条加载指令怎样取内存，写入失败怎样分类，<code>read</code> 可以返回哪些结果，都由它定义。形式证明沿这份说明书推理，因而模型是否准确成为保证能否落到真实机器上的关键。</p>
+<p>例如，64 位加载从地址 <code>0x1000</code> 读到字节 <code>2a 00 00 00 00 00 00 00</code>，目标寄存器就变成 42；所需地址未映射，则进入故障。这些状态变化就是 LPS 中要推理的对象。</p>
 </div>
 <h2>1. 引言：程序验证开始规模化</h2>
 <p>2026 年 10 月 22 日，Anthropic 与 Theorem 发布了 <a href="https://www.anthropic.com/research/formal-verification"><em>LLMs are making formal software verification feasible at a much larger scale</em></a>。作者报告：在数周内，为 <strong>123 个开源库的 239 个 fuzz 入口</strong> 完成了特定条件下的 RISC-V 二进制证明，成功证明包含约 <strong>1.8 亿行 Rocq</strong>。</p>
@@ -83,9 +86,6 @@
 <figcaption><a href="../assets/papers/anthropic-verification/figure-1-poster.png">放大静态图 ↗</a> · <a href="../assets/papers/anthropic-verification/figure-1.mp4">单独打开动画 ↗</a></figcaption>
 </figure>
 <p><em>原文图 1：fuzzing 的搜索过程。动画中，一次执行只走过迷宫中的一条路径；红色表示触发崩溃，绿色表示相关问题被修补。不断增加测试次数，会扩展已经尝试过的部分，但迷宫中仍有尚未走到的区域。<a href="https://cdn.sanity.io/files/4zrzovbb/website/6851e539c36759ac1682d6b169d0319b1d97a0f7.mp4">原始动画</a></em></p>
-<div class="author-opinion">
-<p>测试从具体执行中寻找反例，证明把要求推进到前提范围内的全部执行。越界、溢出或特殊调用历史可能很难触发，而找到具体输入后通常容易重放确认。</p>
-</div>
 <h3>2.2 图 2：程序、语义、规约和证明如何连接</h3>
 <p>项目把库和 fuzz driver 编译成静态 RISC-V 二进制，在 Rocq 中用 <strong>LPS（Linux process semantics）</strong> 解释机器指令、进程启动和系统调用，再为指定二进制提出命题。附录解释了这样选择的动机：直接解释编译产物，避免另行把 fuzz 程序翻译成 Rocq 时的翻译错误，或源码解释器与实际编译执行不一致；LPS 则承担机器与进程的执行定义。公开仓库的声明直接引用二进制映像；编译器正确性及源码与二进制的对应关系不属于这些声明。<a href="https://github.com/theorem-labs/oss-verify-proofs">公开证明仓库</a>、<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/trust.md">信任基础说明</a></p>
 <figure class="source-figure" aria-label="原文图 2">
@@ -393,7 +393,7 @@ Qed.
 <p>原文还列出其他触发条件：图像解码器越界读需要约 64 MB 输入与超过 2 GB 内存；另一处越界读依赖同一文件的两个句柄之间的特定调用历史；libexpat 的 CVE-2026-56132 则由深层嵌套输入触发。此外，代理还发现不一定导致 crash 的文件加载限制失效。<a href="https://www.anthropic.com/research/formal-verification">原文的缺陷案例</a></p>
 <p>ASan 通过报告与中止暴露内存错误；维护者用断言表达算法要求。LZO 的入口就检查成功状态与还原长度。</p>
 <div class="author-opinion">
-<p>可复现的输入与执行过程，是找 bug 最直接的交付物。漏洞复现与已完成的无错误证明可以分别计数，展现这条路线在发现和保证两端的收益。</p>
+<p><strong>形式化验证也是一种找 bug 的方法。</strong> 即使形式语义有错误，找到的候选 bug 仍可以用具体输入在真实程序上重放，确认是否确实触发了错误。</p>
 </div>
 <h3>3.2 自动修补后重新生成证明目标</h3>
 <p>原文允许 Claude 修补证明过程中发现的问题，再为新程序重新生成目标；脚注同时讨论了修改程序以迎合目标的风险，并介绍了补丁惩罚、行为变化奖励和日志审计。<a href="https://www.anthropic.com/research/formal-verification">原文脚注 6</a></p>
@@ -401,6 +401,9 @@ Qed.
 <p>最极端的“补丁”是拒绝全部输入：崩溃消失，功能也消失。自动修补需要同时约束合法输入、输出关系与变化范围。</p>
 </div>
 <h3>3.3 超越内存安全：LZO 与 p11-kit 的功能断言</h3>
+<div class="author-opinion">
+<p><strong>通过验证的程序仍可能有 bug；这条路线覆盖哪些错误，取决于检查程序在什么情况下会 crash。</strong> 除了段错误等机器故障，sanitizer 的报告、<code>assert</code> 失败也可以使程序中止。把功能要求写成断言，就能把相应功能错误编码成 crash，纳入验证目标。</p>
+</div>
 <p>原文列举了入口可以检查的高层性质：编码与解码往返、幂等性、代数律、差分测试、自洽性，以及与参考实现等价。违反这些检查会触发失败，因而可以进入无 crash 的证明目标。<a href="https://www.anthropic.com/research/formal-verification">原文的功能性质讨论</a></p>
 <p>附录第 6 页的这段原始 C 代码同时包含控制分支、函数调用与两条断言；这里只调整换行：</p>
 <pre><code class="language-c">r = lzo1x_1_compress(data, size, compressed, &amp;compressed_len, wrkmem);

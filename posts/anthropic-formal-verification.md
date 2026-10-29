@@ -4,7 +4,11 @@
 
 **Fuzz testing（模糊测试）** 反复生成半随机输入或变异已有输入，再把它们交给开发者编写的 **fuzz target（测试入口）**。入口调用库 API，并可用断言检查结果；导致 crash 的输入被保留下来。原文从 OSS-Fuzz 已有的入口出发，把“继续寻找失败输入”改成“证明指定范围内的所有输入都通过检查”。[原文对 fuzzing 的说明](https://www.anthropic.com/research/formal-verification)
 
+本文复用的 OSS-Fuzz 测试已经配有 sanitizer 和维护者写在入口中的 `assert`：前者检查内存等运行时错误，后者检查编码与解码往返、幂等性、与参考实现一致等性质。违反检查会使测试失败，部分功能正确性要求也由此进入可执行规约。项目直接把这些现成检查转为证明目标。[原文的测试规约与功能性质](https://www.anthropic.com/research/formal-verification)
+
 @@opinion-begin@@
+
+**检查什么，已经由现有工具和维护者的断言给出；大模型接手的是证明这些检查对所有允许输入都成立。**
 
 以图片解析器为例：不断改动文件头、尺寸和压缩数据，再调用解析函数，就是 fuzzing。libFuzzer 还会记录触及了哪些代码，把到达新路径的输入留下来继续变异；这叫覆盖率引导。[libFuzzer 官方说明](https://llvm.org/docs/LibFuzzer.html)
 
@@ -16,32 +20,23 @@
 
 公开证明仓库还分别提供 ASan、UBSan 和二者组合构建的目标。证明对象包含这些实际编译进去的检查。[cJSON 的构建与目标](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/Statements.v)
 
-### 0.3 ASan 的直观例子：在对象边界布置警报
+### 0.3 ASan 的直观例子：能发现什么，会漏掉什么
 
 @@opinion-begin@@
 
-可以把进程的可访问地址空间想成仓库，把一次分配得到的缓冲区想成箱子。操作系统的页级保护通常不会为每个小对象单独立墙：写出了箱子，却还在可写的仓库区域里，程序可能暂时正常运行，只是已经破坏了数据。
+把内存对象看成箱子，ASan 在箱子外侧和已释放区域布置警报。对一个分配了 16 字节的堆缓冲区写入 `p[16]`，通常就会触发越界报告。[ASan 官方说明](https://clang.llvm.org/docs/AddressSanitizer.html)
 
-ASan 通过编译时插桩与运行时库，为许多内存访问增加检查，并用影子内存记录地址是否允许访问。可以把它理解为在部分边界和失效区域布置警报。某次访问命中禁用区域，便报告错误并通常中止程序。[ASan 的组成与工作方式](https://clang.llvm.org/docs/AddressSanitizer.html)
-
-例如，假设驱动分配了 16 字节的堆缓冲区 `p`，输入控制索引 `i`，随后调用这个解释性示例：
+箱子内部的越界可能漏检：
 
 ```c
-void put(char *p, size_t i) {
-    p[i] = 1;
+struct S { char data[8]; int allowed; };
+
+void put_member(struct S *s, int i) {
+    s->data[i] = 1;
 }
 ```
 
-`i == 16` 时，尝试写入的是第 17 个字节。普通构建可能破坏邻近数据而没有立即崩溃；在 ASan 构建中，如果目标地址被标记为禁用区域，相应检查会报告越界并中止。于是，一个原本可能静默的内存错误，被转换成 fuzz 驱动与无错误命题能够观察到的失败。
-
-```text
-输入控制索引
-  → 执行一次写入
-  → ASan 检查目标地址
-  → 命中禁用区域，报告并中止
-```
-
-对某个输入运行一次，能够发现这次执行中的报告；形式证明进一步尝试排除前提范围内所有执行的这种失败。两者使用同一类可执行检查，但覆盖的量词不同。检查配置和二进制共同固定证明对象。
+在常见布局下，`i == 8` 会越过 `data`，写坏后面的 `allowed`，却仍落在整个结构体内部，默认 ASan 可能不报警。[ASan 的对象内部越界说明](https://github.com/google/sanitizers/wiki/AddressSanitizerIntraObjectOverflow)
 
 @@opinion-end@@
 
@@ -51,9 +46,19 @@ void put(char *p, size_t i) {
 
 在主实验中，**二进制** 给出要执行的指令，**LPS** 规定指令和进程怎样执行，**spec** 规定要排除什么错误及比较什么行为，**Claude** 生成证明，**Rocq 内核** 检查证明项是否具有指定命题的类型。[原文图 2 与公开检查流程](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/checking.md)
 
+官方仓库的 [`Sem.v`](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/Riscv/Sem.v#L456) 这样定义加载指令，以下原样节选：
+
+```coq
+| Load msz sgn rd rs1 imm =>
+    load_val msz sgn (rget c rs1 + sext 64 imm)
+      (λ v, EDone (rset rd v cn))
+```
+
+`rget c rs1 + sext 64 imm` 计算读取地址，`load_val` 读取数据，`rset rd v` 把结果写入目标寄存器。读不到所需字节时，机器层返回 `MachineFault`，进程层通过 `sstep_instr_fault` 进入 `SError`。[访存解释](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/RiscvSemantics.v#L879)、[故障转换](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v)
+
 @@opinion-begin@@
 
-可以把 LPS 想成写在证明器里的机器说明书：一条加载指令怎样取内存，写入失败怎样分类，`read` 可以返回哪些结果，都由它定义。形式证明沿这份说明书推理，因而模型是否准确成为保证能否落到真实机器上的关键。
+例如，64 位加载从地址 `0x1000` 读到字节 `2a 00 00 00 00 00 00 00`，目标寄存器就变成 42；所需地址未映射，则进入故障。这些状态变化就是 LPS 中要推理的对象。
 
 @@opinion-end@@
 
@@ -79,11 +84,6 @@ OSS-Fuzz 中的 fuzz target 是开发者提供的测试入口。它接收输入�
 
 *原文图 1：fuzzing 的搜索过程。动画中，一次执行只走过迷宫中的一条路径；红色表示触发崩溃，绿色表示相关问题被修补。不断增加测试次数，会扩展已经尝试过的部分，但迷宫中仍有尚未走到的区域。[原始动画](https://cdn.sanity.io/files/4zrzovbb/website/6851e539c36759ac1682d6b169d0319b1d97a0f7.mp4)*
 
-@@opinion-begin@@
-
-测试从具体执行中寻找反例，证明把要求推进到前提范围内的全部执行。越界、溢出或特殊调用历史可能很难触发，而找到具体输入后通常容易重放确认。
-
-@@opinion-end@@
 
 ### 2.2 图 2：程序、语义、规约和证明如何连接
 
@@ -541,7 +541,7 @@ ASan 通过报告与中止暴露内存错误；维护者用断言表达算法要
 
 @@opinion-begin@@
 
-可复现的输入与执行过程，是找 bug 最直接的交付物。漏洞复现与已完成的无错误证明可以分别计数，展现这条路线在发现和保证两端的收益。
+**形式化验证也是一种找 bug 的方法。** 即使形式语义有错误，找到的候选 bug 仍可以用具体输入在真实程序上重放，确认是否确实触发了错误。
 
 @@opinion-end@@
 
@@ -556,6 +556,12 @@ ASan 通过报告与中止暴露内存错误；维护者用断言表达算法要
 @@opinion-end@@
 
 ### 3.3 超越内存安全：LZO 与 p11-kit 的功能断言
+
+@@opinion-begin@@
+
+**通过验证的程序仍可能有 bug；这条路线覆盖哪些错误，取决于检查程序在什么情况下会 crash。** 除了段错误等机器故障，sanitizer 的报告、`assert` 失败也可以使程序中止。把功能要求写成断言，就能把相应功能错误编码成 crash，纳入验证目标。
+
+@@opinion-end@@
 
 原文列举了入口可以检查的高层性质：编码与解码往返、幂等性、代数律、差分测试、自洽性，以及与参考实现等价。违反这些检查会触发失败，因而可以进入无 crash 的证明目标。[原文的功能性质讨论](https://www.anthropic.com/research/formal-verification)
 
