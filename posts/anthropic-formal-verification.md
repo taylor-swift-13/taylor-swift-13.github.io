@@ -465,6 +465,67 @@ assert(r == LZO_E_OK && decompressed_len == size);
 
 作者还报告，对安全性质的证明尝试发现了潜伏十余年的逻辑问题；在验证某 PDF 阅读器时，一周内发现的安全缺陷数量相当于该项目通常一年的报告量。[其他验证案例](https://www.anthropic.com/research/formal-verification)
 
+### 3.7 公开源码中的三种结果：证明成立、找到反例、模型无法覆盖
+
+以下核对公开仓库 `a6839bb9`（2026 年 10 月 30 日）的状态。`proved` 表示已收录证明；`open` 表示尚无已收录证明，不能据此判断是否尝试过；`witnessed-false` 表示已有具体反例；`model-gap` 表示受当前执行模型限制。[完整状态索引](https://github.com/theorem-labs/oss-verify-proofs/blob/a6839bb9e433b34c0d0710df5280194528877139/index/statements.tsv)
+
+#### 3.7.1 zlib：通过无错误证明，得到具体的校验和性质
+
+`checksum_fuzzer` 对同一输入分别进行分块计算和一次性计算，并用断言比较 CRC-32 与 Adler-32 的结果。CRC 循环中的以下片段来自实际入口：
+
+```c
+    uint32_t crc3 = crc32_z(crc0, data + offset, buffSize);
+    uint32_t crc4 = crc32_combine_op(crc1, crc3, op);
+    crc1 = crc32_z(crc1, data + offset, buffSize);
+    assert(crc1 == crc4);
+```
+
+@@opinion-begin@@
+
+- **第一条路线**：计算当前块的 CRC，再用组合函数将它接到前面各块的 CRC 上，得到 `crc4`。
+- **第二条路线**：直接更新前面各块的 CRC，得到新的 `crc1`。
+- **断言要求**：两种计算路线得到相同结果。证明这条断言永不失败，就证明了入口所检查的组合关系。
+
+@@opinion-end@@
+
+入口还检查分块 CRC 与一次性 CRC 相等、分块 Adler 与一次性 Adler 相等，以及两个 CRC 组合 API 的结果一致。部分断言在前面已经得到两个变量相等后，比较的只是相同参数调用；仓库说明明确将这些检查标为平凡成立。[入口源码](https://github.com/theorem-labs/oss-verify-proofs/blob/a6839bb9e433b34c0d0710df5280194528877139/projects/zlib/checksum_fuzzer/source/checksum_fuzzer.c)、[检查清单](https://github.com/theorem-labs/oss-verify-proofs/blob/a6839bb9e433b34c0d0710df5280194528877139/projects/zlib/checksum_fuzzer/README.md)
+
+**已证明的是 `plain_halts`**：在规定环境下，只要普通构建未因超过 16 GiB 预算被拒绝内存，所有执行都会以 0 或 2 退出。上述断言已确认存在于二进制中，失败会终止程序，因此该证明也覆盖它们。**另外 14 个目标仍为 `open`**，包括三个插桩构建的终止性、两个允许任意环境失败的终止目标、三个 `agrees`，以及概率界和可判定性目标。[证明状态](https://github.com/theorem-labs/oss-verify-proofs/blob/a6839bb9e433b34c0d0710df5280194528877139/projects/zlib/checksum_fuzzer/README.md)
+
+@@opinion-begin@@
+
+这个案例直接说明：**可执行检查可以承载功能规约，不需要先把要求改写成独立的 Rocq 数学定义。** 这里已经得到的是校验和实现之间的具体关系；完整压缩格式正确性是另一项要求。该入口的普通构建证明，也不能替代尚未完成的 sanitizer 构建证明。
+
+@@opinion-end@@
+
+#### 3.7.2 libarchive：内存分配失败，使五个目标被反例否定
+
+`libarchive_xar_fuzzer` 把输入当作 XAR 归档读取，遍历条目、访问文件名和元数据，并读取条目内容。它没有比较解包结果的功能断言。该入口的四个带预算前提的 `*_halts` 仍开放；两个 `*_halts_may_fail` 和三个 `*_agrees` 则已标为 **`witnessed-false`**。[入口和状态](https://github.com/theorem-labs/oss-verify-proofs/blob/a6839bb9e433b34c0d0710df5280194528877139/projects/libarchive/libarchive_xar_fuzzer/README.md)
+
+仓库给出了同一个具体反例：使用其记录的输入文件，在第六次内存请求——一次 **16,384 字节的 `mmap`**——发生时拒绝分配。普通构建和 UBSan 构建会因未捕获的 `std::bad_alloc` 以 **SIGABRT** 中止；记录来自 `qemu-riscv64 10.0.11` 下的重放。
+
+这足以否定两个“允许任意请求失败时仍能退出”的目标，也足以否定三个要求普通侧无错误的行为一致目标。这些 `agrees` 允许环境主动拒绝分配，区别于 cJSON 使用的 `alloc-forced-only` 策略。[反例与环境前提](https://github.com/theorem-labs/oss-verify-proofs/blob/a6839bb9e433b34c0d0710df5280194528877139/projects/libarchive/libarchive_xar_fuzzer/README.md)
+
+@@opinion-begin@@
+
+**这里不是证明搜索尚未完成，而是原命题确实有反例。** 下一步可以修复分配失败路径，或根据实际需求重新选择环境前提；两者得到的保证不同。限制环境失败会缩小保证范围，不等于原程序已经能正确处理任意内存分配失败。
+
+@@opinion-end@@
+
+#### 3.7.3 Apache Arrow：线程与 CPU 亲和性超出当前模型
+
+`arrow-csv-fuzz` 对同一份输入运行五种读取方式，包括串行表读取、并行表读取、流式读取，以及两种换行配置下的异步行数统计。入口没有比较这些读取方式产生的表格和行数。
+
+**四个终止目标和三个行为一致目标全部标为 `model-gap`。** 仓库说明：二进制会查询 CPU 亲和性并启动线程，而这一版模型不支持相关执行。文档进一步指出，这些路径使相应目标在当前模型中不成立，原因在模型覆盖范围，而非已经确认的程序错误。[Arrow 入口与模型缺口](https://github.com/theorem-labs/oss-verify-proofs/blob/a6839bb9e433b34c0d0710df5280194528877139/projects/arrow/arrow-csv-fuzz/README.md)
+
+@@opinion-begin@@
+
+**这种情况首先需要补足执行语义。** 单纯增加证明搜索时间，不能把当前模型没有支持的线程行为变成正常执行。即使补足模型并完成现有目标，若要保证五种读取方式的结果一致，仍需在入口加入相应比较，或另写功能规约。
+
+这三个案例分别展示：已有检查可以得到功能保证；具体执行可以推翻目标；执行模型的覆盖范围也会限制能够验证的程序。应当分别查看每个入口的检查内容、命题前提与证明状态。
+
+@@opinion-end@@
+
 ## 4. 这只是开始（This is just the beginning）
 
 原文指出，生成证明可能消耗数亿 token，成本与复用是后续扩展的关键。[原文的成本讨论](https://www.anthropic.com/research/formal-verification)

@@ -4287,6 +4287,41 @@ assert(r == LZO_E_OK &amp;&amp; decompressed_len == size);
 <p><strong>验证路线选择了 safe Rust、Verus 和 Z3。</strong> 作者选择 Verus 出于它与 Rust 生态的契合及实践偏好，也为了检验 Claude 适应不同形式系统的能力。Verus 用 <code>requires</code>、<code>ensures</code> 与循环不变量表达契约，再调用 Z3；源码层的 Hoare 风格证明是这次实验特意尝试的另一种路线。附录把选择 Verus 而非 Lean 表述为偏好。</p>
 <p>研究者还向早期解释器注入七个错误：其中五个通过了随机测试，七个都使证明失败。定理约束“返回结果时结果符合形式语义”，形式语义与 CPython 的对应另通过约 170 万个程序上的测试检验。</p>
 <p>作者还报告，对安全性质的证明尝试发现了潜伏十余年的逻辑问题；在验证某 PDF 阅读器时，一周内发现的安全缺陷数量相当于该项目通常一年的报告量。<a href="https://www.anthropic.com/research/formal-verification">其他验证案例</a></p>
+<h3>3.7 公开源码中的三种结果：证明成立、找到反例、模型无法覆盖</h3>
+<p>以下核对公开仓库 <code>a6839bb9</code>（2026 年 10 月 30 日）的状态。<code>proved</code> 表示已收录证明；<code>open</code> 表示尚无已收录证明，不能据此判断是否尝试过；<code>witnessed-false</code> 表示已有具体反例；<code>model-gap</code> 表示受当前执行模型限制。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/a6839bb9e433b34c0d0710df5280194528877139/index/statements.tsv">完整状态索引</a></p>
+<h4>3.7.1 zlib：通过无错误证明，得到具体的校验和性质</h4>
+<p><code>checksum_fuzzer</code> 对同一输入分别进行分块计算和一次性计算，并用断言比较 CRC-32 与 Adler-32 的结果。CRC 循环中的以下片段来自实际入口：</p>
+<pre><code class="language-c">    uint32_t crc3 = crc32_z(crc0, data + offset, buffSize);
+    uint32_t crc4 = crc32_combine_op(crc1, crc3, op);
+    crc1 = crc32_z(crc1, data + offset, buffSize);
+    assert(crc1 == crc4);
+</code></pre>
+<div class="author-opinion">
+<ul>
+<li><strong>第一条路线</strong>：计算当前块的 CRC，再用组合函数将它接到前面各块的 CRC 上，得到 <code>crc4</code>。</li>
+<li><strong>第二条路线</strong>：直接更新前面各块的 CRC，得到新的 <code>crc1</code>。</li>
+<li><strong>断言要求</strong>：两种计算路线得到相同结果。证明这条断言永不失败，就证明了入口所检查的组合关系。</li>
+</ul>
+</div>
+<p>入口还检查分块 CRC 与一次性 CRC 相等、分块 Adler 与一次性 Adler 相等，以及两个 CRC 组合 API 的结果一致。部分断言在前面已经得到两个变量相等后，比较的只是相同参数调用；仓库说明明确将这些检查标为平凡成立。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/a6839bb9e433b34c0d0710df5280194528877139/projects/zlib/checksum_fuzzer/source/checksum_fuzzer.c">入口源码</a>、<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/a6839bb9e433b34c0d0710df5280194528877139/projects/zlib/checksum_fuzzer/README.md">检查清单</a></p>
+<p><strong>已证明的是 <code>plain_halts</code></strong>：在规定环境下，只要普通构建未因超过 16 GiB 预算被拒绝内存，所有执行都会以 0 或 2 退出。上述断言已确认存在于二进制中，失败会终止程序，因此该证明也覆盖它们。<strong>另外 14 个目标仍为 <code>open</code></strong>，包括三个插桩构建的终止性、两个允许任意环境失败的终止目标、三个 <code>agrees</code>，以及概率界和可判定性目标。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/a6839bb9e433b34c0d0710df5280194528877139/projects/zlib/checksum_fuzzer/README.md">证明状态</a></p>
+<div class="author-opinion">
+<p>这个案例直接说明：<strong>可执行检查可以承载功能规约，不需要先把要求改写成独立的 Rocq 数学定义。</strong> 这里已经得到的是校验和实现之间的具体关系；完整压缩格式正确性是另一项要求。该入口的普通构建证明，也不能替代尚未完成的 sanitizer 构建证明。</p>
+</div>
+<h4>3.7.2 libarchive：内存分配失败，使五个目标被反例否定</h4>
+<p><code>libarchive_xar_fuzzer</code> 把输入当作 XAR 归档读取，遍历条目、访问文件名和元数据，并读取条目内容。它没有比较解包结果的功能断言。该入口的四个带预算前提的 <code>*_halts</code> 仍开放；两个 <code>*_halts_may_fail</code> 和三个 <code>*_agrees</code> 则已标为 <strong><code>witnessed-false</code></strong>。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/a6839bb9e433b34c0d0710df5280194528877139/projects/libarchive/libarchive_xar_fuzzer/README.md">入口和状态</a></p>
+<p>仓库给出了同一个具体反例：使用其记录的输入文件，在第六次内存请求——一次 <strong>16,384 字节的 <code>mmap</code></strong>——发生时拒绝分配。普通构建和 UBSan 构建会因未捕获的 <code>std::bad_alloc</code> 以 <strong>SIGABRT</strong> 中止；记录来自 <code>qemu-riscv64 10.0.11</code> 下的重放。</p>
+<p>这足以否定两个“允许任意请求失败时仍能退出”的目标，也足以否定三个要求普通侧无错误的行为一致目标。这些 <code>agrees</code> 允许环境主动拒绝分配，区别于 cJSON 使用的 <code>alloc-forced-only</code> 策略。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/a6839bb9e433b34c0d0710df5280194528877139/projects/libarchive/libarchive_xar_fuzzer/README.md">反例与环境前提</a></p>
+<div class="author-opinion">
+<p><strong>这里不是证明搜索尚未完成，而是原命题确实有反例。</strong> 下一步可以修复分配失败路径，或根据实际需求重新选择环境前提；两者得到的保证不同。限制环境失败会缩小保证范围，不等于原程序已经能正确处理任意内存分配失败。</p>
+</div>
+<h4>3.7.3 Apache Arrow：线程与 CPU 亲和性超出当前模型</h4>
+<p><code>arrow-csv-fuzz</code> 对同一份输入运行五种读取方式，包括串行表读取、并行表读取、流式读取，以及两种换行配置下的异步行数统计。入口没有比较这些读取方式产生的表格和行数。</p>
+<p><strong>四个终止目标和三个行为一致目标全部标为 <code>model-gap</code>。</strong> 仓库说明：二进制会查询 CPU 亲和性并启动线程，而这一版模型不支持相关执行。文档进一步指出，这些路径使相应目标在当前模型中不成立，原因在模型覆盖范围，而非已经确认的程序错误。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/a6839bb9e433b34c0d0710df5280194528877139/projects/arrow/arrow-csv-fuzz/README.md">Arrow 入口与模型缺口</a></p>
+<div class="author-opinion">
+<p><strong>这种情况首先需要补足执行语义。</strong> 单纯增加证明搜索时间，不能把当前模型没有支持的线程行为变成正常执行。即使补足模型并完成现有目标，若要保证五种读取方式的结果一致，仍需在入口加入相应比较，或另写功能规约。</p>
+<p>这三个案例分别展示：已有检查可以得到功能保证；具体执行可以推翻目标；执行模型的覆盖范围也会限制能够验证的程序。应当分别查看每个入口的检查内容、命题前提与证明状态。</p>
+</div>
 <h2>4. 这只是开始（This is just the beginning）</h2>
 <p>原文指出，生成证明可能消耗数亿 token，成本与复用是后续扩展的关键。<a href="https://www.anthropic.com/research/formal-verification">原文的成本讨论</a></p>
 <h3>4.1 图 4：较强模型用更少 token 到达同一完成率</h3>
