@@ -36,7 +36,7 @@
 <p><strong>Fuzz testing（模糊测试）</strong> 反复生成半随机输入或变异已有输入，再把它们交给开发者编写的 <strong>fuzz target（测试入口）</strong>。入口调用库 API，并可用断言检查结果；导致 crash 的输入被保留下来。原文从 OSS-Fuzz 已有的入口出发，把“继续寻找失败输入”改成“证明指定范围内的所有输入都通过检查”。<a href="https://www.anthropic.com/research/formal-verification">原文对 fuzzing 的说明</a></p>
 <p>本文复用的 OSS-Fuzz 测试已经配有 sanitizer 和维护者写在入口中的 <code>assert</code>：前者检查内存等运行时错误，后者检查编码与解码往返、幂等性、与参考实现一致等性质。违反检查会使测试失败，部分功能正确性要求也由此进入可执行规约。项目直接把这些现成检查转为证明目标。<a href="https://www.anthropic.com/research/formal-verification">原文的测试规约与功能性质</a></p>
 <div class="author-opinion">
-<p><strong>检查什么，已经由现有工具和维护者的断言给出；大模型接手的是证明这些检查对所有允许输入都成立。</strong> 首次采用或修改入口时，人类审查它是否覆盖要保证的功能和调用条件；确定以后，输入生成、运行测试和证明搜索可以自动重复。</p>
+<p><strong>检查什么，已经由现有工具和维护者的断言给出；大模型接手的是证明这些检查对所有允许输入都成立。</strong></p>
 </div>
 <h3>0.2 Sanitizer：ASan 与 UBSan 各自检查什么</h3>
 <p>Sanitizer 通过编译器插桩，在程序执行时检查相应错误。本文使用两类：</p>
