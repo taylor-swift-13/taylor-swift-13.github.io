@@ -2,3 +2,4 @@
 .source-figures .prose .author-opinion,.source-figures .commentary-key{color:#bf5700}
 .source-figures .source-figure+p,.source-figures .prose p:has(> img)+p,.source-figures .prose p:has(> a > img)+p{color:#111}
 .source-figures .reading-key{border-bottom:1px solid var(--line);padding-bottom:22px;line-height:1.8}
+@media(max-width:640px){.source-figures .prose pre,.source-figures .prose pre code{white-space:pre-wrap;overflow-wrap:anywhere}}

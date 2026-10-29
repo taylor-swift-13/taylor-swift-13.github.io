@@ -7,7 +7,7 @@
   <meta name="description" content="从二进制操作语义与 fuzz 规约出发，讨论找 bug、功能正确性与大模型时代的信任取舍。">
   <title>Anthropic 的大手终于伸到了程序验证：兴奋与压力并存的时代，什么值得信任，还有哪些方向值得探索 — Notes</title>
   <link rel="stylesheet" href="../css/style.css?v=149001e1ded1">
-  <link rel="stylesheet" href="../css/anthropic-verification.css?v=2dc0389b82d9">
+  <link rel="stylesheet" href="../css/anthropic-verification.css?v=1e62ae7738eb">
   <link rel="stylesheet" href="../assets/katex/katex.min.css">
   <script src="../js/blog.js" defer></script>
   <script src="../js/visualizations.js" defer></script>
@@ -34,7 +34,7 @@
 <h2>1. 引言：程序验证开始成为一种规模化生产</h2>
 <p>2026 年 10 月 22 日，Anthropic 与 Theorem 发布了 <a href="https://www.anthropic.com/research/formal-verification"><em>LLMs are making formal software verification feasible at a much larger scale</em></a>。作者报告：在数周内，为 <strong>123 个开源库的 239 个 fuzz 入口</strong>完成了特定条件下的 RISC-V 二进制证明，成功证明包含约 <strong>1.8 亿行 Rocq</strong>。这组数字对应实验报告的结果，公开发布的证明只是其中一部分。</p>
 <p><a href="../assets/papers/anthropic-verification/cover.jpg"><img src="../assets/papers/anthropic-verification/cover.jpg" alt="Anthropic 原文封面"></a></p>
-<p><em>原文封面。下文按原文顺序介绍图 1–6，保留三个视频和一个 GIF，并提供内容完整的静态图。原文正文和六页附录没有独立表格；全部原图保留图内英文标注，归纳分析以段落呈现。资料查阅日期：2026 年 10 月 27 日；源码详解见第 6 节，附录逐节解读见第 7 节，crash、sanitizer、RTE 与功能检查器的解释见第 8 节。</em></p>
+<p><em>原文封面。下文按原文顺序介绍图 1–6，保留三个视频和一个 GIF，并提供内容完整的静态图。原文正文和六页附录没有独立表格；全部原图保留图内英文标注，归纳分析以段落呈现。资料查阅日期：2026 年 10 月 29 日。第 3 节沿真实 Rocq 代码展开 spec、执行语义和证明；六页附录的六个主题已并入对应正文，crash、sanitizer、RTE 与功能检查器见第 6 节。</em></p>
 <h2>2. 从 fuzz 测试到二进制证明</h2>
 <p>原文用 Linux 已披露漏洞与 seL4 的投入作背景：前者被原文引用的近期披露漏洞数超过 1,000 个，即使经历大量测试仍有缺陷，后者实现与形式验证分别消耗约 2 和 20 人年。它们用于说明验证的需求与传统成本，不是本次实验的直接对照。主实验二进制的规模中位数约为 18,000 条 RISC-V 指令。<a href="https://www.anthropic.com/research/formal-verification">原文背景与实验规模</a></p>
 <h3>2.1 图 1：测试找到反例，证明覆盖一个明确的输入范围</h3>
@@ -54,7 +54,7 @@
 <p>测试确认一个具体输入的执行；证明要求前提范围内全部执行满足性质。图 1 说明寻找反例与覆盖所有路径的差别，不能把示意动画读成覆盖率数据。越界、溢出或特殊调用历史可能难以触发，但具体反例通常容易重放确认。</p>
 </div>
 <h3>2.2 图 2：程序、语义、规约和证明如何连接</h3>
-<p>项目把库和 fuzz driver 编译成静态 RISC-V 二进制，在 Rocq 中用 **LPS（Linux process semantics）**解释机器指令、进程启动和系统调用，再为指定二进制提出命题。公开仓库的声明直接引用二进制映像；编译器正确性及源码与二进制的对应关系不属于这些声明。<a href="https://github.com/theorem-labs/oss-verify-proofs">公开证明仓库</a>、<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/trust.md">信任基础说明</a></p>
+<p>项目把库和 fuzz driver 编译成静态 RISC-V 二进制，在 Rocq 中用 **LPS（Linux process semantics）**解释机器指令、进程启动和系统调用，再为指定二进制提出命题。附录解释了这样选择的动机：直接解释编译产物，避免另行把 fuzz 程序翻译成 Rocq 时的翻译错误，或源码解释器与实际编译执行不一致；真实机器与 LPS 的对应仍需承担。公开仓库的声明直接引用二进制映像；编译器正确性及源码与二进制的对应关系不属于这些声明。<a href="https://github.com/theorem-labs/oss-verify-proofs">公开证明仓库</a>、<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/trust.md">信任基础说明</a></p>
 <figure class="source-figure" aria-label="原文图 2">
 <a href="../assets/papers/anthropic-verification/figure-2-poster.png"><img src="../assets/papers/anthropic-verification/figure-2-poster.png" alt="原文图 2 的完整静态画面，点击放大"></a>
 <details class="source-animation"><summary>播放原始视频动画</summary>
@@ -102,7 +102,21 @@
 <div class="author-opinion">
 <p>主实验以可执行检查为中心，不能直接回答解析结果、权限或系统状态是否符合完整需求。不过，安全证明可能借助复杂功能不变量，断言也可以编码功能要求。一个始终返回错误码的解析器可能很安全；若要保证它有用，规约还必须约束合法输入的接受与结果。安全、功能、终止和可用性需要分别陈述。</p>
 </div>
-<h3>2.5 断言能够表达功能要求，其他实验也有不同的保证</h3>
+<h3>2.5 功能断言：LZO 与 p11-kit 的入口究竟检查什么</h3>
+<p>附录第 6 页的这段原始 C 代码同时包含控制分支、函数调用与两条断言；这里只调整换行：</p>
+<pre><code class="language-c">r = lzo1x_1_compress(data, size, compressed, &amp;compressed_len, wrkmem);
+assert(r == LZO_E_OK);
+if (compressed_len &gt;= size) goto join;
+decompressed_len = size + 1;
+r = lzo1x_decompress(compressed, compressed_len,
+                    decompressed, &amp;decompressed_len, NULL);
+assert(r == LZO_E_OK &amp;&amp; decompressed_len == size);
+</code></pre>
+<p>第一条检查压缩成功；当压缩结果小于原输入时，后续分支解压并检查成功状态及还原长度。断言失败会进入中止路径，因而排除 crash 的证明也覆盖这些要求。在二进制中，两条断言编成跳向 abort 处理程序的分支，证明按确切指令地址分析并排除这些分支。附录还介绍了管理智能卡与密码硬件的 p11-kit：其配置词法分析器在识别 PEM 块时，断言块长度不超过输入缓冲区末尾；这类维护者写在入口中的约束，同样成为证明需要排除的失败分支。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=6">附录第 6 页代码与说明</a></p>
+<div class="author-opinion">
+<p>这个例子纠正了“安全性完全没有功能内容”的笼统说法。入口断言可以要求算法返回成功并恢复正确长度。不过，这段代码没有比较解压字节与原输入；仅依据这些断言，不能将结论扩大成完整的逐字节往返正确性。进一步的功能保证，要落实到完整入口、实际 spec 和已完成的定理上。</p>
+</div>
+<h3>2.6 其他实验：zlib 功能规约与 Python 解释器</h3>
 <p>原文还报告了针对 x86 二进制的 zlib 格式规约验证，以及使用 Verus 验证一个以 Rust 编写的 Python 子集解释器。它明确说明，<strong>x86 实验采用 Claude 生成并经过大量测试的 ISA 语义</strong>；RISC-V 主实验使用的是 Theorem 的 LPS。原文的这一说法不能直接用来确认整套 RISC-V/Linux 语义都由模型从零编写。<a href="https://www.anthropic.com/research/formal-verification">原文其他案例与脚注 7</a></p>
 <p>其他案例中，zlib 的功能规约具体依据 RFC 1950，验证对象是 Linux 内核中的实现。原文还报告在另外约 6 个广泛使用的库上重复尝试、发现若干不可利用的边界缺陷，以及对安全性质的证明尝试发现潜伏十余年的逻辑问题、在一周内发现某 PDF 阅读器通常一年报告数量的安全缺陷。这些属于作者报告的案例成果，并非统一预算下的基准对比。<a href="https://www.anthropic.com/research/formal-verification">其他验证案例</a></p>
 <p>另一个具有代表性的例子来自 cpp-httplib：为了排除 <code>std::set</code> 析构递归引起的栈溢出，证明必须建立 libc++ 红黑树重平衡维持对数树高的性质。这说明无 crash 目标的内部证明，也可能需要复杂的算法不变量。<a href="https://www.anthropic.com/research/formal-verification">原文的红黑树案例</a></p>
@@ -111,112 +125,21 @@
 <div class="author-opinion">
 <p>断言约束什么，就只能据此获得什么：返回状态、长度与字节内容是不同要求，具体覆盖取决于实际执行的检查。解释器案例同样有两段证据链：实现满足形式语义由证明支持，形式语义与 CPython 的对应由测试支持。</p>
 </div>
-<h3>2.6 主实验怎样使用 Rocq，是否需要现成验证器与 SMT</h3>
+<h4>Python 解释器的完整实验条件与变异检验</h4>
+<p>解释器实验采用 safe Rust、Verus 和 Z3，按基于 λπ 的形式语义完成 17 个层次的证明。结论约束返回结果；与 CPython 的对应由测试检验。作者另外向早期版本注入七个错误，其中五个通过了随机测试，七个都使证明失败。选择 Verus 而非 Lean 是实践偏好，也用于检验模型适应不同形式系统的能力，并非技术上只能如此。这里是源码层的 Hoare 风格验证：以 <code>requires</code>、<code>ensures</code> 与循环不变量等契约表达要求，再由 Verus 调用 Z3 证明代码满足契约，与主实验的 Rocq 二进制路线不同。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=2">附录第 2–3 页</a></p>
+<div class="author-opinion">
+<p>这组结果说明证明可能发现测试遗漏的错误，同时也展示了信任边界：实现与形式模型之间有证明，形式模型与 CPython 之间有经验比较。若形式语义漏掉了需求，前一项证明仍可能全部成立。人工注入错误的结果也应按这七个案例理解，不能外推为所有缺陷的检出率。</p>
+</div>
+<h3>2.7 主实验怎样使用 Rocq，是否需要现成验证器与 SMT</h3>
 <p>公开主实验的检查流程以 Rocq 为核心：给定二进制映像与固定命题，编译代理提交的证明，再检查假设。检查镜像包含 Rocq、LPS 及相关库，并不携带额外的证明自动化；编译、sanitizer 插桩、映像提取和生成脚本仍然参与整个流程。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/checking.md">检查环境</a></p>
 <p>这条主线没有把“由现成源码验证器生成 VC，再交给外部 SMT”作为说明中的核心步骤。另一项 Rust 解释器实验则使用 Verus 与 Z3。因此，“Rocq 主实验的证明检查不以外部 SMT 为核心”与“全文所有实验都不用 SMT”是两个不同说法。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf">附录第 3 页</a></p>
 <div class="author-opinion">
 <p><strong>人类设计宏观任务、检查接口和信任边界，模型完成繁重形式化与证明</strong>，是这项工作的组织方式。它减少了预先为每个困难设计专用求解器的要求，但仍依赖 Rocq、编译器、sanitizer 和生成脚本。强模型能直接面对正式语义时，哪些额外自动化仍有价值，需要用实际收益回答。</p>
 </div>
-<h2>3. 兴奋与压力：模型能力、证明复用和成本</h2>
-<h3>3.1 十亿行是尝试规模，行数不等于模型输出量</h3>
-<p>附录报告，尝试过程中产生约十亿行 Rocq，其中约 1.8 亿行属于成功证明。大量内容由工具和脚本生成，单个证明的检查也需要明显的计算时间。因此，不能用文件行数直接推算 API 输出费用。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf">附录第 3–4 页</a></p>
-<div class="author-opinion">
-<p>证明行数混合了机械展开、生成数据与抽象复用，不能独立衡量质量或推算费用。更有意义的是完成的性质、总资源及跨版本可复用性。模型让大量重复劳动变得可行，方法评价也应随这种能力变化。</p>
-</div>
-<h3>3.2 图 4：较强模型用更少 token 到达同一完成率</h3>
-<p><a href="../assets/papers/anthropic-verification/figure-4.png"><img src="../assets/papers/anthropic-verification/figure-4.png" alt="Anthropic 原文图 4：三个模型在不同 token 预算下完成 36 个验证任务的比例"></a></p>
-<p><em>原文图 4。横轴为每个代理的 token 预算，纵轴为 36 个验证任务的完成比例；橙、蓝、灰分别对应 Opus 5.5、Fable 5.1 和 Opus 5。曲线越靠左，达到同一完成比例所需 token 越少。每题有三次独立尝试，每次上限 500 万 token；题目在首次成功时计为完成。这是小任务比较实验，不是 239 个入口的总预算。<a href="https://www-cdn.anthropic.com/images/4zrzovbb/website/02207cbc6f46e272fe9a0fa7929cb8ec29578e74-1920x980.png">原图</a></em></p>
-<p>原文对图 4 给出一个明确的比较点：<strong>完成一半任务时，Opus 5.5 所需 token 比 Opus 5 少约 40%</strong>。这个比例比较的是达到同一完成水平的 token 消耗，不能直接解释成所有任务的平均费用下降 40%。<a href="https://www.anthropic.com/research/formal-verification">模型比较结果</a></p>
-<p>这些小任务由真实入口缩减而来，使用简化运行时和 mini-ASan，输入限制为 64 字节；不能把图 4 的结果直接当作完整 OSS-Fuzz 项目的成本曲线。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf">附录第 5 页</a></p>
-<div class="author-opinion">
-<p>模型升级本身可能节省大量搜索。方法是否有独立收益，应在足够强的代理上比较相同预算下的完整完成率，避免仅依赖较弱或过时基线。</p>
-</div>
-<h3>3.3 图 5：共享证明减少重复劳动</h3>
-<figure class="source-figure" aria-label="原文图 5，共享证明与计算成本">
-<a href="../assets/papers/anthropic-verification/figure-5-static.png"><img src="../assets/papers/anthropic-verification/figure-5-static.png" alt="原文图 5 完整静态图：证明复用弧线及各任务的 token 消耗"></a>
-<details class="source-animation"><summary>播放原始 GIF 动画</summary><a href="../assets/papers/anthropic-verification/figure-5.gif"><img src="../assets/papers/anthropic-verification/figure-5.gif" alt="原文图 5 动画：按顺序展示证明复用和成本比较" loading="lazy"></a></details>
-</figure>
-<p><em>原文图 5，默认展示内容完整的静态图，展开可播放原始 GIF。横向按任务完成顺序排列，橙色弧线连接复用了相同文件的证明；向下的柱表示成功所需 token，黑色短横线是相应任务由独立代理完成的平均消耗。深蓝表示比独立运行更省，浅蓝表示没有更省；图中两项标注为独立运行未完成。<a href="https://www-cdn.anthropic.com/images/4zrzovbb/website/5078468fa7e09774b1ab6e86984ec5691d3d11fa-1080x712.gif">原始 GIF</a></em></p>
-<p>共享工作区实验报告，代理所需 token 比独立运行少 <strong>17%</strong>。在有独立运行成本可对照的 34 个完成证明中，30 个更省 token；另外两项任务的独立代理没有完成。图中的共享弧线、成本柱与这组结果需要结合起来阅读。<a href="https://www.anthropic.com/research/formal-verification">原文的共享证明结果</a></p>
-<div class="author-opinion">
-<p>共享文件不自动等于节省计算：加载、判断与改写也有成本。可复用成果应记录准确陈述、模型版本、检查状态及剩余义务；候选文件只有完成检查，才成为可依赖的证明。</p>
-</div>
-<h3>3.4 图 6：不同项目的证明为什么大面积相似</h3>
-<p><a href="../assets/papers/anthropic-verification/figure-6.png"><img src="../assets/papers/anthropic-verification/figure-6.png" alt="Anthropic 原文图 6：libcups、freerdp 和 libzmq 的证明组成与复用程度"></a></p>
-<p><em>原文图 6。三列分别是 libcups、freerdp 和 libzmq 的完整证明，块的高度按各部分字节占比绘制。深蓝为完全相同，浅蓝为小幅修改，浅棕为更多修改，橙色为新增；浅改的判定采用相同文件且大小变化在 2% 内。右侧标出分配器、sanitizer 运行时、共享库、规约以及普通和插桩构建等部分。颜色反映文件复用程度，不是语义等价的测量。<a href="https://www-cdn.anthropic.com/images/4zrzovbb/website/8e295614d599d548fbd2ff97ed3cc3e62f501b2b-1920x1248.png">原图</a></em></p>
-<div class="author-opinion">
-<p>完整进程的启动与运行时造成大量跨项目重复。复制已有证明能帮助当前任务；明确契约和模块接口，才可能让后续任务直接引用结论，只证明新增部分。</p>
-</div>
-<h3>3.5 总成本需要完整账单，生态路线图依赖增长假设</h3>
-<p>原文指出，生成证明可能消耗数亿 token，成本与复用因而是后续扩展的关键；这一量级并非本次实验总账单。<a href="https://www.anthropic.com/research/formal-verification">原文的成本讨论</a></p>
-<p>Theorem 的另一篇<a href="https://theorem.dev/blog/verified-software-stack/">软件栈路线图</a>采用每 KB 机器代码约 40 美元等起始参数，并假设验证能力持续快速增长，以估算 Nix 软件生态的验证进度与费用。这些是路线图的建模参数和预测，不能作为本次主实验的实际账单。</p>
-<p>主实验报告完成了 <strong>123 个库、239 个入口</strong>，正文与附录没有披露完整美元账单。<strong>每题三次、每次 500 万 token</strong>，属于 36 个缩减验证任务的尝试预算，不是主实验总用量。</p>
-<p><strong>约十亿行尝试产物、其中约 1.8 亿行属于成功证明</strong>，包含工具生成内容，不能直接折算成模型输出 token。<strong>每 KB 机器代码约 40 美元</strong>，则是 Theorem 生态路线图的起始参数，不是本次实验的结算单价。</p>
-<p>这些数字分别统计交付范围、单次尝试上限、文本产物和预测参数。它们的分母不同，不能相乘后当成实际项目成本。图 4 的小任务结果，支持对模型效率的比较；软件生态能否以相同趋势降本，还取决于后续任务的复杂度与复用程度。</p>
-<p>原文以接近 30 万条定理、700 多位贡献者共同积累的 Mathlib 作类比，提出按依赖包复用证明的设想：软件依赖分布集中，先验证少量被广泛使用的依赖，可能让更多上层程序变得可验证。这是生态路线图的动机；它与本次实验中已经测得的文件复制和改写收益，应当分开理解。<a href="https://www.anthropic.com/research/formal-verification">原文的复用与生态设想</a></p>
-<div class="author-opinion">
-<p>成本应合计生成、失败尝试、检查、语义开发和补丁审查，并区分单次成功与整项交付。十亿行不足以推算百万美元账单，路线图的单位价格也不足以判断团队能否负担。</p>
-<p>比较方法时，应固定时间、token 或美元预算；模型单价不同，较省 token 不一定较省钱，证明检查也可能成为瓶颈。</p>
-</div>
-<h2>4. 什么值得信任：从证明检查到现实对应</h2>
-<h3>4.1 证明文本可以不逐行阅读，信任基础仍要具体</h3>
-<p>公开检查流程会核对二进制哈希，从源文件编译证明，并生成独立包装定义，要求提交的证明具有指定陈述的类型；随后检查 <code>Print Assumptions</code>。仓库列出允许使用的公理，拒绝额外假设和未完成证明。默认检查使用 Rocq 内核；<code>rocqchk</code> 是可选的第二次检查。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/checking.md">证明检查流程</a></p>
-<p>信任基础还包括 ELF 到内存映像的工具、读取映像的插件、检查包装和假设解析程序，以及实际使用的 LPS 定义。检查器确认一个形式命题有证明；这些外围环节决定该命题是否对应预定的验证目标。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/trust.md">信任基础文档</a></p>
-<p>原文脚注还把运行证明检查器所依赖的硬件、操作系统与 OCaml 编译器纳入信任基础。因此，“信任 Rocq 内核”也包含让这份内核实现正确运行的执行环境。<a href="https://www.anthropic.com/research/formal-verification">原文脚注 5</a></p>
-<p>从需求走到部署，需要分别核对几个环节。<strong>需求与规约</strong>要检查命题、前提、输出与错误定义是否包含实际需求；<strong>执行语义</strong>要检查指令、系统调用、启动与环境模型是否忠于目标平台；<strong>软件产物</strong>要用哈希、映像、版本与依赖确认指向的确实是这份二进制。</p>
-<p><strong>证明检查</strong>要核对内核、允许公理、独立包装与审计，排除额外假设和错误目标；<strong>实际部署</strong>还要满足定理要求的架构、链接方式、并发与资源条件。</p>
-<p>这些环节形成了从需求到部署的证据链。证明检查主要约束证明是否成立，二进制哈希帮助固定软件产物；它们不能单独完成需求、语义与部署条件的核对。判断一份证明能否服务于真实系统，需要把这些环节接起来。</p>
-<div class="author-opinion">
-<p>可靠检查链允许生成模型犯错，却不能替代正确目标：弱化性质、排除失败输入或更换程序都可能使证明轻易成立。因此，目标固定、产物固定与假设审计同样重要。</p>
-<p>LPS 与真实机器的对应仍是一项重信任义务。对找漏洞，可以先采用经过测试、范围明确的模型，再真实重放反例；这种工程判断不能直接升级为无错误保证。</p>
-</div>
-<h3>4.2 机器模型的缺口会成为结论的边界</h3>
-<p>LPS 的范围说明列出了单线程、静态可执行文件、信号处理及文件系统等限制，也列出了若干未检查的外部假设。文档特别说明：某些模型中过宽的非确定行为，会影响两个程序行为集合的等价比较；模型内的等价不一定自动转移到真实系统。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/SCOPE.md">LPS 范围与已知缺口</a></p>
-<p>原文特别指出，实验使用静态链接 musl 的 RISC-V 程序，而常见部署可能是 x86 或 ARM、动态链接 glibc；已有证明不会自动转移过去。实验也没有验证每个库的全部入口，即使所有 fuzz 入口都验证，仍不等于覆盖所有库代码与调用情境。调用者若违反 API 使用条件，还可能在库外造成内存破坏，因此调用者义务同样需要写清。<a href="https://www.anthropic.com/research/formal-verification">原文的部署与调用边界</a></p>
-<div class="author-opinion">
-<p>对全称安全性质，保守过近似可能足够；对行为集合相等，两边增加模型特有行为可能改变结论。语义的适用性取决于目标性质。共享语义既会传播错误，也会集中收益，因此需要版本化的适用范围、差分记录、参考语义对应与变更后的重查范围。</p>
-</div>
-<h3>4.3 直接验证二进制，仍然需要跨越模型与现实</h3>
-<p>附录解释，直接把测试翻译成 Rocq 可能引入翻译错误，源码解释器也可能偏离实际编译结果，因此项目选择解释编译后的二进制。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf">附录第 1–2 页</a></p>
-<div class="author-opinion">
-<p>源码转换需要连接原程序与模型，二进制验证需要连接机器模型与平台。两条路线都应保留所关心的正常返回、错误和发散；差分测试能发现偏差，严格保证还需对应论证。静默丢弃错误执行，会让模型比真实程序更安全。</p>
-</div>
-<h3>4.4 自动修补以后，被证明的程序已经改变</h3>
-<p>原文允许 Claude 修补证明过程中发现的问题，再为新程序重新生成目标；脚注同时讨论了修改程序以迎合目标的风险，并介绍了补丁惩罚、行为变化奖励和日志审计。<a href="https://www.anthropic.com/research/formal-verification">原文脚注 6</a></p>
-<p>公开发布的材料也有筛选：原文说明提供不需修补的部分完整证明、其他任务的陈述及可信组件，并暂不发布可能揭示未修复漏洞的证明。因此，公开仓库不是完整实验结果的逐项清单。<a href="https://www.anthropic.com/research/formal-verification">原文的发布范围</a></p>
-<div class="author-opinion">
-<p>补丁若通过拒绝全部输入消除崩溃，可能满足安全目标却损害功能。因此应独立检查合法输入、输出关系与变化范围，并记录结论适用于原始还是修补后的二进制。证明支持修补后的性质，补丁是否符合维护者意图仍需证据。</p>
-</div>
-<h2>5. 还有哪些研究方向：把成果变成可信、可复用的保证</h2>
-<h3>5.1 规格生成需要独立的正确性与充分性评价</h3>
-<div class="author-opinion">
-<p><strong>规约可以是逻辑公式，也可以是可执行检查、参考算法或抽象状态机。</strong> 关键在于观察什么、允许哪些输入和行为，以及要求是否独立约束实现。解析器的接受与输出、权限检查的拒绝条件、数值程序的误差及特殊值，都需要具体定义。</p>
-<p>code2spec 若只按原实现能否证明评分，会奖励恒真条件、遗漏失败情况的前提或对实现的机械复述。独立需求、参考模型、审查和变异程序可以检验漏项：排序只要求有序会允许丢元素，还需保留多重集合；拒绝若干变异体也不等于证明规约完整。</p>
-<p>对操作系统，可以由人给出抽象状态转换，让模型寻找实现与抽象状态的关系及不变量。这样可能减少精化证明的人工负担，但允许行为、环境假设和状态对应的义务仍然存在。</p>
-</div>
-<h3>5.2 让模型 formalize，再测试 formalization，能走多远</h3>
-<div class="author-opinion">
-<p>值得尝试的路线是：<strong>让模型把代码 formalize 到 Rocq 或 Lean，测试形式化，再证明功能性质。</strong> 需要对照输入输出、中间状态和错误行为，记录支持子集及失败案例；若形式化正确仍是工程假设，就不能把它当作已完成的原程序保证。</p>
-<p>源码、IR 与二进制各有适用场景，重点是保留哪些执行、增加哪些前提，以及结论如何传递。浮点 C 尤其不能由实数公式代替：舍入、NaN、无穷大、有符号零及编译选项都可能改变行为。只保留正常返回的模型，也可能完全遗漏原程序错误；有界检查、差分测试与证明应分别说明范围。</p>
-<p>证明有机会替代固定性质与产物上的重复测试，但真实重放、模型对照与部署变化仍需检验。</p>
-</div>
-<h3>5.3 模块化抽象需要证明它能改善后续任务</h3>
-<div class="author-opinion">
-<p>分配器契约、调用约定和分离逻辑规则，应让后续程序在明确前提下复用。评价时应测量跨程序、跨版本的预算节省、维护成本及模型升级后收益，不能只看当前证明缩短多少。</p>
-</div>
-<h3>5.4 评测要同时约束目标、实现和资源</h3>
-<div class="author-opinion">
-<p>规约用独立需求、漏项反例与变异检验评价；模型用执行对照、对应定理与错误路径保留评价；复用用固定依赖的新任务和跨版本实验评价；补丁用合法输入、变化范围和回归证据评价；成本用强代理基线、完整成功率和总账单评价。</p>
-<p>需要防止同一生成过程同时决定需求、实现、规约与验收，最后只报告全部通过。关键目标和检查方式应有独立约束，并记录每次有意义的改变。</p>
-</div>
-<h3>5.5 更强的模型，要求更准确的保证表述</h3>
-<div class="author-opinion">
-<p>这项工作令人兴奋，也给小型团队带来压力：大量局部执行推理正在成为通用代理能力。人类把握宏观设计、模型持续推进繁重证明的组织方式，已经值得认真采用。</p>
-<p>后续价值在于把需求、形式语义、补丁与部署接成可复现的证据链，并交付可复用的接口与完整成本。<strong>可信程度取决于陈述、前提、产物和检查过程，不能只看证明规模。</strong></p>
-</div>
-<h2>6. 源码里的 spec 与 LPS：命题究竟如何落到二进制上</h2>
+<h2>3. 沿真实 Rocq 代码看：到底定义了什么、证明了什么</h2>
 <p>以下核对固定到公开证明仓库的 <code>98e995d4</code> 与 LPS 的 <code>f1006fe8</code>，避免将后续版本混在一起。代码片段分别注明原样节选与解释性示意；定义存在、命题被证明、命题适用于部署程序，是三个需要分别核对的状态。</p>
-<h3>6.1 真实 spec：cJSON 的两条 Rocq 定义</h3>
+<p>下面沿一条可以追踪的源码链阅读：<code>Statements.asan_agrees</code> → <code>Shapes.agrees_in</code> → <code>run_scfg</code> 与 <code>error_free</code> → cJSON 的共享轨迹规约 → 已发表的 <code>Proof.v</code>。所有代码均来自固定快照；完整定义与证明正文按原码展示或仅调整换行，结构节选另行标明。</p>
+<h3>3.1 真实 spec：cJSON 的两条 Rocq 定义</h3>
 <p><a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/Statements.v"><code>projects/cjson/cjson_read_fuzzer/Statements.v</code></a> 中有以下定义，原样节选并调整换行：</p>
 <pre><code class="language-coq">Definition plain_halts : Prop :=
   halts_within_budget
@@ -238,7 +161,7 @@ Definition asan_agrees : Prop :=
 <div class="author-opinion">
 <p>这是读取项目结果时很有用的一种顺序：先找具体入口，再看陈述，然后核对证明状态。仅看到一个命题写成 <code>Definition ... : Prop</code>，不能断言它已经被证完。即使入口调用了复杂算法，它是否有功能保证，仍取决于驱动程序实际观察了什么。</p>
 </div>
-<h3>6.2 映像不是抽象函数，而是指定 ELF 的加载结果</h3>
+<h3>3.2 映像不是抽象函数，而是指定 ELF 的加载结果</h3>
 <p><a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/Images.v"><code>Images.v</code></a> 给普通构建的定义是：</p>
 <pre><code class="language-coq">Definition plain : Image :=
   mkImage
@@ -251,32 +174,44 @@ Definition asan_agrees : Prop :=
 <div class="author-opinion">
 <p>这也解释了为什么证明必须绑定软件产物。模型证明的是这些段里的指令及其允许的运行环境；源代码仓库里的相同文件名，不能替代二进制身份。驱动拒绝输入本身可以是正确行为，但要确认它没有把原本需要处理的正常输入排除掉。</p>
 </div>
-<h3>6.3 展开 spec：量词、环境、内存前提和结论</h3>
-<p><a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/theories/Shapes.v"><code>Shapes.v</code></a> 中，一致性模板的前提包括以下原样节选；省略号表示后续结论未在代码块中展开：</p>
-<pre><code class="language-coq">valid_entry plain en_plain inp -&gt;
-valid_entry san en_san inp -&gt;
-valid_input inp -&gt;
-~ run_scfg_budget_refused
-    env plain lim_plain
-    en_plain inp -&gt;
-...
+<h3>3.3 完整目标：量词、预算、三个结论与单独的终止义务</h3>
+<p><a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/theories/Shapes.v"><code>Shapes.v</code></a> 的 <code>agrees_in</code> 完整定义如下，保留全部量词、前提与三个结论：</p>
+<pre><code class="language-coq">Definition agrees_in (env : SpuriousCfg) (lim_plain lim_san : Z) (plain san :
+  Image) : Prop :=
+  forall (en_plain en_san : ExecEntry) (inp : ProcInput),
+    valid_entry plain en_plain inp -&gt;
+    valid_entry san en_san inp -&gt;
+    valid_input inp -&gt;
+    ~ run_scfg_budget_refused env plain lim_plain en_plain inp -&gt;
+    error_free (run_scfg env plain lim_plain en_plain inp)
+    /\ error_free (run_scfg env san lim_san en_san inp)
+    /\ trace_equiv (bh_traces (run_scfg env plain lim_plain en_plain inp))
+                   (bh_traces (run_scfg env san lim_san en_san inp)).
 </code></pre>
 <p>外层对两个构建的启动布局和进程输入分别全称量化。进程输入包括参数、环境变量、初始文件、标准输入等；启动布局包括栈、堆起点和相关随机字节。两个构建的布局不必相同。前提成立后，要得到普通构建无错误、插桩构建无错误，以及两者有限轨迹集合相同。</p>
-<p>用缩略记号表示这一结构，以下是解释性公式，并非仓库代码：</p>
-<section><eqn><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mtable rowspacing="0.25em" columnalign="right left" columnspacing="0em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="true"><mrow></mrow></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="true"><mrow><mrow></mrow><mi mathvariant="normal">∀</mi><msub><mi>e</mi><mi>p</mi></msub><mo separator="true">,</mo><msub><mi>e</mi><mi>s</mi></msub><mo separator="true">,</mo><mi>i</mi><mo separator="true">,</mo></mrow></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="true"><mrow></mrow></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="true"><mrow><mrow></mrow><mspace width="1em"/><msub><mrow><mi mathvariant="normal">Valid</mi><mo>⁡</mo></mrow><mi>p</mi></msub><mo stretchy="false">(</mo><msub><mi>e</mi><mi>p</mi></msub><mo separator="true">,</mo><mi>i</mi><mo stretchy="false">)</mo><mo>∧</mo><msub><mrow><mi mathvariant="normal">Valid</mi><mo>⁡</mo></mrow><mi>s</mi></msub><mo stretchy="false">(</mo><msub><mi>e</mi><mi>s</mi></msub><mo separator="true">,</mo><mi>i</mi><mo stretchy="false">)</mo></mrow></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="true"><mrow></mrow></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="true"><mrow><mrow></mrow><mspace width="1em"/><mo>∧</mo><mi mathvariant="normal">ValidInput</mi><mo>⁡</mo><mo stretchy="false">(</mo><mi>i</mi><mo stretchy="false">)</mo><mo>∧</mo><msub><mrow><mi mathvariant="normal">BudgetOK</mi><mo>⁡</mo></mrow><mi>p</mi></msub></mrow></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="true"><mrow></mrow></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="true"><mrow><mrow></mrow><mspace width="2em"/><mo>⟹</mo><mi mathvariant="normal">ErrorFree</mi><mo>⁡</mo><mo stretchy="false">(</mo><msub><mi>R</mi><mi>p</mi></msub><mo stretchy="false">)</mo></mrow></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="true"><mrow></mrow></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="true"><mrow><mrow></mrow><mspace width="2em"/><mspace width="2em"/><mo>∧</mo><mi mathvariant="normal">ErrorFree</mi><mo>⁡</mo><mo stretchy="false">(</mo><msub><mi>R</mi><mi>s</mi></msub><mo stretchy="false">)</mo></mrow></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="true"><mrow></mrow></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="true"><mrow><mrow></mrow><mspace width="2em"/><mspace width="2em"/><mo>∧</mo><mi mathvariant="normal">Traces</mi><mo>⁡</mo><mo stretchy="false">(</mo><msub><mi>R</mi><mi>p</mi></msub><mo stretchy="false">)</mo><mo>=</mo><mi mathvariant="normal">Traces</mi><mo>⁡</mo><mo stretchy="false">(</mo><msub><mi>R</mi><mi>s</mi></msub><mo stretchy="false">)</mo><mi mathvariant="normal">.</mi></mrow></mstyle></mtd></mtr></mtable><annotation encoding="application/x-tex">
-\begin{aligned}
-&amp;\forall e_p,e_s,i,\\
-&amp;\quad\operatorname{Valid}_p(e_p,i)\land\operatorname{Valid}_s(e_s,i)\\
-&amp;\quad\land\operatorname{ValidInput}(i)\land\operatorname{BudgetOK}_p\\
-&amp;\qquad\Longrightarrow\operatorname{ErrorFree}(R_p)\\
-&amp;\qquad\qquad\land\operatorname{ErrorFree}(R_s)\\
-&amp;\qquad\qquad\land\operatorname{Traces}(R_p)=\operatorname{Traces}(R_s).
-\end{aligned}
-</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:8.7202em;vertical-align:-4.1101em;"></span><span class="mord"><span class="mtable"><span class="col-align-r"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:4.6101em;"><span style="top:-6.6101em;"><span class="pstrut" style="height:2.84em;"></span><span class="mord"></span></span><span style="top:-5.1101em;"><span class="pstrut" style="height:2.84em;"></span><span class="mord"></span></span><span style="top:-3.6101em;"><span class="pstrut" style="height:2.84em;"></span><span class="mord"></span></span><span style="top:-2.0899em;"><span class="pstrut" style="height:2.84em;"></span><span class="mord"></span></span><span style="top:-0.5899em;"><span class="pstrut" style="height:2.84em;"></span><span class="mord"></span></span><span style="top:0.9101em;"><span class="pstrut" style="height:2.84em;"></span><span class="mord"></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:4.1101em;"><span></span></span></span></span></span><span class="col-align-l"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:4.6101em;"><span style="top:-6.7701em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord"></span><span class="mord">∀</span><span class="mord"><span class="mord mathnormal">e</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.1514em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">p</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2861em;"><span></span></span></span></span></span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord"><span class="mord mathnormal">e</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.1514em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">s</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal">i</span><span class="mpunct">,</span></span></span><span style="top:-5.2701em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord"></span><span class="mspace" style="margin-right:1em;"></span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mop"><span class="mop"><span class="mord mathrm">Valid</span></span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.1514em;"><span style="top:-2.55em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">p</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2861em;"><span></span></span></span></span></span></span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal">e</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.1514em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">p</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2861em;"><span></span></span></span></span></span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal">i</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∧</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mop"><span class="mop"><span class="mord mathrm">Valid</span></span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.1514em;"><span style="top:-2.55em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">s</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal">e</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.1514em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">s</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal">i</span><span class="mclose">)</span></span></span><span style="top:-3.7701em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord"></span><span class="mspace" style="margin-right:1em;"></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∧</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mop"><span class="mord mathrm">ValidInput</span></span><span class="mopen">(</span><span class="mord mathnormal">i</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∧</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mop"><span class="mop"><span class="mord mathrm">BudgetOK</span></span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.0573em;"><span style="top:-2.4559em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">p</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.3802em;"><span></span></span></span></span></span></span></span></span><span style="top:-2.2499em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord"></span><span class="mspace" style="margin-right:2em;"></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">⟹</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mop"><span class="mord mathrm">ErrorFree</span></span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0077em;">R</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.1514em;"><span style="top:-2.55em;margin-left:-0.0077em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">p</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2861em;"><span></span></span></span></span></span></span><span class="mclose">)</span></span></span><span style="top:-0.7499em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord"></span><span class="mspace" style="margin-right:2em;"></span><span class="mspace" style="margin-right:2em;"></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∧</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mop"><span class="mord mathrm">ErrorFree</span></span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0077em;">R</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.1514em;"><span style="top:-2.55em;margin-left:-0.0077em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">s</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">)</span></span></span><span style="top:0.7501em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord"></span><span class="mspace" style="margin-right:2em;"></span><span class="mspace" style="margin-right:2em;"></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∧</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mop"><span class="mord mathrm">Traces</span></span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0077em;">R</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.1514em;"><span style="top:-2.55em;margin-left:-0.0077em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">p</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2861em;"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mop"><span class="mord mathrm">Traces</span></span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0077em;">R</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.1514em;"><span style="top:-2.55em;margin-left:-0.0077em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">s</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mord">.</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:4.1101em;"><span></span></span></span></span></span></span></span></span></span></span></span></eqn></section><p>其中 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>R</mi><mi>p</mi></msub></mrow><annotation encoding="application/x-tex">R_p</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.9694em;vertical-align:-0.2861em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0077em;">R</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.1514em;"><span style="top:-2.55em;margin-left:-0.0077em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">p</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2861em;"><span></span></span></span></span></span></span></span></span></span></eq>、<eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>R</mi><mi>s</mi></msub></mrow><annotation encoding="application/x-tex">R_s</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.8333em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal" style="margin-right:0.0077em;">R</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.1514em;"><span style="top:-2.55em;margin-left:-0.0077em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">s</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span></eq> 是对应环境、预算、布局和输入下的运行。cJSON 的 ASan 一致性目标采用普通构建 2 GiB、插桩构建 512 GiB 的预算；普通终止目标另用 16 GiB。<code>alloc_forced_only</code> 要求内存请求只在预算耗尽或找不到可用地址范围时失败，其他种类的请求仍可能失败。它们是不同命题的参数，不能混成一个统一资源保证。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/theories/Shapes.v">参数与模板定义</a></p>
+<p>逐行读这段 Rocq：<code>forall</code> 不是抽取几个测试样本，而是固定映像下所有合法进程输入与两个独立的启动布局；连续的 <code>-&gt;</code> 引入必须满足的前提；<code>~ run_scfg_budget_refused ...</code> 是对普通构建运行的预算前提；最后的 <code>/\</code> 把三个义务合取。第一项已经直接要求普通构建无错误，并非只靠 ASan 的检测能力推出来。第三项比较两组可能的有限轨迹，而不是某次运行的单条输出。</p>
+<p><code>run_scfg</code> 的参数依次给出环境失败策略、二进制映像、预算、启动布局和输入。cJSON 的 ASan 一致性目标采用普通构建 2 GiB、插桩构建 512 GiB 的预算；普通终止目标另用 16 GiB。<code>alloc_forced_only</code> 要求内存请求只在预算耗尽或找不到可用地址范围时失败，其他种类的请求仍可能失败。它们是不同命题的参数，不能混成一个统一资源保证。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/theories/Shapes.v">参数与模板定义</a></p>
 <div class="author-opinion">
 <p>真实 spec 的复杂性主要藏在这里。用中文概括为“所有输入都不崩溃”很方便，但允许哪些环境失败、预算条件放在哪个构建上、轨迹怎样比较，都会改变证明难度和结论范围。检查这些前提，比单看定理名称更能判断保证是否适用。</p>
 </div>
-<h3>6.4 LPS 的源码结构：指令、机器状态、系统调用与整体行为</h3>
+<p>再对照同文件中的终止模板。这里不是 <code>error_free</code>，而是另一个谓词 <code>must_exit_in_scfg</code>：</p>
+<pre><code class="language-coq">Definition halts_within_budget (lim : Z) (allowed : list word) (img : Image) :
+  Prop :=
+  forall (en : ExecEntry) (inp : ProcInput),
+    valid_entry img en inp -&gt;
+    valid_input inp -&gt;
+    ~ run_scfg_budget_refused forced_only_cfg img lim en inp -&gt;
+    must_exit_in_scfg forced_only_cfg allowed img lim en inp.
+</code></pre>
+<p>它要求每一条允许执行最终正常退出，且状态属于 <code>allowed</code>；因而同时排除无限执行、卡住、错误和信号终止。<code>forced_only_cfg</code> 还禁止环境无缘无故拒绝请求，比一致性目标的 <code>alloc_forced_only</code> 更强。代入 cJSON 的 <code>plain_halts</code> 后，预算是 16 GiB，允许退出状态为 0 或 2；这个目标在固定 README 中仍为 <code>open</code>，不能因下面的一致性定理已经有证明就宣称它也成立。</p>
+<p>ASan 没有任意环境失败下的同类 <code>halts_may_fail</code> 目标：运行时的启动地址空间预留若被拒绝，会刻意等待不结束。这个反例说明，环境前提是程序行为的一部分，不是可以省略的注脚。</p>
+<h3>3.4 为什么三个结论缺一不可：轨迹一致可能掩盖 crash 与挂起</h3>
+<p>附录先要求 ASan 构建无错误，再比较它与普通构建的可观察行为，最后单独排除普通构建的错误。观察对象包括标准输入读取、标准输出和错误输出写入、退出状态或终止信号，以及最终文件系统；性能不在这个比较范围内。错误则包括故障、主动中止和语义未覆盖的行为。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=1">附录第 1–2 页</a></p>
+<p>这个拆分有实际原因：有限轨迹本身没有单独记录 crash，一个程序发生错误、另一个进入不再产生事件的死循环，可能仍具有相同的有限观察。因此，不能只靠轨迹相同，就把一个构建的无错误性质传给另一个。§3.3 的公开模板把两个 <code>error_free</code> 与轨迹一致性明确合在同一命题中，但终止仍是另外的目标。</p>
+<div class="author-opinion">
+<p>这是阅读“一致性证明”时最应检查的细节之一：一致的是哪些观察，错误与不终止怎样进入定义，结论是否足够强。一个关系名称叫 equivalence，并不意味着它自动保留所有关心的性质。</p>
+</div>
+<h3>3.5 LPS 的源码结构：指令、机器状态、系统调用与整体行为</h3>
 <p>从 spec 向下阅读，首先是 <code>Riscv/Instr.v</code>、<code>Decode.v</code> 和 <code>DecodeC.v</code>：它们定义指令语法及普通、压缩指令解码。<code>Riscv/Sem.v</code> 规定指令对核心状态产生的效果；<code>LinuxProcessSem/RiscvSemantics.v</code> 将这些效果与机器状态、映像和虚拟内存连接起来。</p>
 <p>进程层的 <code>State.v</code> 定义输入、系统调用效果、系统状态与事件。<code>Sys/</code> 与 <code>Specs.v</code> 规定系统调用的许可结果和分派；<code>Run.v</code> 再定义进程转换关系、运行轨迹和错误。<code>EquivalenceDefinition/</code> 中的行为一致、终止等性质，为上层 spec 提供通用命题模板。</p>
 <p>这些文件共同组成不同层次的语义定义。可以从具体映像沿解码、执行、系统调用一路读到整体行为，再回到上层 spec。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/tree/f1006fe8178338a499b5e5c41be83006c4edd058/theories">LPS 仓库结构</a></p>
@@ -294,7 +229,7 @@ valid_input inp -&gt;
 <div class="author-opinion">
 <p>因此，“直接在 Rocq 里证明二进制”并不省略程序语义。这个过程明确建立了一套机器与进程模型。它把源语言前端的复杂性移出了每个项目的证明入口，却仍需要承担目标架构、运行时和系统环境的复杂性。</p>
 </div>
-<h3>6.5 一步如何执行，系统调用为什么是非确定的</h3>
+<h3>3.6 一步如何执行，系统调用为什么是非确定的</h3>
 <p><a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/Riscv/Sem.v"><code>Sem.v</code></a> 将解码后的指令与核心状态映射到效果对象。访存效果交给机器层解释；系统调用则交给进程层处理。LPS 的 <a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Specs.v"><code>Specs.v</code></a> 用以下定义选择相应系统调用规约：</p>
 <pre><code class="language-coq">Definition syscall_spec
   : Sys SyscallEffect :=
@@ -310,7 +245,7 @@ valid_input inp -&gt;
 </code></pre>
 <p>这条流程在源码中被拆成机器步进、系统调用处理和 <code>sstep</code> 转换关系；最终的运行行为则收集任意有限步数所能产生的轨迹。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v">步进与运行关系</a></p>
 <p>机器层还区分正常结果、程序故障和模型未覆盖的情形。后两者都妨碍相应的无错误目标成立，但诊断意义不同：非法访存可能是真实错误，未支持的指令或系统调用也可能只是模型边界。这个区别保存在进程执行定义中。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v">机器结果与进程转换</a></p>
-<h3>6.6 整体行为是什么，证明文件又交付什么</h3>
+<h3>3.7 整体行为是什么，证明文件又交付什么</h3>
 <p><a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v"><code>Run.v</code></a> 的整体行为记录如下，原样节选：</p>
 <pre><code class="language-coq">Record behavior := mkBehavior {
   bh_traces : list event -&gt; Prop;
@@ -324,60 +259,227 @@ valid_input inp -&gt;
 <div class="author-opinion">
 <p>短 spec 背后是一整套可执行对象与行为定义。Rocq 检查了相对于这些定义的证明；定义是否准确描述真实程序，仍是信任基础的一部分。源码能够把这项义务具体定位出来，却不会仅因“定义也写在 Rocq 中”而自动证明其现实对应关系。</p>
 </div>
-<h2>7. 六页附录逐节解读：正文之外还需要知道什么</h2>
-<p>附录没有另外编号的图表，但有六个主题和一段 LZO 代码。以下依原顺序补充其含义；前文已经展示的六张图仍按正文顺序排列。</p>
-<h3>7.1 三项义务：为什么一致性之外还要分别排除错误</h3>
-<p>附录先要求 ASan 构建无错误，再比较它与普通构建的可观察行为，最后单独排除普通构建的错误。观察对象包括标准输入读取、标准输出和错误输出写入、退出状态或终止信号，以及最终文件系统；性能不在这个比较范围内。错误则包括故障、主动中止和语义未覆盖的行为。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=1">附录第 1–2 页</a></p>
-<p>这个拆分有实际原因：有限轨迹本身没有单独记录 crash，一个程序发生错误、另一个进入不再产生事件的死循环，可能仍具有相同的有限观察。因此，不能只靠轨迹相同，就把一个构建的无错误性质传给另一个。§6.3 的公开模板把两个 <code>error_free</code> 与轨迹一致性明确合在同一命题中，但终止仍是另外的目标。</p>
+<h3>3.8 crash 在 Rocq 中是什么：错误单步、可达性和否定命题</h3>
+<p>LPS 没有一个理解所有源码 bug 的通用检测器。它先规定指令、访存和系统调用怎样执行，再规定哪些结果进入错误分支，最后提出错误不可达的命题。下面沿固定版本的源码展开这条链。</p>
+<p>机器层的 <code>machine_result</code> 区分正常结果 <code>MachineOk</code>、真实执行故障 <code>MachineFault</code> 和语义未支持的 <code>MachineUnmodeled</code>。例如，访存解释需要读取的字节不存在，或存储范围含不可写字节，便产生故障；取指失败时，还会区分真实不可执行地址与模型自身无法解释的情形。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/RiscvSemantics.v">机器结果与访存解释</a></p>
+<p>进程层的 <code>sstep</code> 是一步转换关系。以下是 <code>Run.v</code> 的实际故障构造子，作为归纳定义的一部分原样节选，并非独立定义：</p>
+<pre><code class="language-coq">| sstep_instr_fault : forall ms model,
+    m_halted model = None -&gt;
+    ms_svc_pending ms = None -&gt;
+    mi_account_step ms model = MachineFault -&gt;
+    sstep (mkCfg ms model) [] SError
+</code></pre>
+<p>三个箭头前提分别要求进程尚未正常退出、当前没有待处理系统调用，以及本次机器步进确实产生 <code>MachineFault</code>；满足后，结论就是存在一步到达 <code>SError</code>。相邻的 <code>sstep_instr_unmodeled</code> 规则把 <code>MachineUnmodeled</code> 也送到 <code>SError</code>。系统调用另有规则，返回错误码的调用仍可能正常执行，不能一概视为 crash。</p>
+<p>接着，<code>star</code> 连接零步或多步正常转换，<code>reaches_error</code> 的定义把“某条执行能出错”精确写成存在量词：</p>
+<pre><code class="language-coq">Definition reaches_error (c0 : config) : Prop :=
+  exists tr c evs, star c0 tr c /\ sstep c evs SError.
+</code></pre>
+<p><code>exists tr c evs</code> 提供反例执行的见证：从初态 <code>c0</code> 沿轨迹 <code>tr</code> 到达 <code>c</code>，再由一步 <code>sstep</code> 进入错误。只要存在一个这样的见证，无错误命题就不成立；证明无错误要排除全部见证。</p>
+<p>带环境失败策略的实际运行定义如下。它由映像与启动布局构造初始配置，再把错误可达性放进 <code>behavior</code> 记录：</p>
+<pre><code class="language-coq">Definition run_scfg (cfg : SpuriousCfg) (img : Image) (lim : Z) (en : ExecEntry)
+    (inp : ProcInput) : behavior :=
+  match img, en with
+  | mkImage segs pc ph, mkEntry sp brk0 mbase rnd =&gt;
+    let c0 := init_config segs pc ph sp brk0 mbase rnd lim inp in
+    {| bh_traces := obs_trace_cfg segs cfg c0;
+       bh_errors := reaches_error_cfg segs cfg c0;
+       bh_all_errors := all_traces_error_cfg segs cfg c0;
+       bh_unmodeled := reaches_unmodeled_cfg segs cfg c0 |}
+  end.
+</code></pre>
+<p>这里 <code>_cfg</code> 版本在 <code>SpuriousCfg</code> 指定的许可分支上建立同样的可达关系。上层 <code>agrees_in</code> 使用的正是它。在 <code>Equivalence.v</code> 中，无错误的完整短定义是：</p>
+<pre><code class="language-coq">Definition error_free (b : behavior)
+  : Prop := ~ bh_errors b.
+</code></pre>
+<p>所以真正的逻辑链是：<strong>合法输入和布局 → 初始配置 → 许可单步关系 → 是否存在到达错误的有限路径 → 该存在命题的否定</strong>。这不是穷举运行所有输入，而是对这些定义建立归纳、不变量、模拟关系和组合证明。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v">进程转换与运行定义</a>、<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/EquivalenceDefinition/Equivalence.v#L194">无错误定义</a></p>
+<p>ASan 本身也是这些机器指令的一部分。证明会跟随地址检查、影子内存读取和条件分支；如果检查失败，后续报告与中止路径就成为必须排除的执行。语义并不是在每一步直接调用一个名叫“内存安全”的抽象判断。</p>
+<p>中止的具体编码还取决于所用命题族。默认设置与显式建模 <code>abort</code> 的设置不同；后者可以产生 <code>KillEv</code>，而不经过 <code>SError</code>。相应的 <code>_abort_modelled</code> 安全目标采用 <code>error_free_unkilled</code>，另外禁止信号终止。因此，<strong>“不可到达 <code>SError</code>”与“不会因信号终止”需要按具体定义组合，不能把所有 crash 都想成同一个硬件异常。</strong><a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/EquivalenceDefinition/Equivalence.v#L194">中止与信号终止的定义</a></p>
 <div class="author-opinion">
-<p>这是阅读“一致性证明”时最应检查的细节之一：一致的是哪些观察，错误与不终止怎样进入定义，结论是否足够强。一个关系名称叫 equivalence，并不意味着它自动保留所有关心的性质。</p>
+<p>这条链也精确定位了形式化错误的后果：如果一个本应失败的真实操作，在语义中被写成正常后继，证明器就可能正确地证明这个错误模型中的不可达性。真实复现仍能确认一个 bug；从不可达性推导真实程序无错误，则需要这条执行与错误分类的对应可靠。</p>
 </div>
-<h3>7.2 Python 解释器：部分正确性与现实对应分开建立</h3>
-<p>解释器实验采用 safe Rust、Verus 和 Z3，按基于 λπ 的形式语义完成 17 个层次的证明。结论约束返回结果；与 CPython 的对应由测试检验。作者另外向早期版本注入七个错误，其中五个通过了随机测试，七个都使证明失败。选择 Verus 有 Rust 生态与实验安排方面的原因，并非只能用这一种证明系统。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=2">附录第 2–3 页</a></p>
+<h3>3.9 真实证明实例：共享轨迹规约、三个子目标与最终 Qed</h3>
+<p>附录提到代理往往先写短规约，再分别把普通构建和插桩构建与它联系起来。cJSON 的公开代码正好能把这个过程展开。这里的中间规约不是自然语言“JSON 正确”，而是可观察轨迹集合；<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/ShapeAlg.v"><code>ShapeAlg.v</code></a> 定义：</p>
+<pre><code class="language-coq">Definition TSet := list event -&gt; Prop.
+</code></pre>
+<p>一个 <code>TSet</code> 回答某条有限事件序列是否属于该规约。<code>ShapeSpec.v</code> 的 <code>t_body</code> 根据输入头部决定拒绝还是调用，并描述驱动输出；下面保留完整定义，只调整换行并省去导出注释标记：</p>
+<pre><code class="language-coq">Fixpoint zero_lines (calls : nat) : list byte :=
+  match calls with
+  | O =&gt; []
+  | S k =&gt; Z_to_bv 8 48 :: Z_to_bv 8 10 :: zero_lines k
+  end.
+
+Definition MAX_INPUT : Z := 67108864%Z.
+
+Definition t_body (data : list byte) (fs : Fs.Fs) : TSet :=
+  let len := length data in
+  if (MAX_INPUT &lt;=? Z.of_nat len)%Z then t_die msg_refused fs
+  else if (len &lt;? 6)%nat then t_die msg_short fs
+  else
+    let b0 := bv_unsigned (nth 0 data (Z_to_bv 8 0)) in
+    let b1 := bv_unsigned (nth 1 data (Z_to_bv 8 0)) in
+    let b2 := bv_unsigned (nth 2 data (Z_to_bv 8 0)) in
+    let cfg := (b0 + 256 * b1)%Z in
+    let config_len := Z.to_nat (cfg mod 32768) in
+    if (len &lt;? 6 + config_len)%nat then t_die msg_overrun fs
+    else
+      let calls := match config_len with O =&gt; 1%nat | _ =&gt; S (Z.to_nat (b2 mod 4))
+        end in
+      t_emit (W 1 (zero_lines calls)) (t_exit (exit_code 0) fs).
+</code></pre>
+<p><code>67108864 = 2^26</code>，即 64 MiB。少于 6 字节的头部、配置长度越过输入末尾、输入达到上限，都会走 <code>t_die</code>；它定义为向文件描述符 2 写入对应错误消息，再以状态 2 退出。合法头部确定调用次数 <code>calls</code>：没有配置时为 1，否则为 1–4。<code>zero_lines</code> 生成相应数量的 <code>0\n</code>，<code>W 1</code> 将字节写到标准输出，最后以状态 0 退出并带上文件系统状态 <code>fs</code>。<code>t_emit</code> 同时包含有限前缀，符合前述轨迹集合的读法。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/ShapeSpec.v">实际中间规约</a>、<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/ShapeAlg.v">轨迹组合定义</a></p>
+<p>这就具体回答了“规约长什么样”：它能精确规定 CLI 与 fuzz driver 的可观察行为，但这段规约没有把 JSON 解析结果写成数学树，也没有要求打印内容等于某个标准 JSON 结果。因为驱动释放内部输出而不比较它，内部执行分析再繁重，最终约束仍要以这些观察为准。</p>
+<p>中间规约又如何与真正的机器单步连接，而不是另写一套互不相干的模型？<code>ShapeAlg.v</code> 在固定 <code>segs</code> 的 Section 中给出以下完整定义，<code>ACFG</code> 是证明所用环境策略：</p>
+<pre><code class="language-coq">Definition node_ok (c : config) (I : Type)
+    (evs : I -&gt; list event) (nx : I -&gt; config) : Prop :=
+  (forall i, sstep_cfg segs ACFG c (evs i) (SNext (nx i)))
+  /\ (forall e st, sstep_cfg segs ACFG c e st -&gt; exists i, e = evs i /\ st = SNext
+    (nx i)).
+</code></pre>
+<p>第一个 <code>forall</code> 要求索引集合 <code>I</code> 列出的每种事件与后继，都是实际 <code>sstep_cfg</code> 允许的正常一步；第二个 <code>forall</code> 反过来要求任意实际一步都在该索引描述中，而且结果是 <code>SNext</code>。因此，不能只挑几条有利路径、遗漏另一条可达 <code>SError</code> 的路径。下层 <code>realizes</code> 归纳证明再把这些单步与后继证明组合起来。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/ShapeAlg.v#L248">连接规约与单步的定义</a></p>
+<p>证明怎样利用这个中间层？<code>ATop.v</code> 中以下完整引理把两个运行联系到同一个 <code>T</code>；只调整换行前后的空白，使用该文件已有的 imports 与局部记号：</p>
+<pre><code class="language-coq">Theorem shape_strong_equiv_sef_AS :
+  forall source_segs rpc rph rsp rbrk rmb rrnd (rlim : Z)
+         target_segs apc aph asp abrk amb arnd (alim : Z)
+         (T : TSet) (inp : ProcInput),
+  realizes source_segs (init_config source_segs rpc rph rsp rbrk rmb rrnd rlim
+    inp) T -&gt;
+  AS.SpinAlg.srealizes target_segs (init_config target_segs apc aph asp abrk amb
+    arnd alim inp) T -&gt;
+  error_free (run_scfg ACFG (mkImage source_segs rpc rph) rlim (mkEntry rsp rbrk
+    rmb rrnd) inp)
+  /\ error_free (run_scfg ACFG (mkImage target_segs apc aph) alim (mkEntry asp
+    abrk amb arnd) inp)
+  /\ trace_equiv (bh_traces (run_scfg ACFG (mkImage source_segs rpc rph) rlim
+    (mkEntry rsp rbrk rmb rrnd) inp))
+                 (bh_traces (run_scfg ACFG (mkImage target_segs apc aph) alim
+                   (mkEntry asp abrk amb arnd) inp)).
+Proof.
+  intros source_segs rpc rph rsp rbrk rmb rrnd rlim target_segs apc aph asp abrk
+    amb arnd alim T inp Hsource Htarget.
+  split; [| split].
+  - cbn. eapply realizes_no_error; exact Hsource.
+  - cbn. eapply AS.SpinAlg.srealizes_no_error; exact Htarget.
+  - intro tr. cbn.
+    rewrite (realizes_obs_iff source_segs _ T Hsource tr).
+    rewrite (AS.SpinAlg.srealizes_obs_iff target_segs _ T Htarget tr).
+    reflexivity.
+Qed.
+</code></pre>
+<p><code>Hsource</code> 是普通构建从给定初态实现 <code>T</code> 的证明；<code>Htarget</code> 是 ASan 构建满足对应 <code>srealizes</code> 关系的证明。<code>split; [| split]</code> 把结论拆成三个子目标：前两个分别调用 <code>realizes_no_error</code> 与 <code>srealizes_no_error</code> 排除错误；第三个任取轨迹 <code>tr</code>，用两个 <code>*_obs_iff</code> 将两边“能产生这条轨迹”都改写成 <code>T tr</code>，于是以 <code>reflexivity</code> 收尾。<strong>这里用的是双向的轨迹刻画，而不只是两个程序都满足某个较弱条件。</strong> 大量机器执行、ASan 运行时与驱动细节已经由 <code>Hsource</code>、<code>Htarget</code> 所引用的下层引理承担；这些组合步骤没有把那些工作省掉。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/A/ATop.v#L27">完整组合引理</a></p>
+<p>最终交付的 <code>Proof.v</code> 则很短，原样代码仅重新换行：</p>
+<pre><code class="language-coq">From OssFuzzTheorems.cjson.cjson_read_fuzzer
+  Require Statements.
+From OssFuzzTheorems.Proofs.cjson.cjson_read_fuzzer.lib
+  Require Theorems.
+
+Theorem asan_agrees_holds :
+  OssFuzzTheorems.cjson.cjson_read_fuzzer.Statements.asan_agrees.
+Proof.
+  exact
+    OssFuzzTheorems.Proofs.cjson.cjson_read_fuzzer.lib.Theorems.strong_universal_error_free_cjson_read_fuzzer_asan.
+Qed.
+</code></pre>
+<p><code>Theorem ... : Statements.asan_agrees</code> 的冒号右侧固定了目标；<code>exact</code> 提交一个具有该类型的既有证明项，<code>Qed</code> 结束检查。它沿 <code>Theorems.v</code> 进入 <code>TopAsanClosed.v</code>，再用已经证明的 refill 与 quarantine 引理关闭运行时接口义务，并接回上述组合结果。<code>exact</code> 不是“信任一个函数返回 true”：依赖证明项仍须通过 Rocq 的类型检查与项目的假设审计。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/asan_agrees/Proof.v">证明入口</a>、<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/Theorems.v">顶层定理</a>、<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/A/TopAsanClosed.v">关闭运行时义务</a></p>
 <div class="author-opinion">
-<p>这组结果说明证明可能发现测试遗漏的错误，同时也展示了信任边界：实现与形式模型之间有证明，形式模型与 CPython 之间有经验比较。若形式语义漏掉了需求，前一项证明仍可能全部成立。人工注入错误的结果也应按这七个案例理解，不能外推为所有缺陷的检出率。</p>
+<p>代码层面的关键区别在这里：机器检查保证某个项确实证明了指定 <code>Prop</code>；选择 <code>T</code>、定义执行关系、确定错误分类及把它们连接到真实机器，是另外的义务。读到一个简短 <code>Proof. exact ... Qed.</code> 时，应继续追踪它引用的类型与引理，而不能只按顶层文件行数判断工作量或保证强度。</p>
 </div>
-<h3>7.3 大量证明究竟花在哪里</h3>
+<h2>4. 兴奋与压力：模型能力、证明复用和成本</h2>
+<h3>4.1 十亿行证明花在哪里：目标代码、运行时与检查成本</h3>
+<p>附录报告，尝试过程中产生约十亿行 Rocq，其中约 1.8 亿行属于成功证明。大量内容由工具和脚本生成，单个证明的检查也需要明显的计算时间。因此，不能用文件行数直接推算 API 输出费用。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf">附录第 3–4 页</a></p>
+<div class="author-opinion">
+<p>证明行数混合了机械展开、生成数据与抽象复用，不能独立衡量质量或推算费用。更有意义的是完成的性质、总资源及跨版本可复用性。模型让大量重复劳动变得可行，方法评价也应随这种能力变化。</p>
+</div>
 <p>附录用 cJSON 说明规模反差：391 行解析入口对应约 63 万行证明，只有约十分之一围绕 cJSON 本身；链接约 5.1 万行代码的 fftw3 对应约 48 万行证明。典型交付约 60 万行、1,400 个文件，不同库的证明约为 33 万至 90 万行。启动过程、分配器、输出函数、ASan 运行时和驱动都要处理，当时的证明还不能直接导入这些共同结果。超过一半的文本由代理编写的工具生成；约 40% 属于定义、模型、引理与证明步骤等证明正文，其中一部分仍由脚本生成。典型入口的几百行 C 代码可能只编译为约 2,000 条指令，但完整进程的证明仍要处理上述公共组件。检查一个证明可消耗半小时到数小时 CPU 时间。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=3">附录第 3–4 页</a></p>
 <div class="author-opinion">
 <p>库代码少，不代表进程行为简单。证明行数在这里混合了目标库、运行环境、生成数据和重复工作；这些部分的成本应分别测量。复用若能同时减少生成、维护与检查成本，价值会比单纯缩短文本更直接。</p>
 </div>
-<h3>7.4 专家怎么看：短规约、冗长证明与抽象能力</h3>
-<p>附录中的专家观察是，代理经常先写一个描述输出的短规约，再把两个构建分别与它联系起来；这类规约的中位数约 110 行，对应程序机器代码中位数约 86 KB，其中驱动实际涉及约 20%–50%。证明过程却反复展开寄存器、整数转换、地址互异、栈内容与各分支。代理也使用了 framing、布局无关推理和分配器抽象，但使用并不一致，证明规模改善仍有限。附录将更复杂程序上的规模扩展列为开放问题，并以 MachCSL 等其他代理验证项目遇到的复杂度问题，讨论建立更好模块抽象的必要性。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=4">附录第 4–5 页</a></p>
+<h3>4.2 图 4：较强模型用更少 token 到达同一完成率</h3>
+<p><a href="../assets/papers/anthropic-verification/figure-4.png"><img src="../assets/papers/anthropic-verification/figure-4.png" alt="Anthropic 原文图 4：三个模型在不同 token 预算下完成 36 个验证任务的比例"></a></p>
+<p><em>原文图 4。横轴为每个代理的 token 预算，纵轴为 36 个验证任务的完成比例；橙、蓝、灰分别对应 Opus 5.5、Fable 5.1 和 Opus 5。曲线越靠左，达到同一完成比例所需 token 越少。每题有三次独立尝试，每次上限 500 万 token；题目在首次成功时计为完成。这是小任务比较实验，不是 239 个入口的总预算。<a href="https://www-cdn.anthropic.com/images/4zrzovbb/website/02207cbc6f46e272fe9a0fa7929cb8ec29578e74-1920x980.png">原图</a></em></p>
+<p>原文对图 4 给出一个明确的比较点：<strong>完成一半任务时，Opus 5.5 所需 token 比 Opus 5 少约 40%</strong>。这个比例比较的是达到同一完成水平的 token 消耗，不能直接解释成所有任务的平均费用下降 40%。<a href="https://www.anthropic.com/research/formal-verification">模型比较结果</a></p>
+<p>这些小任务由真实入口缩减而来，使用简化运行时和 mini-ASan，输入限制为 64 字节；不能把图 4 的结果直接当作完整 OSS-Fuzz 项目的成本曲线。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf">附录第 5 页</a></p>
 <div class="author-opinion">
-<p>短规约的出现值得关注，但“两个实现都满足同一规约”本身并不足以推出两者行为一致。例如，一个程序输出 0，另一个输出 1，两者都满足“输出非负”。中间规约必须具有足够的区分能力，或配合更强的对应定理。最终应检查实际证明出的关系，不能只看规约长度。</p>
-<p>冗长证明一旦通过同一目标的可靠检查，其逻辑效力不因写法而降低；抽象的价值主要体现在后续扩展、复用、调试和成本。能否自动找到合适的模块边界，比是否模仿人类的证明风格更值得验证。</p>
+<p>模型升级本身可能节省大量搜索。方法是否有独立收益，应在足够强的代理上比较相同预算下的完整完成率，避免仅依赖较弱或过时基线。</p>
 </div>
-<h3>7.5 图 4 的小任务与主实验相差在哪里</h3>
+<h4>这 36 个任务具体怎样缩减</h4>
 <p>缩减任务仍保留真实代码的核心：有的沿用 OpenVPN 的 base64 入口，有的由短驱动调用 libidn 的 punycode 解码、LZO 安全解压、miniz 的 inflate、zstd 帧头解码或 curl 的 fnmatch。mini-ASan 的约百条指令，也应与真实运行时超过十万条指令的规模差别一起看。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=5">附录第 5 页的任务来源</a></p>
 <p>比较模型的 36 个任务分为三组，每组 12 个：从较小程序的插桩无错误，到更大程序，再到同时要求两个构建无错误且行为一致。实验将输入缩为 64 字节，以少量函数替代 libc，用约百条指令的 mini-ASan 替代大型运行时，最终程序为 283–2,491 条指令。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=5">附录第 5 页</a></p>
 <div class="author-opinion">
 <p>这些任务能帮助比较模型在受控证明任务上的效率。把曲线换算成完整项目的报价，还需要补入真实运行时、输入范围、模型缺口、重试和证明复用的影响。任务缩减方式属于结果解释的一部分。</p>
 </div>
-<h3>7.6 LZO 断言：安全性目标怎样携带功能要求</h3>
-<p>附录第 6 页展示压缩后再解压的代码。以下原样摘出控制分支和两条断言，调整换行并省略实际函数调用，因此不是完整程序：</p>
-<pre><code class="language-c">assert(r == LZO_E_OK);
-if (compressed_len &gt;= size)
-  goto join;
-...
-assert(r == LZO_E_OK &amp;&amp;
-       decompressed_len == size);
-</code></pre>
-<p>第一条检查压缩成功；当压缩结果小于原输入时，后续分支解压并检查成功状态及还原长度。断言失败会进入中止路径，因而排除 crash 的证明也覆盖这些要求。附录还以 p11-kit 的 PEM 块长度检查说明：维护者写在入口中的约束，可以直接成为证明需要排除的失败分支。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=6">附录第 6 页代码与说明</a></p>
+<h3>4.3 图 5：共享证明减少重复劳动</h3>
+<figure class="source-figure" aria-label="原文图 5，共享证明与计算成本">
+<a href="../assets/papers/anthropic-verification/figure-5-static.png"><img src="../assets/papers/anthropic-verification/figure-5-static.png" alt="原文图 5 完整静态图：证明复用弧线及各任务的 token 消耗"></a>
+<details class="source-animation"><summary>播放原始 GIF 动画</summary><a href="../assets/papers/anthropic-verification/figure-5.gif"><img src="../assets/papers/anthropic-verification/figure-5.gif" alt="原文图 5 动画：按顺序展示证明复用和成本比较" loading="lazy"></a></details>
+</figure>
+<p><em>原文图 5，默认展示内容完整的静态图，展开可播放原始 GIF。横向按任务完成顺序排列，橙色弧线连接复用了相同文件的证明；向下的柱表示成功所需 token，黑色短横线是相应任务由独立代理完成的平均消耗。深蓝表示比独立运行更省，浅蓝表示没有更省；图中两项标注为独立运行未完成。<a href="https://www-cdn.anthropic.com/images/4zrzovbb/website/5078468fa7e09774b1ab6e86984ec5691d3d11fa-1080x712.gif">原始 GIF</a></em></p>
+<p>共享工作区实验报告，代理所需 token 比独立运行少 <strong>17%</strong>。在有独立运行成本可对照的 34 个完成证明中，30 个更省 token；另外两项任务的独立代理没有完成。图中的共享弧线、成本柱与这组结果需要结合起来阅读。<a href="https://www.anthropic.com/research/formal-verification">原文的共享证明结果</a></p>
 <div class="author-opinion">
-<p>这个例子纠正了“安全性完全没有功能内容”的笼统说法。入口断言可以要求算法返回成功并恢复正确长度。不过，展示的片段没有比较解压字节与原输入；仅依据这些断言，不能将结论扩大成完整的逐字节往返正确性。进一步的功能保证，要落实到完整入口、实际 spec 和已完成的定理上。</p>
+<p>共享文件不自动等于节省计算：加载、判断与改写也有成本。可复用成果应记录准确陈述、模型版本、检查状态及剩余义务；候选文件只有完成检查，才成为可依赖的证明。</p>
 </div>
-<h2>8. 找 crash、证明无 crash 与完整内存安全：从一次越界写说起</h2>
-<h3>8.1 到底在找什么 bug：先看入口怎样失败</h3>
+<h3>4.4 图 6：不同项目的证明为什么大面积相似</h3>
+<p><a href="../assets/papers/anthropic-verification/figure-6.png"><img src="../assets/papers/anthropic-verification/figure-6.png" alt="Anthropic 原文图 6：libcups、freerdp 和 libzmq 的证明组成与复用程度"></a></p>
+<p><em>原文图 6。三列分别是 libcups、freerdp 和 libzmq 的完整证明，块的高度按各部分字节占比绘制。深蓝为完全相同，浅蓝为小幅修改，浅棕为更多修改，橙色为新增；浅改的判定采用相同文件且大小变化在 2% 内。右侧标出分配器、sanitizer 运行时、共享库、规约以及普通和插桩构建等部分。颜色反映文件复用程度，不是语义等价的测量。<a href="https://www-cdn.anthropic.com/images/4zrzovbb/website/8e295614d599d548fbd2ff97ed3cc3e62f501b2b-1920x1248.png">原图</a></em></p>
+<div class="author-opinion">
+<p>完整进程的启动与运行时造成大量跨项目重复。复制已有证明能帮助当前任务；明确契约和模块接口，才可能让后续任务直接引用结论，只证明新增部分。</p>
+</div>
+<h3>4.5 专家怎样看这些证明：短规约、冗长展开与抽象能力</h3>
+<p>附录中的专家观察是，代理经常先写一个描述输出的短规约，再把两个构建分别与它联系起来；这类规约的中位数约 110 行，对应程序机器代码中位数约 86 KB，其中驱动实际涉及约 20%–50%。证明过程却反复展开寄存器、整数转换、地址互异、栈内容与各分支。代理也使用了 framing、布局无关推理和分配器抽象，但使用并不一致，证明规模改善仍有限。附录将更复杂程序上的规模扩展列为开放问题，并以 MachCSL 等其他代理验证项目遇到的复杂度问题，讨论建立更好模块抽象的必要性。后续问题包括：合适抽象是否需要专家证明工程师指导，还是可以提炼通用原则，让代理自行发现支持扩展的抽象。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=4">附录第 4–5 页</a></p>
+<div class="author-opinion">
+<p>短规约的出现值得关注，但“两个实现都满足同一规约”本身并不足以推出两者行为一致。例如，一个程序输出 0，另一个输出 1，两者都满足“输出非负”。中间规约必须具有足够的区分能力，或配合更强的对应定理。最终应检查实际证明出的关系，不能只看规约长度。</p>
+<p>冗长证明一旦通过同一目标的可靠检查，其逻辑效力不因写法而降低；抽象的价值主要体现在后续扩展、复用、调试和成本。能否自动找到合适的模块边界，比是否模仿人类的证明风格更值得验证。</p>
+</div>
+<h3>4.6 总成本需要完整账单，生态路线图依赖增长假设</h3>
+<p>原文指出，生成证明可能消耗数亿 token，成本与复用因而是后续扩展的关键；这一量级并非本次实验总账单。<a href="https://www.anthropic.com/research/formal-verification">原文的成本讨论</a></p>
+<p>Theorem 的另一篇<a href="https://theorem.dev/blog/verified-software-stack/">软件栈路线图</a>采用每 KB 机器代码约 40 美元等起始参数，并假设验证能力持续快速增长，以估算 Nix 软件生态的验证进度与费用。这些是路线图的建模参数和预测，不能作为本次主实验的实际账单。</p>
+<p>主实验报告完成了 <strong>123 个库、239 个入口</strong>，正文与附录没有披露完整美元账单。<strong>每题三次、每次 500 万 token</strong>，属于 36 个缩减验证任务的尝试预算，不是主实验总用量。</p>
+<p><strong>约十亿行尝试产物、其中约 1.8 亿行属于成功证明</strong>，包含工具生成内容，不能直接折算成模型输出 token。<strong>每 KB 机器代码约 40 美元</strong>，则是 Theorem 生态路线图的起始参数，不是本次实验的结算单价。</p>
+<p>这些数字分别统计交付范围、单次尝试上限、文本产物和预测参数。它们的分母不同，不能相乘后当成实际项目成本。图 4 的小任务结果，支持对模型效率的比较；软件生态能否以相同趋势降本，还取决于后续任务的复杂度与复用程度。</p>
+<p>原文以接近 30 万条定理、700 多位贡献者共同积累的 Mathlib 作类比，提出按依赖包复用证明的设想：软件依赖分布集中，先验证少量被广泛使用的依赖，可能让更多上层程序变得可验证。这是生态路线图的动机；它与本次实验中已经测得的文件复制和改写收益，应当分开理解。<a href="https://www.anthropic.com/research/formal-verification">原文的复用与生态设想</a></p>
+<div class="author-opinion">
+<p>成本应合计生成、失败尝试、检查、语义开发和补丁审查，并区分单次成功与整项交付。十亿行不足以推算百万美元账单，路线图的单位价格也不足以判断团队能否负担。</p>
+<p>比较方法时，应固定时间、token 或美元预算；模型单价不同，较省 token 不一定较省钱，证明检查也可能成为瓶颈。</p>
+</div>
+<h2>5. 什么值得信任：从证明检查到现实对应</h2>
+<h3>5.1 证明文本可以不逐行阅读，信任基础仍要具体</h3>
+<p>公开检查流程会核对二进制哈希，从源文件编译证明，并生成独立包装定义，要求提交的证明具有指定陈述的类型；随后检查 <code>Print Assumptions</code>。仓库列出允许使用的公理，拒绝额外假设和未完成证明。默认检查使用 Rocq 内核；<code>rocqchk</code> 是可选的第二次检查。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/checking.md">证明检查流程</a></p>
+<p>信任基础还包括 ELF 到内存映像的工具、读取映像的插件、检查包装和假设解析程序，以及实际使用的 LPS 定义。检查器确认一个形式命题有证明；这些外围环节决定该命题是否对应预定的验证目标。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/trust.md">信任基础文档</a></p>
+<p>原文脚注还把运行证明检查器所依赖的硬件、操作系统与 OCaml 编译器纳入信任基础。因此，“信任 Rocq 内核”也包含让这份内核实现正确运行的执行环境。<a href="https://www.anthropic.com/research/formal-verification">原文脚注 5</a></p>
+<p>从需求走到部署，需要分别核对几个环节。<strong>需求与规约</strong>要检查命题、前提、输出与错误定义是否包含实际需求；<strong>执行语义</strong>要检查指令、系统调用、启动与环境模型是否忠于目标平台；<strong>软件产物</strong>要用哈希、映像、版本与依赖确认指向的确实是这份二进制。</p>
+<p><strong>证明检查</strong>要核对内核、允许公理、独立包装与审计，排除额外假设和错误目标；<strong>实际部署</strong>还要满足定理要求的架构、链接方式、并发与资源条件。</p>
+<p>这些环节形成了从需求到部署的证据链。证明检查主要约束证明是否成立，二进制哈希帮助固定软件产物；它们不能单独完成需求、语义与部署条件的核对。判断一份证明能否服务于真实系统，需要把这些环节接起来。</p>
+<div class="author-opinion">
+<p>可靠检查链允许生成模型犯错，却不能替代正确目标：弱化性质、排除失败输入或更换程序都可能使证明轻易成立。因此，目标固定、产物固定与假设审计同样重要。</p>
+<p>LPS 与真实机器的对应仍是一项重信任义务。对找漏洞，可以先采用经过测试、范围明确的模型，再真实重放反例；这种工程判断不能直接升级为无错误保证。</p>
+</div>
+<h3>5.2 机器模型的缺口会成为结论的边界</h3>
+<p>LPS 的范围说明列出了单线程、静态可执行文件、信号处理及文件系统等限制，也列出了若干未检查的外部假设。文档特别说明：某些模型中过宽的非确定行为，会影响两个程序行为集合的等价比较；模型内的等价不一定自动转移到真实系统。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/SCOPE.md">LPS 范围与已知缺口</a></p>
+<p>原文特别指出，实验使用静态链接 musl 的 RISC-V 程序，而常见部署可能是 x86 或 ARM、动态链接 glibc；已有证明不会自动转移过去。实验也没有验证每个库的全部入口，即使所有 fuzz 入口都验证，仍不等于覆盖所有库代码与调用情境。调用者若违反 API 使用条件，还可能在库外造成内存破坏，因此调用者义务同样需要写清。<a href="https://www.anthropic.com/research/formal-verification">原文的部署与调用边界</a></p>
+<div class="author-opinion">
+<p>对全称安全性质，保守过近似可能足够；对行为集合相等，两边增加模型特有行为可能改变结论。语义的适用性取决于目标性质。共享语义既会传播错误，也会集中收益，因此需要版本化的适用范围、差分记录、参考语义对应与变更后的重查范围。</p>
+</div>
+<h3>5.3 直接验证二进制，仍然需要跨越模型与现实</h3>
+<p>附录解释，直接把测试翻译成 Rocq 可能引入翻译错误，源码解释器也可能偏离实际编译结果，因此项目选择解释编译后的二进制。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf">附录第 1–2 页</a></p>
+<div class="author-opinion">
+<p>源码转换需要连接原程序与模型，二进制验证需要连接机器模型与平台。两条路线都应保留所关心的正常返回、错误和发散；差分测试能发现偏差，严格保证还需对应论证。静默丢弃错误执行，会让模型比真实程序更安全。</p>
+</div>
+<h3>5.4 自动修补以后，被证明的程序已经改变</h3>
+<p>原文允许 Claude 修补证明过程中发现的问题，再为新程序重新生成目标；脚注同时讨论了修改程序以迎合目标的风险，并介绍了补丁惩罚、行为变化奖励和日志审计。<a href="https://www.anthropic.com/research/formal-verification">原文脚注 6</a></p>
+<p>公开发布的材料也有筛选：原文说明提供不需修补的部分完整证明、其他任务的陈述及可信组件，并暂不发布可能揭示未修复漏洞的证明。因此，公开仓库不是完整实验结果的逐项清单。<a href="https://www.anthropic.com/research/formal-verification">原文的发布范围</a></p>
+<div class="author-opinion">
+<p>补丁若通过拒绝全部输入消除崩溃，可能满足安全目标却损害功能。因此应独立检查合法输入、输出关系与变化范围，并记录结论适用于原始还是修补后的二进制。证明支持修补后的性质，补丁是否符合维护者意图仍需证据。</p>
+</div>
+<h2>6. 找 crash、证明无 crash 与完整内存安全：从一次越界写说起</h2>
+<h3>6.1 到底在找什么 bug：先看入口怎样失败</h3>
 <p>主实验把库、fuzz 驱动与插桩运行时编译成程序，寻找能使这个程序进入规定错误的输入。失败可能来自普通程序自身的故障，也可能来自 ASan 报告后中止，或入口中的断言失败。模型不支持的行为也被纳入证明要排除的错误，但单凭模型无法继续执行，还不能确认真实程序有漏洞；需要诊断并重放。</p>
 <p>作者报告，针对数百个入口的证明尝试发现了<strong>数百个 bug</strong>，其中一些在既有万亿次量级的测试后仍未暴露。原文将常见 fuzzer 的输入上限描述为约 <strong>1 MB</strong>，用来解释大输入为何可能成为测试盲区；这不是所有 fuzzing 配置的固定上限。<a href="https://www.anthropic.com/research/formal-verification">原文的发现规模与测试背景</a></p>
 <p>原文举出的一个例子是：某个解压器只有在约 20 MB、布局特殊的输入下才出现计数器下溢，进而发生越界写。这说明证明过程中寻找输入，可以触及常规 fuzzing 很难碰到的组合条件。原文主实验的最终目标是修补后完成指定入口的无 crash 证明；寻找漏洞也是即使未能证完仍可交付的成果。<a href="https://www.anthropic.com/research/formal-verification">原文的漏洞发现与实验目标</a></p>
 <p>原文还列出其他触发条件：图像解码器越界读需要约 64 MB 输入与超过 2 GB 内存；另一处越界读依赖同一文件的两个句柄之间的特定调用历史；libexpat 的 CVE-2026-56132 则由深层嵌套输入触发。此外，代理还发现不一定导致 crash 的文件加载限制失效。这些案例分别涉及输入规模、调用历史、递归结构与权限逻辑，不能都简化成一次普通数组越界。<a href="https://www.anthropic.com/research/formal-verification">原文的缺陷案例</a></p>
-<p><strong>这里的 crash 是检查程序的失败信号，不能与所有软件错误画等号。</strong> ASan 可以把某些原本暂时不崩溃的内存错误变成报告与中止；维护者也可以用断言把算法要求变成失败分支。§7.6 的 LZO 示例检查成功状态与还原长度，就是后一种情况。入口没有观察的功能要求，不会仅因为“入口不崩溃”就自动得到验证。</p>
+<p><strong>这里的 crash 是检查程序的失败信号，不能与所有软件错误画等号。</strong> ASan 可以把某些原本暂时不崩溃的内存错误变成报告与中止；维护者也可以用断言把算法要求变成失败分支。§2.5 的 LZO 示例检查成功状态与还原长度，就是后一种情况。入口没有观察的功能要求，不会仅因为“入口不崩溃”就自动得到验证。</p>
 <div class="author-opinion">
 <p>对找 bug 的目标，最有说服力的交付物是能够真实复现、并违反预期契约的输入及执行过程。证明失败只是线索；证明成功和漏洞复现则是两种不同的成果。报告结果时，把它们分别计数，能够更准确地体现这条路线的价值。</p>
 </div>
-<h3>8.2 ASan 做了什么：越过箱子边界，不一定撞到仓库的墙</h3>
+<h3>6.2 ASan 做了什么：越过箱子边界，不一定撞到仓库的墙</h3>
 <p>可以把进程的可访问地址空间想成仓库，把一次分配得到的缓冲区想成箱子。操作系统的页级保护通常不会为每个小对象单独立墙：写出了箱子，却还在可写的仓库区域里，程序可能暂时正常运行，只是已经破坏了数据。</p>
 <p>ASan 通过编译时插桩与运行时库，为许多内存访问增加检查，并用影子内存记录地址是否允许访问。可以把它理解为在部分边界和失效区域布置警报。某次访问命中禁用区域，便报告错误并通常中止程序；这些机制并不等于完整跟踪所有对象归属与语言层面的内存合法性。<a href="https://clang.llvm.org/docs/AddressSanitizer.html">ASan 的组成与工作方式</a></p>
 <p>例如，假设驱动分配了 16 字节的堆缓冲区 <code>p</code>，输入控制索引 <code>i</code>，随后调用这个解释性示例；它不是论文项目中的原码：</p>
@@ -392,7 +494,7 @@ assert(r == LZO_E_OK &amp;&amp;
   → 命中禁用区域，报告并中止
 </code></pre>
 <p>对某个输入运行一次，能够发现这次执行中的报告；形式证明进一步尝试排除前提范围内所有执行的这种失败。两者使用同一类可执行检查，但覆盖的量词不同。证明的是指定二进制中实际存在的检查，而非任意版本、任意配置的 sanitizer 都不可能报告。</p>
-<h3>8.3 三种结论的量词和依据不同</h3>
+<h3>6.3 三种结论的量词和依据不同</h3>
 <p><strong>找到并确认一个 crash</strong>，需要一个输入及相应环境，在真实目标上复现规定失败，并确认违反预期契约；它不回答其他输入是否安全。</p>
 <p><strong>指定插桩构建无 crash</strong>，需要排除前提允许的全部执行中的规定错误，并建立模型与真实执行的对应；它不等于所有 sanitizer 都不会报告，也不等于所有内存错误都不存在。</p>
 <p><strong>普通构建无 crash</strong>，直接排除该二进制在允许执行中所定义的故障与中止等错误；仅凭这一点，不能推出没有静默内存破坏、没有错误输出或一定终止。</p>
@@ -406,12 +508,12 @@ assert(r == LZO_E_OK &amp;&amp;
 &amp;\quad\land\operatorname{Traces}_{M}(P)
 =\operatorname{Traces}_{M}(S).
 \end{aligned}
-</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:4.2em;vertical-align:-1.85em;"></span><span class="mord"><span class="mtable"><span class="col-align-r"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:2.35em;"><span style="top:-4.35em;"><span class="pstrut" style="height:2.84em;"></span><span class="mord"></span></span><span style="top:-2.85em;"><span class="pstrut" style="height:2.84em;"></span><span class="mord"></span></span><span style="top:-1.35em;"><span class="pstrut" style="height:2.84em;"></span><span class="mord"></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:1.85em;"><span></span></span></span></span></span><span class="col-align-l"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:2.35em;"><span style="top:-4.51em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord"></span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mop"><span class="mop"><span class="mord mathrm">ErrorFree</span></span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3283em;"><span style="top:-2.55em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.109em;">M</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.1389em;">P</span><span class="mclose">)</span></span></span><span style="top:-3.01em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord"></span><span class="mspace" style="margin-right:1em;"></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∧</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mop"><span class="mop"><span class="mord mathrm">ErrorFree</span></span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3283em;"><span style="top:-2.55em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.109em;">M</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.0576em;">S</span><span class="mclose">)</span></span></span><span style="top:-1.51em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord"></span><span class="mspace" style="margin-right:1em;"></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∧</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mop"><span class="mop"><span class="mord mathrm">Traces</span></span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3283em;"><span style="top:-2.55em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.109em;">M</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.1389em;">P</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mop"><span class="mop"><span class="mord mathrm">Traces</span></span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3283em;"><span style="top:-2.55em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.109em;">M</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.0576em;">S</span><span class="mclose">)</span><span class="mord">.</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:1.85em;"><span></span></span></span></span></span></span></span></span></span></span></span></eqn></section><p>这里 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>P</mi></mrow><annotation encoding="application/x-tex">P</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.1389em;">P</span></span></span></span></eq> 是普通二进制，<eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>S</mi></mrow><annotation encoding="application/x-tex">S</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0576em;">S</span></span></span></span></eq> 是指定插桩二进制，<eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>M</mi></mrow><annotation encoding="application/x-tex">M</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.109em;">M</span></span></span></span></eq> 是形式语义；外层量词和前提见 §6.3。既然普通构建的无错误性本身就在证明目标中，它不必通过“ASan 能捕获所有 crash”来间接获得。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/theories/Shapes.v">实际命题模板</a></p>
+</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:4.2em;vertical-align:-1.85em;"></span><span class="mord"><span class="mtable"><span class="col-align-r"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:2.35em;"><span style="top:-4.35em;"><span class="pstrut" style="height:2.84em;"></span><span class="mord"></span></span><span style="top:-2.85em;"><span class="pstrut" style="height:2.84em;"></span><span class="mord"></span></span><span style="top:-1.35em;"><span class="pstrut" style="height:2.84em;"></span><span class="mord"></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:1.85em;"><span></span></span></span></span></span><span class="col-align-l"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:2.35em;"><span style="top:-4.51em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord"></span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mop"><span class="mop"><span class="mord mathrm">ErrorFree</span></span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3283em;"><span style="top:-2.55em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.109em;">M</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.1389em;">P</span><span class="mclose">)</span></span></span><span style="top:-3.01em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord"></span><span class="mspace" style="margin-right:1em;"></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∧</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mop"><span class="mop"><span class="mord mathrm">ErrorFree</span></span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3283em;"><span style="top:-2.55em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.109em;">M</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.0576em;">S</span><span class="mclose">)</span></span></span><span style="top:-1.51em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord"></span><span class="mspace" style="margin-right:1em;"></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∧</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mop"><span class="mop"><span class="mord mathrm">Traces</span></span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3283em;"><span style="top:-2.55em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.109em;">M</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.1389em;">P</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mop"><span class="mop"><span class="mord mathrm">Traces</span></span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3283em;"><span style="top:-2.55em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight" style="margin-right:0.109em;">M</span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.0576em;">S</span><span class="mclose">)</span><span class="mord">.</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:1.85em;"><span></span></span></span></span></span></span></span></span></span></span></span></eqn></section><p>这里 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>P</mi></mrow><annotation encoding="application/x-tex">P</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.1389em;">P</span></span></span></span></eq> 是普通二进制，<eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>S</mi></mrow><annotation encoding="application/x-tex">S</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.0576em;">S</span></span></span></span></eq> 是指定插桩二进制，<eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>M</mi></mrow><annotation encoding="application/x-tex">M</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6833em;"></span><span class="mord mathnormal" style="margin-right:0.109em;">M</span></span></span></span></eq> 是形式语义；外层量词和前提见 §3.3。既然普通构建的无错误性本身就在证明目标中，它不必通过“ASan 能捕获所有 crash”来间接获得。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/theories/Shapes.v">实际命题模板</a></p>
 <p>如果只有“ASan 从不报告”这一结论，却要推出“任何内存错误都不存在”，则需要额外证明：每一种目标内存错误都会在相应插桩执行中被报告。现有 ASan 不提供这样的完整覆盖。普通构建无模型错误，也不能补上模型并未定义为错误的对象归属或子对象边界违规。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/Statements.v">cJSON 陈述中的覆盖限制</a></p>
 <div class="author-opinion">
 <p>评价这项工作时，应分别承认三类价值：真实复现的缺陷、指定语义与前提下的无错误证明，以及进一步建立的功能或内存安全性质。把第一类成果贬成“没有完整保证所以没用”，会低估找漏洞的工程价值；把第二类成果直接写成完整内存安全，又会扩大它的证明范围。</p>
 </div>
-<h3>8.4 形式化不可信，会影响哪一条结论</h3>
+<h3>6.4 形式化不可信，会影响哪一条结论</h3>
 <p>继续使用仓库的比喻：形式语义像一份描述通道、边界和警报器的地图。依据地图找到可疑位置，再到真实仓库确认确实出错，这个发现不因地图其他地方画错而失效。反过来，仅在地图上证明所有路线都安全，结论能否适用于仓库，就取决于地图是否保留了真实可能发生的危险。</p>
 <pre><code class="language-text">找 bug：
   模型提供候选输入
@@ -423,12 +525,12 @@ assert(r == LZO_E_OK &amp;&amp;
   → 前提范围内排除规定错误
 </code></pre>
 <p>因此，错误或尚未充分验证的形式化，可能使寻找漏洞的过程遗漏真实错误，也可能产生无法复现的线索；但一个已经在真实目标上复现并确认的 bug，仍然有效。对于“所有允许执行都安全”，若模型漏掉真实执行、把错误当作正常结果，或错误处理了运行环境，则模型内证明不足以支持现实中的全称保证。</p>
-<p>这里需要的是适合目标性质的语义对应。对全称安全性质，保守覆盖真实执行可以足够，并不要求模型中的每条行为都真实可发生；但不能悄悄丢掉真实错误。语义的依据可以由差分执行、独立审计和与参考模型的对应证明加强；通常的有限样本测试不能完成对所有执行的对应论证。§4.2 讨论了过近似对安全性和行为等价的不同影响。</p>
+<p>这里需要的是适合目标性质的语义对应。对全称安全性质，保守覆盖真实执行可以足够，并不要求模型中的每条行为都真实可发生；但不能悄悄丢掉真实错误。语义的依据可以由差分执行、独立审计和与参考模型的对应证明加强；通常的有限样本测试不能完成对所有执行的对应论证。§5.2 讨论了过近似对安全性和行为等价的不同影响。</p>
 <p>还应区分语义与检查器：如果只有语义偏离现实，而 Rocq 检查链可靠，那么已检查的形式命题仍然成立，缺少的是将它应用到现实的依据。若检查链本身也不可靠，连模型内的证明结论都需要重新核验。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/trust.md">项目的信任基础</a></p>
 <div class="author-opinion">
 <p>“形式化需要信任”不意味着只能凭感觉接受，也不意味着所有结果一并作废。更有用的做法是明确哪部分尚未建立对应、哪些已复现的发现不受影响、哪些无错误保证仍带着假设。找漏洞允许先采用有用但不完美的地图；提供保证则要交代地图与现实之间的证据。</p>
 </div>
-<h3>8.5 ASan 会漏掉什么：地址可访问，不代表访问合法</h3>
+<h3>6.5 ASan 会漏掉什么：地址可访问，不代表访问合法</h3>
 <p>ASan 的内存访问检查可能遗漏几类情况。<strong>对象内部越界</strong>，例如数组成员越界覆盖同一结构体的后续成员，默认检查未必区分内部边界。<strong>错误访问落入另一个活对象</strong>时，目标地址仍可访问，ASan 未必知道指针本应属于另一个对象。<strong>未插桩代码中的普通访问</strong>则可能没有相应检查；拦截器可以覆盖部分操作，但不能视为全面覆盖。</p>
 <p><strong>逻辑有效长度</strong>也是另一种边界：分配 1,024 字节、只有前 64 字节有效时，读取第 100 字节可能不报错，需要长度不变量或相应标注。<strong>未初始化值的使用</strong>主要由 MemorySanitizer 检查；<strong>整数溢出、非法移位等未定义行为</strong>需要相应 UBSan 配置；<strong>数据竞争</strong>由 ThreadSanitizer 等检查，而主实验限定单线程。</p>
 <p><strong>功能或权限错误</strong>，例如输出内容错误、遗漏权限检查，通常还需要功能规约或断言提供判断标准。通用 sanitizer 不会自动知道业务预期。</p>
@@ -448,7 +550,7 @@ void put_member(struct S *s, int i) {
 <div class="author-opinion">
 <p>最需要避免的跳跃，是从“警报没有响”推到“所有错误都不存在”。证明能把指定警报在有限样本上的沉默，提升为前提范围内所有执行都不触发它；证明的量词变强了，警报本身的检测边界仍然存在。要进一步获得完整内存安全或功能正确性，就要把那些遗漏的要求真正放进模型与命题。</p>
 </div>
-<h3>8.6 覆盖了哪些 RTE：机器故障不等于源语言的全部未定义行为</h3>
+<h3>6.6 覆盖了哪些 RTE：机器故障不等于源语言的全部未定义行为</h3>
 <p>主实验中的失败信号包含几类来源。首先，LPS 把访问未映射地址、写入不可写区域、执行架构定义的非法指令等情况判为机器故障。其次，ASan 的已插入检查可以在发现相应内存错误后报告并中止。采用 UBSan 构建时，启用的检查还可以通过 trap 暴露相应的未定义行为。程序自己的 <code>assert</code>、<code>abort</code> 及导致中止的未捕获异常，也能形成被目标排除的失败路径。模型不支持的指令或系统调用则属于覆盖范围问题，同样会妨碍相应无错误命题成立。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/theories/Shapes.v">公开命题中的错误分类</a></p>
 <p>因此，把这条路线概括成“检查硬件异常，并通过 sanitizer 把其他错误编码成硬件异常”，抓住了把性质转成失败分支的思路，但信号范围还要扩大：<strong>它排除的是语义与命题规定的错误或中止；硬件故障、显式 trap、运行时 <code>abort</code> 和模型未覆盖，并非同一种机制。</strong> 系统调用返回错误码也不自动等于 crash，程序可以正常处理失败；是否允许这种执行，要看命题与环境前提。</p>
 <p>如果 RTE 指 C 源码验证中的运行时错误，它通常还包含非法指针访问、算术溢出等未定义行为。Frama-C 的 RTE 插件就为这类表达式生成需要证明的断言。机器级无 crash 并不会自动恢复全部源语言要求。<a href="https://www.frama-c.com/fc-plugins/rte.html">Frama-C 对 RTE 的定义</a></p>
@@ -462,47 +564,7 @@ void put_member(struct S *s, int i) {
 <div class="author-opinion">
 <p>这说明有两种彼此独立的边界：语义是否忠于真实机器，以及命题是否覆盖所关心的源语言错误。即使机器语义完全正确，未被定义为错误、也没有被插桩暴露的源码级 RTE，仍可能不受这个无 crash 目标约束。扩大信任证据与扩大性质覆盖，需要分别推进。</p>
 </div>
-<h3>8.7 形式语义具体怎样排除 crash：从单步失败到错误不可达</h3>
-<p>LPS 没有一个理解所有源码 bug 的通用检测器。它先规定指令、访存和系统调用怎样执行，再规定哪些结果进入错误分支，最后提出错误不可达的命题。下面沿固定版本的源码展开这条链。</p>
-<p>机器层的 <code>machine_result</code> 区分正常结果 <code>MachineOk</code>、真实执行故障 <code>MachineFault</code> 和语义未支持的 <code>MachineUnmodeled</code>。例如，访存解释需要读取的字节不存在，或存储范围含不可写字节，便产生故障；取指失败时，还会区分真实不可执行地址与模型自身无法解释的情形。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/RiscvSemantics.v">机器结果与访存解释</a></p>
-<p>进程层的 <code>sstep</code> 是一步转换关系，正常结果进入后继配置，机器故障或未建模结果可以转移到 <code>SError</code>。系统调用另按规约产生后继状态、正常退出、终止信号或未建模结果；并非所有返回错误码的调用都走向 <code>SError</code>。以下按通常转换记号改写关键分支，只是阅读示意，不是原样 Rocq 代码：</p>
-<pre><code class="language-text">一次普通指令步进：
-  MachineOk        → 后继配置
-  MachineFault     → SError
-  MachineUnmodeled → SError
-</code></pre>
-<p>实际的故障规则还要求进程尚未停止、当前没有待处理系统调用等条件。随后，<code>star</code> 连接任意有限多个正常步骤；<code>reaches_error</code> 表达“先走若干步，再有一步进入错误”。用本文记号重写其结构：</p>
-<section><eqn><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mtable rowspacing="0.25em" columnalign="right left" columnspacing="0em"><mtr><mtd><mstyle scriptlevel="0" displaystyle="true"><mrow><mi mathvariant="normal">MayError</mi><mo>⁡</mo><mo stretchy="false">(</mo><msub><mi>c</mi><mn>0</mn></msub><mo stretchy="false">)</mo><mtext>  </mtext><mo>⟺</mo><mtext>  </mtext><mrow></mrow></mrow></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="true"><mrow><mrow></mrow><mi mathvariant="normal">∃</mi><mi>c</mi><mo separator="true">,</mo><mi>t</mi><mo separator="true">,</mo><mi>e</mi><mo separator="true">,</mo></mrow></mstyle></mtd></mtr><mtr><mtd><mstyle scriptlevel="0" displaystyle="true"><mrow></mrow></mstyle></mtd><mtd><mstyle scriptlevel="0" displaystyle="true"><mrow><mrow></mrow><msub><mi>c</mi><mn>0</mn></msub><mover><mo stretchy="true" minsize="3.0em">→</mo><mpadded width="+0.6em" lspace="0.3em"><mrow><mi>t</mi><mtext> </mtext><mo>∗</mo></mrow></mpadded></mover><mi>c</mi><mo>∧</mo><mi>c</mi><mover><mo stretchy="true" minsize="3.0em">→</mo><mpadded width="+0.6em" lspace="0.3em"><mi>e</mi></mpadded></mover><mrow><mi mathvariant="normal">S</mi><mi mathvariant="normal">E</mi><mi mathvariant="normal">r</mi><mi mathvariant="normal">r</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">r</mi></mrow><mi mathvariant="normal">.</mi></mrow></mstyle></mtd></mtr></mtable><annotation encoding="application/x-tex">
-\begin{aligned}
-\operatorname{MayError}(c_0)\iff{}&amp;
-\exists c,t,e,\\
-&amp;c_0\xrightarrow{t\,*}c
-\land c\xrightarrow{e}\mathrm{SError}.
-\end{aligned}
-</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:2.9126em;vertical-align:-1.2063em;"></span><span class="mord"><span class="mtable"><span class="col-align-r"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.7063em;"><span style="top:-3.9188em;"><span class="pstrut" style="height:3.0526em;"></span><span class="mord"><span class="mop"><span class="mord mathrm">MayError</span></span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal">c</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">⟺</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mord"></span></span></span><span style="top:-2.2063em;"><span class="pstrut" style="height:3.0526em;"></span><span class="mord"></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:1.2063em;"><span></span></span></span></span></span><span class="col-align-l"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.7063em;"><span style="top:-3.9188em;"><span class="pstrut" style="height:3.0526em;"></span><span class="mord"><span class="mord"></span><span class="mord">∃</span><span class="mord mathnormal">c</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal">t</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal">e</span><span class="mpunct">,</span></span></span><span style="top:-2.2063em;"><span class="pstrut" style="height:3.0526em;"></span><span class="mord"><span class="mord"></span><span class="mord"><span class="mord mathnormal">c</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel x-arrow"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.0526em;"><span style="top:-3.322em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight x-arrow-pad"><span class="mord mtight"><span class="mord mathnormal mtight">t</span><span class="mspace mtight" style="margin-right:0.1952em;"></span><span class="mord mtight">∗</span></span></span></span><span class="svg-align" style="top:-2.689em;"><span class="pstrut" style="height:2.7em;"></span><span class="hide-tail" style="height:0.522em;min-width:1.469em;"><svg xmlns="http://www.w3.org/2000/svg" width="400em" height="0.522em" viewBox="0 0 400000 522" preserveAspectRatio="xMaxYMin slice"><path d="M0 241v40h399891c-47.3 35.3-84 78-110 128
--16.7 32-27.7 63.7-33 95 0 1.3-.2 2.7-.5 4-.3 1.3-.5 2.3-.5 3 0 7.3 6.7 11 20
- 11 8 0 13.2-.8 15.5-2.5 2.3-1.7 4.2-5.5 5.5-11.5 2-13.3 5.7-27 11-41 14.7-44.7
- 39-84.5 73-119.5s73.7-60.2 119-75.5c6-2 9-5.7 9-11s-3-9-9-11c-45.3-15.3-85
--40.5-119-75.5s-58.3-74.8-73-119.5c-4.7-14-8.3-27.3-11-40-1.3-6.7-3.2-10.8-5.5
--12.5-2.3-1.7-7.5-2.5-15.5-2.5-14 0-21 3.7-21 11 0 2 2 10.3 6 25 20.7 83.3 67
- 151.7 139 205zm0 0v40h399900v-40z"/></svg></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.011em;"><span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mord mathnormal">c</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∧</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mord mathnormal">c</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel x-arrow"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.9234em;"><span style="top:-3.322em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight x-arrow-pad"><span class="mord mtight"><span class="mord mathnormal mtight">e</span></span></span></span><span class="svg-align" style="top:-2.689em;"><span class="pstrut" style="height:2.7em;"></span><span class="hide-tail" style="height:0.522em;min-width:1.469em;"><svg xmlns="http://www.w3.org/2000/svg" width="400em" height="0.522em" viewBox="0 0 400000 522" preserveAspectRatio="xMaxYMin slice"><path d="M0 241v40h399891c-47.3 35.3-84 78-110 128
--16.7 32-27.7 63.7-33 95 0 1.3-.2 2.7-.5 4-.3 1.3-.5 2.3-.5 3 0 7.3 6.7 11 20
- 11 8 0 13.2-.8 15.5-2.5 2.3-1.7 4.2-5.5 5.5-11.5 2-13.3 5.7-27 11-41 14.7-44.7
- 39-84.5 73-119.5s73.7-60.2 119-75.5c6-2 9-5.7 9-11s-3-9-9-11c-45.3-15.3-85
--40.5-119-75.5s-58.3-74.8-73-119.5c-4.7-14-8.3-27.3-11-40-1.3-6.7-3.2-10.8-5.5
--12.5-2.3-1.7-7.5-2.5-15.5-2.5-14 0-21 3.7-21 11 0 2 2 10.3 6 25 20.7 83.3 67
- 151.7 139 205zm0 0v40h399900v-40z"/></svg></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.011em;"><span></span></span></span></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mord"><span class="mord mathrm">SError</span></span><span class="mord">.</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:1.2063em;"><span></span></span></span></span></span></span></span></span></span></span></span></eqn></section><p>这里 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>c</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">c_0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.5806em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal">c</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span></eq> 是启动配置，<eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>t</mi></mrow><annotation encoding="application/x-tex">t</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6151em;"></span><span class="mord mathnormal">t</span></span></span></span></eq>、<eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>e</mi></mrow><annotation encoding="application/x-tex">e</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.4306em;"></span><span class="mord mathnormal">e</span></span></span></span></eq> 是相应事件序列；星号表示零步或多步。<code>run</code> 用映像、启动布局、输入和预算构造 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>c</mi><mn>0</mn></msub></mrow><annotation encoding="application/x-tex">c_0</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.5806em;vertical-align:-0.15em;"></span><span class="mord"><span class="mord mathnormal">c</span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3011em;"><span style="top:-2.55em;margin-left:0em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mtight">0</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span></span></span></span></eq>，再把是否可达错误写入行为记录的 <code>bh_errors</code> 字段。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v">进程单步、可达关系与运行定义</a></p>
-<p>在其上，<code>Equivalence.v</code> 的无错误定义可以原样短引为：</p>
-<pre><code class="language-coq">Definition error_free (b : behavior)
-  : Prop := ~ bh_errors b.
-</code></pre>
-<p>因此，只要存在一条许可执行到达错误，就足以否定 <code>error_free</code>；证明它成立，需要排除所有这样的路径。外层再对允许的输入与启动布局全称量化，形成 §6.3 展示的目标。证明过程可以使用归纳、不变量和抽象，不要求把所有输入实际运行一遍。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/EquivalenceDefinition/Equivalence.v#L194">无错误定义</a></p>
-<p>ASan 本身也是这些机器指令的一部分。证明会跟随地址检查、影子内存读取和条件分支；如果检查失败，后续报告与中止路径就成为必须排除的执行。语义并不是在每一步直接调用一个名叫“内存安全”的抽象判断。</p>
-<p>中止的具体编码还取决于所用命题族。默认设置与显式建模 <code>abort</code> 的设置不同；后者可以产生 <code>KillEv</code>，而不经过 <code>SError</code>。相应的 <code>_abort_modelled</code> 安全目标采用 <code>error_free_unkilled</code>，另外禁止信号终止。因此，<strong>“不可到达 <code>SError</code>”与“不会因信号终止”需要按具体定义组合，不能把所有 crash 都想成同一个硬件异常。</strong><a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/EquivalenceDefinition/Equivalence.v#L194">中止与信号终止的定义</a></p>
-<div class="author-opinion">
-<p>这条链也精确定位了形式化错误的后果：如果一个本应失败的真实操作，在语义中被写成正常后继，证明器就可能正确地证明这个错误模型中的不可达性。真实复现仍能确认一个 bug；从不可达性推导真实程序无错误，则需要这条执行与错误分类的对应可靠。</p>
-</div>
-<h3>8.8 排序怎样变成可执行规约：检查器承载了什么义务</h3>
+<h3>6.7 排序怎样变成可执行规约：检查器承载了什么义务</h3>
 <p>原文把主要工作方式概括为让 <strong>“this test suite always passes”</strong> 成为形式命题。沿着这种无错误模板，功能要求也可以先写成程序中的检查，失败时调用 <code>abort</code> 或触发断言，再证明失败路径不可达。这是将性质编码为可执行失败条件，并不局限于硬件自动产生的异常。<a href="https://www.anthropic.com/research/formal-verification">原文对规约的说明</a></p>
 <p>以整数排序为例，如果继续使用“入口不失败”这个模板，可以先保留原始输入，再运行排序，并检查输出有序且元素多重集合保持不变。下面是解释性伪代码，既不是论文发布的排序实验，也不是已经验证的检查器：</p>
 <pre><code class="language-text">before = copy(input)
@@ -530,25 +592,54 @@ Sorted Z.le after
 <p>这条路线很有吸引力的一点，是能够复用维护者已经写好的可执行检查，让模型集中处理庞大的执行证明。对完整功能正确性，难点则会进一步落到检查器是否充分、编码是否保持要求、数学性质是否忠于需求。困难的工作可以交给模型，但这些正确性义务仍然需要有明确的承担位置。</p>
 <p>对于排序，直接证明 <code>Permutation</code> 与 <code>Sorted</code>，或者先证明检查器与它们对应，都是值得采用的路线。选择可执行规约能够改变工程组织方式；它不会自动解决规约是否正确，也不必放弃已有形式定义与引理的复用。</p>
 </div>
-<h3>8.9 排除证据更强，不等于找漏洞的效率必然更高</h3>
+<h3>6.8 排除证据更强，不等于找漏洞的效率必然更高</h3>
 <div class="author-opinion">
 <p>完成的全称证明提供更强排除证据，但不意味着找漏洞在所有任务与相同预算下都更高效。发现能力应统一入口、输入、构建与资源，比较确认缺陷、遗漏和总成本；保证能力则应核对完成命题及信任前提。</p>
 </div>
-<h2>9. 原始资料与图表索引</h2>
+<h2>7. 还有哪些研究方向：把成果变成可信、可复用的保证</h2>
+<h3>7.1 规格生成需要独立的正确性与充分性评价</h3>
+<div class="author-opinion">
+<p><strong>规约可以是逻辑公式，也可以是可执行检查、参考算法或抽象状态机。</strong> 关键在于观察什么、允许哪些输入和行为，以及要求是否独立约束实现。解析器的接受与输出、权限检查的拒绝条件、数值程序的误差及特殊值，都需要具体定义。</p>
+<p>code2spec 若只按原实现能否证明评分，会奖励恒真条件、遗漏失败情况的前提或对实现的机械复述。独立需求、参考模型、审查和变异程序可以检验漏项：排序只要求有序会允许丢元素，还需保留多重集合；拒绝若干变异体也不等于证明规约完整。</p>
+<p>对操作系统，可以由人给出抽象状态转换，让模型寻找实现与抽象状态的关系及不变量。这样可能减少精化证明的人工负担，但允许行为、环境假设和状态对应的义务仍然存在。</p>
+</div>
+<h3>7.2 让模型 formalize，再测试 formalization，能走多远</h3>
+<div class="author-opinion">
+<p>值得尝试的路线是：<strong>让模型把代码 formalize 到 Rocq 或 Lean，测试形式化，再证明功能性质。</strong> 需要对照输入输出、中间状态和错误行为，记录支持子集及失败案例；若形式化正确仍是工程假设，就不能把它当作已完成的原程序保证。</p>
+<p>源码、IR 与二进制各有适用场景，重点是保留哪些执行、增加哪些前提，以及结论如何传递。浮点 C 尤其不能由实数公式代替：舍入、NaN、无穷大、有符号零及编译选项都可能改变行为。只保留正常返回的模型，也可能完全遗漏原程序错误；有界检查、差分测试与证明应分别说明范围。</p>
+<p>证明有机会替代固定性质与产物上的重复测试，但真实重放、模型对照与部署变化仍需检验。</p>
+</div>
+<h3>7.3 模块化抽象需要证明它能改善后续任务</h3>
+<div class="author-opinion">
+<p>分配器契约、调用约定和分离逻辑规则，应让后续程序在明确前提下复用。评价时应测量跨程序、跨版本的预算节省、维护成本及模型升级后收益，不能只看当前证明缩短多少。</p>
+</div>
+<h3>7.4 评测要同时约束目标、实现和资源</h3>
+<div class="author-opinion">
+<p>规约用独立需求、漏项反例与变异检验评价；模型用执行对照、对应定理与错误路径保留评价；复用用固定依赖的新任务和跨版本实验评价；补丁用合法输入、变化范围和回归证据评价；成本用强代理基线、完整成功率和总账单评价。</p>
+<p>需要防止同一生成过程同时决定需求、实现、规约与验收，最后只报告全部通过。关键目标和检查方式应有独立约束，并记录每次有意义的改变。</p>
+</div>
+<h3>7.5 更强的模型，要求更准确的保证表述</h3>
+<div class="author-opinion">
+<p>这项工作令人兴奋，也给小型团队带来压力：大量局部执行推理正在成为通用代理能力。人类把握宏观设计、模型持续推进繁重证明的组织方式，已经值得认真采用。</p>
+<p>后续价值在于把需求、形式语义、补丁与部署接成可复现的证据链，并交付可复用的接口与完整成本。<strong>可信程度取决于陈述、前提、产物和检查过程，不能只看证明规模。</strong></p>
+</div>
+<h2>8. 原始资料与图表索引</h2>
 <ul>
 <li><a href="https://www.anthropic.com/research/formal-verification">Anthropic 原文</a>：2026 年 10 月 22 日发布，本文展示其全部六张编号图。</li>
 <li><a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf">六页附录</a>：定理含义、Python 解释器案例、证明规模与小任务设置；无独立图表。</li>
 <li><a href="https://github.com/theorem-labs/oss-verify-proofs/tree/98e995d4daced70a0a4aa2c810854b88720735f1">公开证明仓库快照</a>：查阅时 README 列出 25 个库、60 个入口的公开证明，与实验报告总量分开阅读。</li>
 <li><a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/statements.md">定理陈述说明</a>、<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/checking.md">检查流程</a>、<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/trust.md">信任基础</a>：阅读单个证明时应核对的定义和前提。</li>
-<li><a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/Statements.v">cJSON 的 spec</a>、<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/README.md">证明状态</a>、<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/theories/Shapes.v">通用命题模板</a>：第 6 节源码示例的固定来源。</li>
+<li><a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/Statements.v">cJSON 的 spec</a>、<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/README.md">证明状态</a>、<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/theories/Shapes.v">通用命题模板</a>：第 3 节源码示例的固定来源。</li>
 <li><a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/Riscv/Sem.v">LPS 的指令语义</a>、<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/RiscvSemantics.v">机器状态与步进</a>、<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v">进程行为</a>：从单条指令到整体运行的定义。</li>
 <li><a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/SCOPE.md">LPS 语义与已知缺口</a>：固定到公开发布所使用的语义版本。</li>
-<li><a href="https://clang.llvm.org/docs/AddressSanitizer.html">ASan 官方文档</a>、<a href="https://github.com/google/sanitizers/wiki/AddressSanitizerIntraObjectOverflow">对象内部越界说明</a>、<a href="https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html">UBSan</a>、<a href="https://clang.llvm.org/docs/MemorySanitizer.html">MemorySanitizer</a>、<a href="https://clang.llvm.org/docs/ThreadSanitizer.html">ThreadSanitizer</a>：第 8 节对检查机制、盲区与工具分工的补充来源。</li>
-<li><a href="https://www.frama-c.com/fc-plugins/rte.html">RTE 的定义</a>、<a href="https://docs.riscv.org/reference/isa/v20240411/unpriv/m-st-ext.html">RISC-V 除法规则</a>、<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/EquivalenceDefinition/Equivalence.v">无错误与信号终止定义</a>：第 8.6–8.7 节的直接来源。</li>
+<li><a href="https://clang.llvm.org/docs/AddressSanitizer.html">ASan 官方文档</a>、<a href="https://github.com/google/sanitizers/wiki/AddressSanitizerIntraObjectOverflow">对象内部越界说明</a>、<a href="https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html">UBSan</a>、<a href="https://clang.llvm.org/docs/MemorySanitizer.html">MemorySanitizer</a>、<a href="https://clang.llvm.org/docs/ThreadSanitizer.html">ThreadSanitizer</a>：第 6 节对检查机制、盲区与工具分工的补充来源。</li>
+<li><a href="https://www.frama-c.com/fc-plugins/rte.html">RTE 的定义</a>、<a href="https://docs.riscv.org/reference/isa/v20240411/unpriv/m-st-ext.html">RISC-V 除法规则</a>、<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/EquivalenceDefinition/Equivalence.v">无错误与信号终止定义</a>：第 6.6 与第 3.8 节的直接来源。</li>
 <li><a href="https://rocq-prover.org/doc/V9.1.0/stdlib/Stdlib.Sorting.Permutation.html">Rocq 的 Permutation</a>、<a href="https://rocq-prover.org/doc/V9.0.0/stdlib/Stdlib.Sorting.Sorted.html">Sorted</a>：排序示例中高层逻辑性质的定义；示例本身属于本文解释。</li>
 <li><a href="https://theorem.dev/oss-verify/">OSS Verify 项目说明</a>、<a href="https://theorem.dev/blog/verified-software-stack/">软件栈路线图</a>：项目工作方式，以及软件生态规模的成本预测。</li>
 </ul>
-<p>图表位置：图 1 见 §2.1，图 2 见 §2.2，图 3 见 §2.3，图 4 见 §3.2，图 5 见 §3.3，图 6 见 §3.4。原文六张编号图均使用原始媒体，图内文字未经翻译；相关归纳与评价均写成段落。附录的六个主题依次见 §7.1–7.6，其中代码示例见 §7.6。全部原始图像和动画归 Anthropic 及相应权利人所有；本地媒体的来源与校验值记录在 <a href="../assets/papers/anthropic-verification/sources.json">sources.json</a>。</p>
+<p>图表位置：图 1 见 §2.1，图 2 见 §2.2，图 3 见 §2.3，图 4 见 §4.2，图 5 见 §4.3，图 6 见 §4.4。原文六张编号图均使用原始媒体，图内文字未经翻译；相关归纳与评价均写成段落。</p>
+<p>附录六个主题已合并：定理含义见 §3.3–3.4，Python 解释器见 §2.6，证明规模见 §4.1，专家观察见 §4.5，小任务设置见 §4.2，LZO 与 p11-kit 断言见 §2.5；第 3 节另以真实 Rocq 代码展开它们在公开证明中的落点。全部原始图像和动画归 Anthropic 及相应权利人所有；本地媒体的来源与校验值记录在 <a href="../assets/papers/anthropic-verification/sources.json">sources.json</a>。</p>
+<p>Rocq 证明代码的新增来源：<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/ShapeSpec.v">中间轨迹规约 ShapeSpec.v</a>、<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/A/ATop.v">组合证明 ATop.v</a>、<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/asan_agrees/Proof.v">最终 Proof.v</a>。这些文件采用 Apache-2.0 OR MIT 许可，代码节选保留对应来源。</p>
     </article>
     <div class="article-end"><a class="back-link" href="../index.html#writing">← 返回文章列表</a></div>
   </main>
