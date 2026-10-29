@@ -142,7 +142,7 @@ function articleHtml(article) {
   });
   if (body.includes('@@lps-source-')) throw new Error('Unresolved LPS source');
   if (article.slug === 'anthropic-formal-verification') {
-    body = '<p class="reading-key">黑色为原文、附录与公开源码中的内容；<span class="commentary-key">橙色为补充讨论、例子与评价</span>；<span class="external-commentary">蓝色为引用的微信文章内容</span>。</p>\n' + body;
+    body = '<p class="reading-key">黑色为原文、附录与公开源码中的内容；<span class="commentary-key">橙色为补充讨论、例子与评价</span>；<span class="external-commentary">蓝色为引用的<a href="https://mp.weixin.qq.com/s/-ITZmEqXeOo4g7TVBvzluA">微信文章</a>内容</span>。</p>\n' + body;
   }
   const title = escapeHtml(article.title);
   const description = escapeHtml(article.description);
