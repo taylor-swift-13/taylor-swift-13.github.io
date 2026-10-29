@@ -235,11 +235,6 @@ Definition asan_agrees : Prop :=
 
 这一步由配置读取、模板选择和文本生成完成。`Images.v` 同样由生成器写出，把二进制的加载段、入口地址和程序头组成映像。检查器的 `fingerprint` 还绑定命题正文、相关二进制 SHA-256、`Shapes.v`、映像定义及 LPS 版本；`oft check` 生成包装定义，要求提交证明具有这一固定命题的类型，再检查依赖假设。[生成器](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/generate.py#L87)、[定义模板](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/templates/Statements.v.tmpl#L71)、[指纹计算](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/facts.py#L331)、[检查包装](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/check.py#L252)
 
-@@opinion-begin@@
-
-**人工审查** 选择目标性质、输入范围、预算与环境前提，确认它们表达预期保证。这些选择固定后，映像提取、模板填充、指纹生成和目标一致性检查由工具自动完成。
-
-@@opinion-end@@
 
 #### 2.6.2 实际要证明什么
 
