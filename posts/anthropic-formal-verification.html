@@ -30,7 +30,7 @@
       <p class="article-deck">从二进制操作语义与 fuzz 规约出发，讨论找 bug、功能正确性与大模型时代的信任取舍。</p>
     </header>
     <article class="prose">
-<p class="reading-key">黑色为原文、附录与公开源码中的内容；<span class="commentary-key">橙色为补充讨论、例子与评价</span>；<span class="external-commentary">蓝色为引用的<a href="https://mp.weixin.qq.com/s/-ITZmEqXeOo4g7TVBvzluA">微信文章</a>内容</span>。</p>
+<p class="reading-key">黑色为原文、附录与公开源码中的内容；<span class="commentary-key">橙色为补充讨论、例子与评价</span>；<span class="external-commentary">蓝色为引用的<a href="https://mp.weixin.qq.com/s/-ITZmEqXeOo4g7TVBvzluA">《解析 Anthropic 的机器码形式化验证：技术路线、潜力与局限》</a>内容</span>。</p>
 <h2>0. 背景知识：Fuzz、sanitizer、ASan 与 LPS</h2>
 <h3>0.1 Fuzz：自动生成输入，寻找失败执行</h3>
 <p><strong>Fuzz testing（模糊测试）</strong> 反复生成半随机输入或变异已有输入，再把它们交给开发者编写的 <strong>fuzz target（测试入口）</strong>。入口调用库 API，并可用断言检查结果；导致 crash 的输入被保留下来。原文从 OSS-Fuzz 已有的入口出发，把“继续寻找失败输入”改成“证明指定范围内的所有输入都通过检查”。<a href="https://www.anthropic.com/research/formal-verification">原文对 fuzzing 的说明</a></p>
