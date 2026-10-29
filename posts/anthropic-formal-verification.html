@@ -4384,13 +4384,12 @@ assert(r == LZO_E_OK &amp;&amp; decompressed_len == size);
 <p>LPS 的范围说明列出了单线程、静态可执行文件、信号处理及文件系统等限制，也列出了若干未检查的外部假设。文档特别说明：某些模型中过宽的非确定行为，会影响两个程序行为集合的等价比较；行为等价的现实对应需要同时处理这些非确定分支。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/SCOPE.md">LPS 范围与已知缺口</a></p>
 <p>原文指出，实验使用静态链接 musl 的 RISC-V 程序，常见部署则采用 x86 或 ARM、动态链接 glibc。实验没有验证每个库的全部入口；fuzz 入口的覆盖由可达代码决定。调用者的 API 使用条件也影响内存安全，因此库的公开函数还需要调用契约。<a href="https://www.anthropic.com/research/formal-verification">原文的部署与调用边界</a></p>
 <p>附录解释，直接把测试翻译成 Rocq 可能引入翻译错误，源码解释器也可能偏离实际编译结果，因此项目选择解释编译后的二进制。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf">附录第 1–2 页</a></p>
-<h3>5.2 找到一个 crash，不等于证明没有 bug</h3>
+<h3>5.2 三种不同的结论：找到 crash、无 crash、完整内存安全</h3>
 <div class="author-opinion">
-<p><strong>第一层：找到一个 crash。</strong> 给出具体输入和环境，在真实程序中重放，确认确实触发了错误。形式化验证在这里是一种找 bug 的方法：即使形式语义有偏差，已在真实程序中复现的错误仍有独立证据。</p>
-<p><strong>第二层：证明限定范围内没有 crash。</strong> 这要求覆盖命题允许的全部输入和执行，而非只检查已测试的输入。结论取决于入口、环境、资源前提和错误定义，也取决于形式模型能否准确对应真实执行。</p>
-<p>这里还要区分两份程序：普通构建无 crash，排除的是它自身的故障与中止；ASan 构建无 crash，还排除了该构建中 ASan 检查所触发的失败。功能断言也可以把结果错误转成 crash。因而，<strong>能保证哪些性质，要看程序中实际加入了哪些检查。</strong> 两份构建的具体关系已在 §2.6.2 说明。</p>
-<p><strong>第三层：证明完整内存安全。</strong> 要按对象边界、生命周期等规则，排除所有相关的非法内存访问。一次越界可能写进另一个仍可访问的对象，既不崩溃，也没有触发 ASan；未插桩代码中的访问同样可能缺少检测。因此，排除 crash 或排除 ASan 报告，都不能直接等同于完整内存安全。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/Statements.v">公开陈述中的 ASan 覆盖限制</a></p>
-<p>同样，<strong>无 crash 不自动保证会结束，也不自动保证输出正确。</strong> 死循环需要终止性目标排除；错误结果需要相应功能规约或断言排除。完整内存安全本身也不等于完整功能正确性。</p>
+<p><strong>找到一个 crash</strong>：找到某个输入和环境，使真实程序触发错误。这是一条具体反例。</p>
+<p><strong>证明限定范围内无 crash</strong>：证明命题允许的全部输入和执行，都不会触发规定的故障、中止或检查失败。它针对明确的入口、环境和资源前提；普通构建与 ASan 构建的区别见 §2.6.2。</p>
+<p><strong>证明完整内存安全</strong>：按对象边界、生命周期等规则，排除所有相关的非法内存访问，包括没有导致 crash 的访问。因此，无 crash 与完整内存安全是不同要求。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/Statements.v">公开陈述中的 ASan 覆盖限制</a></p>
+<p>终止性和功能正确性还需各自的目标：程序可以不崩溃却永远不结束，也可以内存安全却算错结果。</p>
 </div>
 <h3>5.3 规约表达的困难：微信文章中的最短路例子</h3>
 <div class="external-commentary">
@@ -4408,11 +4407,10 @@ p \in \mathrm{Paths}_G(s,t) \land \forall q \in \mathrm{Paths}_G(s,t),\quad \mat
 <p>在 C 中，<code>y == 0</code> 是需要排除的运行时错误；但若生成的机器代码直接执行 RISC-V 整数除法指令，除零不会触发硬件异常，而会返回指令集规定的结果。LPS 的 <code>mul_div</code> 也明确实现了这一规则。这条机器指令的正常结果，和 C 源语言要排除的除零是两个层次。<a href="https://docs.riscv.org/reference/isa/v20240411/unpriv/m-st-ext.html">RISC-V 除法规范</a>、<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/Riscv/Sem.v#L120">LPS 除法定义</a></p>
 <p>启用相应 UBSan 检查并采用 trap 等失败策略，可以把这种情况转成证明必须排除的分支。有符号溢出、非法移位等也要逐项核对检查配置；实际启用项由各入口的构建配置决定。<a href="https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html">UBSan 检查与失败策略</a></p>
 </div>
-<h3>5.5 形式模型有错，还能相信哪些结果？</h3>
+<h3>5.5 模型是否正确，规约是否完整？</h3>
 <div class="author-opinion">
 <p><strong>如果目的是找 bug，关键是能否在真实程序中复现。</strong> 形式模型给出一个疑似出错的输入，再把它交给实际二进制运行。如果确实触发了错误，这个 bug 就有运行证据；即使模型别处存在错误，也不会推翻这次已经确认的失败。模型预测会崩溃、实际却没有崩溃，则不能把它当作已确认的程序 bug。</p>
-<p><strong>如果目的是保证没有 bug，形式模型的正确性就很关键。</strong> 例如，真实指令可能因非法访存而失败，模型却错误地允许它正常读取；Rocq 即使完全正确地证明了模型中不会出错，也不能由此推出真实程序不会出错。模型若漏掉一种可能的系统调用结果，也可能漏掉沿该分支发生的错误。</p>
-<p>Rocq 检查的是“证明是否符合给定定义”。它不会自动确认这些定义是否忠实描述了处理器、操作系统和要验证的要求。因此需要分清两件事：<strong>证明在模型内成立</strong>，以及<strong>模型足以支持对真实程序的结论</strong>。</p>
+<p><strong>要把证明用于真实程序，首先要问模型是否正确。</strong> 例如，真实指令可能因非法访存而失败，模型却允许它正常读取；或者模型漏掉一种系统调用结果。Rocq 只检查证明是否符合给定定义，无法自动确认定义忠实描述了机器。因此，模型内的无错误证明不一定能排除真实执行中的错误。</p>
 <p><strong>即使形式模型完全正确，也不意味着能发现或排除所有 bug。</strong> 模型描述程序怎样执行，规约决定哪些行为算错误；把 bug 定义完整，本身就像写好 spec 一样困难。Sanitizer 的检查不能覆盖所有内存错误，例如 ASan 可能漏掉同一对象内部的越界。功能错误更难完整刻画：程序可以不崩溃、通过所有现有检查，却仍然算错结果或遗漏业务要求。没有写进规约或检查的错误，也就不在相应证明的保证范围内。</p>
 <p><strong>测试 formalization 而不是实现</strong>：这里强调把测试用于检验形式模型与真实执行是否一致，再在模型上证明实现的性质。例如，让模型和真实机器执行同一条指令或同一段程序，比较寄存器、内存和错误结果。这种差分测试能暴露模型错误，但测试通过本身不能保证模型在所有情况都正确。</p>
 </div>
