@@ -644,15 +644,11 @@ LPS 的 `machine_result` 区分正常结果、执行故障与语义未覆盖。`
 
 @@opinion-begin@@
 
-这条路线统一处理语义与命题规定的错误或中止：硬件故障、显式 trap、运行时 `abort` 和模型未覆盖各有编码。系统调用返回错误码由程序处理，相应执行由环境前提与命题约束。
+**C 的运行时错误，不一定变成机器故障。** 整数除零、有符号整数溢出等在 C 中属于未定义行为；仅证明二进制没有触发硬件异常，不能据此排除这些源语言错误。
 
-如果 RTE 指 C 源码验证中的运行时错误，它通常还包含非法指针访问、算术溢出等未定义行为。Frama-C 的 RTE 插件就为这类表达式生成需要证明的断言。源语言 RTE 需要由相应检查或直接规约覆盖。[Frama-C 对 RTE 的定义](https://www.frama-c.com/fc-plugins/rte.html)
+例如，C 表达式 `x / y` 要排除 `y == 0`。但若编译器将它编成 RISC-V 整数除法指令，该指令遇到零除数不会触发异常，而是返回指令集规定的结果；LPS 的 `mul_div` 也实现了这一规则。因此，“这条机器指令正常执行”不代表“原来的 C 表达式没有整数除零”。[RISC-V 除法规范](https://docs.riscv.org/reference/isa/v20240411/unpriv/m-st-ext.html)、[LPS 除法定义](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/Riscv/Sem.v#L120)
 
-例如 C 表达式 `x / y` 在 `y == 0` 时发生整数除零。
-
-在 C 中，`y == 0` 是需要排除的运行时错误；但若生成的机器代码直接执行 RISC-V 整数除法指令，除零不会触发硬件异常，而会返回指令集规定的结果。LPS 的 `mul_div` 也明确实现了这一规则。这条机器指令的正常结果，和 C 源语言要排除的除零是两个层次。[RISC-V 除法规范](https://docs.riscv.org/reference/isa/v20240411/unpriv/m-st-ext.html)、[LPS 除法定义](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/Riscv/Sem.v#L120)
-
-启用相应 UBSan 检查并采用 trap 等失败策略，可以把这种情况转成证明必须排除的分支。有符号溢出、非法移位等也要逐项核对检查配置；实际启用项由各入口的构建配置决定。[UBSan 检查与失败策略](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html)
+**UBSan 把相应错误转成显式检查失败。** 启用整数除零检查，并把失败配置为 trap 或中止后，零除数会进入证明必须排除的失败分支。有符号溢出、非法移位等也依赖各自的检查项；能覆盖哪些错误，取决于构建实际启用了什么检查，而非“无 crash”这个名称本身。[UBSan 检查与失败策略](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html)
 
 @@opinion-end@@
 
