@@ -104,7 +104,7 @@ function articleHtml(article) {
   });
   if (body.includes('@@anthropic-figure-')) throw new Error(`Unresolved source figure in ${article.slug}.md`);
   if (article.slug === 'anthropic-formal-verification') {
-    body = '<p class="reading-key">黑色为资料介绍与图表说明；<span class="commentary-key">橙色为作者评价、工程判断与研究设想</span>。</p>\n' + body;
+    body = '<p class="reading-key">黑色为原文、附录与公开源码中的内容；<span class="commentary-key">橙色为补充讨论、例子与评价</span>。</p>\n' + body;
   }
   const title = escapeHtml(article.title);
   const description = escapeHtml(article.description);
