@@ -4384,15 +4384,13 @@ assert(r == LZO_E_OK &amp;&amp; decompressed_len == size);
 <p>LPS 的范围说明列出了单线程、静态可执行文件、信号处理及文件系统等限制，也列出了若干未检查的外部假设。文档特别说明：某些模型中过宽的非确定行为，会影响两个程序行为集合的等价比较；行为等价的现实对应需要同时处理这些非确定分支。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/SCOPE.md">LPS 范围与已知缺口</a></p>
 <p>原文指出，实验使用静态链接 musl 的 RISC-V 程序，常见部署则采用 x86 或 ARM、动态链接 glibc。实验没有验证每个库的全部入口；fuzz 入口的覆盖由可达代码决定。调用者的 API 使用条件也影响内存安全，因此库的公开函数还需要调用契约。<a href="https://www.anthropic.com/research/formal-verification">原文的部署与调用边界</a></p>
 <p>附录解释，直接把测试翻译成 Rocq 可能引入翻译错误，源码解释器也可能偏离实际编译结果，因此项目选择解释编译后的二进制。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf">附录第 1–2 页</a></p>
-<h3>5.2 找 crash、无 crash 与完整内存安全</h3>
+<h3>5.2 找到一个 crash，不等于证明没有 bug</h3>
 <div class="author-opinion">
-<p><strong>找到并确认一个 crash</strong>：给出具体输入和环境，在真实目标重放失败，并确认违反预期契约。</p>
-<p><strong>指定插桩构建无 crash</strong>：排除前提范围内全部执行中的规定错误，包含相应检查失败，并建立形式模型与真实执行的对应。</p>
-<p><strong>普通构建无 crash</strong>：排除该二进制在许可执行中定义的故障与中止等错误。终止、静默内存破坏与输出内容各有自己的命题。</p>
-<p><strong>完整内存安全</strong>：按明确的内存安全定义，排除对象边界、生命周期等相关违规。</p>
-<p>这些目标的量词都受入口、输入、内存布局、环境响应和资源前提约束。</p>
-<p>公开的 <code>agrees_in</code> 直接合取三个结论：普通构建无错误、指定插桩构建无错误、二者有限轨迹集合相同。完整源码见 §2.6.3。</p>
-<p>cJSON 的公开陈述明确列出 ASan 检测范围的缺口，包括访问落入另一个活对象和未插桩代码。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/Statements.v">cJSON 陈述中的覆盖限制</a></p>
+<p><strong>第一层：找到一个 crash。</strong> 给出具体输入和环境，在真实程序中重放，确认确实触发了错误。形式化验证在这里是一种找 bug 的方法：即使形式语义有偏差，已在真实程序中复现的错误仍有独立证据。</p>
+<p><strong>第二层：证明限定范围内没有 crash。</strong> 这要求覆盖命题允许的全部输入和执行，而非只检查已测试的输入。结论取决于入口、环境、资源前提和错误定义，也取决于形式模型能否准确对应真实执行。</p>
+<p>这里还要区分两份程序：普通构建无 crash，排除的是它自身的故障与中止；ASan 构建无 crash，还排除了该构建中 ASan 检查所触发的失败。功能断言也可以把结果错误转成 crash。因而，<strong>能保证哪些性质，要看程序中实际加入了哪些检查。</strong> 两份构建的具体关系已在 §2.6.2 说明。</p>
+<p><strong>第三层：证明完整内存安全。</strong> 要按对象边界、生命周期等规则，排除所有相关的非法内存访问。一次越界可能写进另一个仍可访问的对象，既不崩溃，也没有触发 ASan；未插桩代码中的访问同样可能缺少检测。因此，排除 crash 或排除 ASan 报告，都不能直接等同于完整内存安全。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/Statements.v">公开陈述中的 ASan 覆盖限制</a></p>
+<p>同样，<strong>无 crash 不自动保证会结束，也不自动保证输出正确。</strong> 死循环需要终止性目标排除；错误结果需要相应功能规约或断言排除。完整内存安全本身也不等于完整功能正确性。</p>
 </div>
 <h3>5.3 规约表达的困难：微信文章中的最短路例子</h3>
 <div class="external-commentary">
