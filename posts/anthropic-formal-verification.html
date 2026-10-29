@@ -45,9 +45,6 @@
 <li><strong>UBSan（UndefinedBehaviorSanitizer）</strong>：检查启用的未定义行为，包括有符号整数溢出、整数除零、非法移位、对齐等。本实验使用 trap 模式，检查失败触发非法指令，以 SIGILL 终止，退出状态为 132。</li>
 </ul>
 <p>公开仓库分别提供普通、ASan、UBSan 和 ASan/UBSan 组合构建的目标；其检查配置固定在构建产物中。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/building.md">公开构建配置与检查列表</a></p>
-<div class="author-opinion">
-<p><strong>人工审查</strong> 关注启用了哪些检查、需要发现哪些错误。配置确定后，编译器自动插桩，工具运行检测；模型可以依据检测结果继续定位和证明。</p>
-</div>
 <h3>0.3 ASan 的直观例子：能发现什么，会漏掉什么</h3>
 <div class="author-opinion">
 <p>对一个分配了 16 字节的堆缓冲区写入 <code>p[16]</code>，通常就会触发越界报告。<a href="https://clang.llvm.org/docs/AddressSanitizer.html">ASan 官方说明</a></p>

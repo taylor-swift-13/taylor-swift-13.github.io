@@ -21,12 +21,6 @@ Sanitizer 通过编译器插桩，在程序执行时检查相应错误。本文�
 
 公开仓库分别提供普通、ASan、UBSan 和 ASan/UBSan 组合构建的目标；其检查配置固定在构建产物中。[公开构建配置与检查列表](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/building.md)
 
-@@opinion-begin@@
-
-**人工审查** 关注启用了哪些检查、需要发现哪些错误。配置确定后，编译器自动插桩，工具运行检测；模型可以依据检测结果继续定位和证明。
-
-@@opinion-end@@
-
 ### 0.3 ASan 的直观例子：能发现什么，会漏掉什么
 
 @@opinion-begin@@
