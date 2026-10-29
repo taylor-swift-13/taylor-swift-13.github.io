@@ -4359,6 +4359,10 @@ p \in \mathrm{Paths}_G(s,t) \land \forall q \in \mathrm{Paths}_G(s,t),\quad \mat
 <div class="external-commentary">
 <p>机器码路线带来跨语言通用性，也增加底层执行与编译优化的推理工作；现有测试降低规约构建门槛，复杂功能要求仍需要充分表达；逐入口、绑定特定二进制的证明，需要持续处理复用和版本维护。<a href="https://mp.weixin.qq.com/s/-ITZmEqXeOo4g7TVBvzluA">微信文章的总结</a></p>
 </div>
+<div class="author-opinion">
+<p><strong>可执行检查本身就可以承载功能规约。</strong> 例如，把“压缩后再解压应恢复原输入”写成断言，证明该断言对所有允许输入都不会失败，就能得到相应的功能保证。规约不必只用证明器中的逻辑公式表达。<a href="https://news.ycombinator.com/item?id=50202217">Jason Gross 的讨论</a></p>
+<p><strong>但沿用已有检查，并没有解决怎样提出好的功能规约。</strong> 这项工作把证明已有要求的过程自动化了；要检查哪些功能、现有断言是否充分表达这些功能，仍是另一个问题。<a href="https://teapawt.net/hillelogram/status/2113646046840558000">Hillel Wayne 的评价</a></p>
+</div>
     </article>
     <div class="article-end"><a class="back-link" href="../index.html#writing">← 返回文章列表</a></div>
   </main>

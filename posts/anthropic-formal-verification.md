@@ -604,3 +604,10 @@ LPS 的 `machine_result` 区分正常结果、执行故障与语义未覆盖。`
 
 @@wechat-quote-end@@
 
+@@opinion-begin@@
+
+**可执行检查本身就可以承载功能规约。** 例如，把“压缩后再解压应恢复原输入”写成断言，证明该断言对所有允许输入都不会失败，就能得到相应的功能保证。规约不必只用证明器中的逻辑公式表达。[Jason Gross 的讨论](https://news.ycombinator.com/item?id=50202217)
+
+**但沿用已有检查，并没有解决怎样提出好的功能规约。** 这项工作把证明已有要求的过程自动化了；要检查哪些功能、现有断言是否充分表达这些功能，仍是另一个问题。[Hillel Wayne 的评价](https://teapawt.net/hillelogram/status/2113646046840558000)
+
+@@opinion-end@@
