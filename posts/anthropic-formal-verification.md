@@ -8,7 +8,7 @@
 
 @@opinion-begin@@
 
-**检查什么，已经由现有工具和维护者的断言给出；大模型接手的是证明这些检查对所有允许输入都成立。**
+**检查什么，已经由现有工具和维护者的断言给出；大模型接手的是证明这些检查对所有允许输入都成立。** 首次采用或修改入口时，人类审查它是否覆盖要保证的功能和调用条件；确定以后，输入生成、运行测试和证明搜索可以自动重复。
 
 @@opinion-end@@
 
@@ -20,6 +20,12 @@ Sanitizer 通过编译器插桩，在程序执行时检查相应错误。本文�
 - **UBSan（UndefinedBehaviorSanitizer）**：检查启用的未定义行为，包括有符号整数溢出、整数除零、非法移位、对齐等。本实验使用 trap 模式，检查失败触发非法指令，以 SIGILL 终止，退出状态为 132。
 
 公开仓库分别提供普通、ASan、UBSan 和 ASan/UBSan 组合构建的目标；其检查配置固定在构建产物中。[公开构建配置与检查列表](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/building.md)
+
+@@opinion-begin@@
+
+**人工审查** 关注启用了哪些检查、需要发现哪些错误。配置确定后，编译器自动插桩，工具运行检测；模型可以依据检测结果继续定位和证明。
+
+@@opinion-end@@
 
 ### 0.3 ASan 的直观例子：能发现什么，会漏掉什么
 
@@ -112,6 +118,12 @@ OSS-Fuzz 中的 fuzz target 是开发者提供的测试入口。它接收输入�
 
 LPS 定义目标指令集的语法、执行规则和系统环境。不同源语言编译到受支持的机器代码后，共享这一层语义；运行时、并发和动态加载等行为由模型的支持范围决定。[LPS 结构说明](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/README.md)
 
+@@opinion-begin@@
+
+**人工审查** 集中在指令、系统调用和错误分类是否符合目标平台，结合参考规范、差分测试与独立核对建立信任。模型可以生成候选语义和测试；审查过的同一版本可以被多个项目共用。
+
+@@opinion-end@@
+
 ### 2.3 图 3：把可执行检查变成规约，并在证明途中找 bug
 
 入口、被调用的实现、sanitizer 和已有断言共同构成可执行的检查；项目再要求，在给定输入和环境范围内，这个检查程序不会到达规定的错误。已有断言检查了什么，生成的证明目标就可能间接约束什么。[定理陈述说明](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/statements.md)
@@ -196,6 +208,12 @@ Definition asan_agrees : Prop :=
 ```
 
 这一步由配置读取、模板选择和文本生成完成。`Images.v` 同样由生成器写出，把二进制的加载段、入口地址和程序头组成映像。检查器的 `fingerprint` 还绑定命题正文、相关二进制 SHA-256、`Shapes.v`、映像定义及 LPS 版本；`oft check` 生成包装定义，要求提交证明具有这一固定命题的类型，再检查依赖假设。[生成器](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/generate.py#L87)、[定义模板](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/templates/Statements.v.tmpl#L71)、[指纹计算](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/facts.py#L331)、[检查包装](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/check.py#L252)
+
+@@opinion-begin@@
+
+**人工审查** 选择目标性质、输入范围、预算与环境前提，确认它们表达预期保证。这些选择固定后，映像提取、模板填充、指纹生成和目标一致性检查由工具自动完成。
+
+@@opinion-end@@
 
 #### 2.6.2 实际要证明什么
 
@@ -283,6 +301,12 @@ Definition TSet := list event -> Prop.
 
 这里，维护者提供的测试、框架给定的性质模板和工具生成的顶层命题，是任务输入；代理提出的中间 `T`、执行不变量、辅助引理及证明步骤，是为完成该任务构造的证明产物。[附录对代理短规约的观察](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=4)
 
+@@opinion-begin@@
+
+**模型可自动完成** 中间规约、执行不变量、辅助引理和证明搜索，由 Rocq 检查它们能否推出固定的顶层目标，无需人类逐条批准。若把某个中间规约另作对外承诺或新的任务目标，人类再审查它表达的要求。
+
+@@opinion-end@@
+
 ### 2.7 Rocq、生成脚本与证明工具
 
 公开主实验的检查流程以 Rocq 为核心：给定二进制映像与固定命题，编译代理提交的证明，再检查假设。检查镜像包含 Rocq、LPS 及相关库，并不携带额外的证明自动化；编译、sanitizer 插桩、映像提取和生成脚本仍然参与整个流程。[检查环境](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/checking.md)
@@ -305,6 +329,12 @@ Definition TSet := list event -> Prop.
 
 公开发布的材料也有筛选：原文说明提供不需修补的部分完整证明、其他任务的陈述及可信组件，并暂不发布可能揭示未修复漏洞的证明。[原文的发布范围](https://www.anthropic.com/research/formal-verification) 固定快照 README 列出 25 个库、60 个入口的公开证明。
 
+@@opinion-begin@@
+
+**人工审查** 在首次采用或变更检查框架时，确认可信工具链、允许公理和验收规则。每份证明的类型检查、假设核对和二进制匹配可以自动执行；人类无需逐行阅读模型生成的庞大证明文本。
+
+@@opinion-end@@
+
 ## 3. 发现和修复 bug（Finding and fixing bugs）
 
 ### 3.1 发现了哪些 bug，为什么常规 fuzzing 难以触发
@@ -322,6 +352,8 @@ ASan 通过报告与中止暴露内存错误；维护者用断言表达算法要
 @@opinion-begin@@
 
 **形式化验证也是一种找 bug 的方法。** 即使形式语义有错误，找到的候选 bug 仍可以用具体输入在真实程序上重放，确认是否确实触发了错误。
+
+**模型负责** 寻找候选输入，重放脚本负责确认实际执行结果；人类审查输入是否符合接口约定、失败是否属于需要修复的问题。崩溃的复现过程可以自动化。
 
 @@opinion-end@@
 
@@ -358,6 +390,12 @@ ASan 通过报告与中止暴露内存错误；维护者用断言表达算法要
 
 原文还记录了修补过程的控制措施：对补丁施加惩罚，奖励刻画补丁改变了哪些输入及其范围，并保存日志、审查补丁。[原文脚注 6](https://www.anthropic.com/research/formal-verification)
 
+@@opinion-begin@@
+
+**模型与工具可自动推进** 补丁生成、重编译、目标更新和证明修复。人类审查补丁是否保留应有功能、输入接受范围和接口行为，并决定是否接受；证明检查负责核验修改后程序的既定性质。
+
+@@opinion-end@@
+
 ### 3.3 超越内存安全：LZO 与 p11-kit 的功能断言
 
 @@opinion-begin@@
@@ -388,6 +426,8 @@ assert(r == LZO_E_OK && decompressed_len == size);
 
 排序可以用断言检查输出有序、元素及重复次数保持不变，也可以直接陈述 Rocq 的 `Permutation` 与 `Sorted`。可执行检查器这条路线还需要保证：原输入副本可靠、检查能终止、判断正确且会被执行；直接写逻辑性质则需要连接机器内存与列表表示。
 
+**人工审查** 先确定所需功能，例如排序要同时有序并保留元素。模型可以实现检查器、提出对应的数学规约并生成证明；检查器与这些性质的对应也可交给 Rocq 核验。
+
 @@opinion-end@@
 
 ### 3.5 为了排除栈溢出，证明红黑树保持对数高度
@@ -413,6 +453,12 @@ assert(r == LZO_E_OK && decompressed_len == size);
 研究者还向早期解释器注入七个错误：其中五个通过了随机测试，七个都使证明失败。定理约束“返回结果时结果符合形式语义”，形式语义与 CPython 的对应另通过约 170 万个程序上的测试检验。
 
 作者还报告，对安全性质的证明尝试发现了潜伏十余年的逻辑问题；在验证某 PDF 阅读器时，一周内发现的安全缺陷数量相当于该项目通常一年的报告量。[其他验证案例](https://www.anthropic.com/research/formal-verification)
+
+@@opinion-begin@@
+
+**人工审查** 在 zlib 案例中关注生成规约是否忠于 RFC，在 Python 案例中关注团队给定的语义是否覆盖目标语言行为。规约确定后，模型可自动构造实现与证明，工具执行测试和证明检查。
+
+@@opinion-end@@
 
 ## 4. 这只是开始（This is just the beginning）
 
@@ -452,6 +498,12 @@ assert(r == LZO_E_OK && decompressed_len == size);
 
 *原文图 6。三列分别是 libcups、freerdp 和 libzmq 的完整证明，块的高度按各部分字节占比绘制。深蓝为完全相同，浅蓝为小幅修改，浅棕为更多修改，橙色为新增；浅改的判定采用相同文件且大小变化在 2% 内。右侧标出分配器、sanitizer 运行时、共享库、规约以及普通和插桩构建等部分。[原图](https://www-cdn.anthropic.com/images/4zrzovbb/website/8e295614d599d548fbd2ff97ed3cc3e62f501b2b-1920x1248.png)*
 
+@@opinion-begin@@
+
+**模型可自动完成** 证明检索、复制与适配，Rocq 检查复用后的证明是否推出新目标，工具核对依赖版本。共享引理作为证明内部步骤时可直接接受机器检查；首次对外采用或修改模块契约时，人类确认其是否表达项目需求。
+
+@@opinion-end@@
+
 ### 4.4 先证明共用的基础库，再让上层软件复用
 
 很多软件依赖同一批基础库。作者设想把证明按软件包组织：先证明广泛使用的依赖，再让上层程序复用这些结论，重点证明自己的新增逻辑。同一份基础证明被越多项目使用，前期工作就由越多项目分担。[原文的软件包复用设想](https://www.anthropic.com/research/formal-verification)
@@ -473,6 +525,12 @@ LPS 的范围说明列出了单线程、静态可执行文件、信号处理及�
 原文指出，实验使用静态链接 musl 的 RISC-V 程序，常见部署则采用 x86 或 ARM、动态链接 glibc。实验没有验证每个库的全部入口；fuzz 入口的覆盖由可达代码决定。调用者的 API 使用条件也影响内存安全，因此库的公开函数还需要调用契约。[原文的部署与调用边界](https://www.anthropic.com/research/formal-verification)
 
 附录解释，直接把测试翻译成 Rocq 可能引入翻译错误，源码解释器也可能偏离实际编译结果，因此项目选择解释编译后的二进制。[附录第 1–2 页](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf)
+
+@@opinion-begin@@
+
+**人工审查** 确认实际架构、链接方式、并发和调用条件是否处于证明范围。工具可以自动核对版本、构建参数和部署配置；是否接受这些保证，需要结合软件实际承担的任务判断。
+
+@@opinion-end@@
 
 ### 5.2 找 crash、无 crash 与完整内存安全
 
@@ -510,6 +568,12 @@ $$
 
 @@wechat-quote-end@@
 
+@@opinion-begin@@
+
+**人工审查** 要求本身是否正确，例如最短路究竟要保证合法性、最优性还是二者兼有。模型可以编写参考算法、检查器及其证明；Rocq 检查它们满足给定数学规约。
+
+@@opinion-end@@
+
 ### 5.4 RTE：机器故障与源语言运行时错误
 
 LPS 的 `machine_result` 区分正常结果、执行故障与语义未覆盖。`sstep_instr_fault` 和 `sstep_instr_unmodeled` 将后两种结果连接到 `SError`；显式建模中止的目标还通过 `error_free_unkilled` 排除终止信号。ASan、UBSan 以及组合构建分别有对应的公开目标。[进程转换与错误定义](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v)、[cJSON 的目标](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/Statements.v)
@@ -534,6 +598,8 @@ LPS 的 `machine_result` 区分正常结果、执行故障与语义未覆盖。`
 
 模型给出的候选 bug 可以在真实程序中重放；已复现并确认的错误具有独立证据。要把模型内的无错误证明用于真实程序，则需要模型保留实际可能的执行与错误。语义偏差影响这条现实对应，检查链错误则影响模型内证明的有效性。
 
+**模型与工具** 可以寻找语义反例、执行差分测试并补充对应证明。人类审查发现的偏差和目标覆盖范围，决定何时采用某个语义版本；已有结论的适用性随相关变更重新核对。
+
 @@opinion-end@@
 
 ## 6. 结论（Conclusion）
@@ -545,3 +611,9 @@ LPS 的 `machine_result` 区分正常结果、执行故障与语义未覆盖。`
 QCP 团队的微信文章把取舍归纳为三个方面：机器码路线带来跨语言通用性，也增加底层执行与编译优化的推理工作；现有测试降低规约构建门槛，复杂功能要求仍需要充分表达；逐入口、绑定特定二进制的证明，需要持续处理复用和版本维护。[微信文章的总结](https://mp.weixin.qq.com/s/-ITZmEqXeOo4g7TVBvzluA)
 
 @@wechat-quote-end@@
+
+@@opinion-begin@@
+
+人类把关需求、语义与补丁的含义；模型构造中间模型、补丁和证明；工具完成构建、重放与形式检查。已经固定并审查过的目标可以持续自动验证，人工审查重点随需求、语义和程序行为的变化而移动。
+
+@@opinion-end@@

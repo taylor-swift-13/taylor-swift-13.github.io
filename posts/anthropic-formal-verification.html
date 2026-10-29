@@ -36,7 +36,7 @@
 <p><strong>Fuzz testing（模糊测试）</strong> 反复生成半随机输入或变异已有输入，再把它们交给开发者编写的 <strong>fuzz target（测试入口）</strong>。入口调用库 API，并可用断言检查结果；导致 crash 的输入被保留下来。原文从 OSS-Fuzz 已有的入口出发，把“继续寻找失败输入”改成“证明指定范围内的所有输入都通过检查”。<a href="https://www.anthropic.com/research/formal-verification">原文对 fuzzing 的说明</a></p>
 <p>本文复用的 OSS-Fuzz 测试已经配有 sanitizer 和维护者写在入口中的 <code>assert</code>：前者检查内存等运行时错误，后者检查编码与解码往返、幂等性、与参考实现一致等性质。违反检查会使测试失败，部分功能正确性要求也由此进入可执行规约。项目直接把这些现成检查转为证明目标。<a href="https://www.anthropic.com/research/formal-verification">原文的测试规约与功能性质</a></p>
 <div class="author-opinion">
-<p><strong>检查什么，已经由现有工具和维护者的断言给出；大模型接手的是证明这些检查对所有允许输入都成立。</strong></p>
+<p><strong>检查什么，已经由现有工具和维护者的断言给出；大模型接手的是证明这些检查对所有允许输入都成立。</strong> 首次采用或修改入口时，人类审查它是否覆盖要保证的功能和调用条件；确定以后，输入生成、运行测试和证明搜索可以自动重复。</p>
 </div>
 <h3>0.2 Sanitizer：ASan 与 UBSan 各自检查什么</h3>
 <p>Sanitizer 通过编译器插桩，在程序执行时检查相应错误。本文使用两类：</p>
@@ -45,6 +45,9 @@
 <li><strong>UBSan（UndefinedBehaviorSanitizer）</strong>：检查启用的未定义行为，包括有符号整数溢出、整数除零、非法移位、对齐等。本实验使用 trap 模式，检查失败触发非法指令，以 SIGILL 终止，退出状态为 132。</li>
 </ul>
 <p>公开仓库分别提供普通、ASan、UBSan 和 ASan/UBSan 组合构建的目标；其检查配置固定在构建产物中。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/building.md">公开构建配置与检查列表</a></p>
+<div class="author-opinion">
+<p><strong>人工审查</strong> 关注启用了哪些检查、需要发现哪些错误。配置确定后，编译器自动插桩，工具运行检测；模型可以依据检测结果继续定位和证明。</p>
+</div>
 <h3>0.3 ASan 的直观例子：能发现什么，会漏掉什么</h3>
 <div class="author-opinion">
 <p>对一个分配了 16 字节的堆缓冲区写入 <code>p[16]</code>，通常就会触发越界报告。<a href="https://clang.llvm.org/docs/AddressSanitizer.html">ASan 官方说明</a></p>
@@ -4041,6 +4044,9 @@ Qed.
 <p>附录第 1 页比较了三种做法：把 fuzz 测试翻译成 Rocq，需要处理翻译与原程序的对应；解释测试源码，需要处理源码解释器与实际编译结果的对应；本实验选择直接解释编译后的二进制，将指令、运行库和进程行为统一纳入 LPS。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=1">附录第 1 页</a></p>
 <p>附录接着解释为何同时验证两个构建：ASan 构建便于把内存错误变成中止，实际用户通常运行普通构建，因此还要比较两者行为，并分别排除错误。顶层目标的实际生成代码见 §2.6.1。</p>
 <p>LPS 定义目标指令集的语法、执行规则和系统环境。不同源语言编译到受支持的机器代码后，共享这一层语义；运行时、并发和动态加载等行为由模型的支持范围决定。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/README.md">LPS 结构说明</a></p>
+<div class="author-opinion">
+<p><strong>人工审查</strong> 集中在指令、系统调用和错误分类是否符合目标平台，结合参考规范、差分测试与独立核对建立信任。模型可以生成候选语义和测试；审查过的同一版本可以被多个项目共用。</p>
+</div>
 <h3>2.3 图 3：把可执行检查变成规约，并在证明途中找 bug</h3>
 <p>入口、被调用的实现、sanitizer 和已有断言共同构成可执行的检查；项目再要求，在给定输入和环境范围内，这个检查程序不会到达规定的错误。已有断言检查了什么，生成的证明目标就可能间接约束什么。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/statements.md">定理陈述说明</a></p>
 <figure class="source-figure" aria-label="原文图 3">
@@ -4101,6 +4107,9 @@ Qed.
   agrees_in Env.alloc_forced_only Budgets.Asan.lim_source Budgets.Asan.lim_target Images.plain Images.asan.
 </code></pre>
 <p>这一步由配置读取、模板选择和文本生成完成。<code>Images.v</code> 同样由生成器写出，把二进制的加载段、入口地址和程序头组成映像。检查器的 <code>fingerprint</code> 还绑定命题正文、相关二进制 SHA-256、<code>Shapes.v</code>、映像定义及 LPS 版本；<code>oft check</code> 生成包装定义，要求提交证明具有这一固定命题的类型，再检查依赖假设。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/generate.py#L87">生成器</a>、<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/templates/Statements.v.tmpl#L71">定义模板</a>、<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/facts.py#L331">指纹计算</a>、<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/check.py#L252">检查包装</a></p>
+<div class="author-opinion">
+<p><strong>人工审查</strong> 选择目标性质、输入范围、预算与环境前提，确认它们表达预期保证。这些选择固定后，映像提取、模板填充、指纹生成和目标一致性检查由工具自动完成。</p>
+</div>
 <h4>2.6.2 实际要证明什么</h4>
 <p><code>Shapes.v</code> 中的 <code>agrees_in</code> 完整定义如下：</p>
 <pre><code class="language-coq">Definition agrees_in (env : SpuriousCfg) (lim_plain lim_san : Z) (plain san :
@@ -4155,6 +4164,9 @@ Qed.
 </code></pre>
 <p><code>Hsource</code> 是普通构建实现 <code>T</code> 的证明，<code>Htarget</code> 是 ASan 构建实现 <code>T</code> 的证明。<code>split</code> 拆开两个无错误目标和一个轨迹一致目标；前两项使用 <code>*_no_error</code>，第三项用两个 <code>*_obs_iff</code> 将两边轨迹都改写为 <code>T tr</code>，再由 <code>reflexivity</code> 完成。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/A/ATop.v#L27">实际组合证明</a></p>
 <p>这里，维护者提供的测试、框架给定的性质模板和工具生成的顶层命题，是任务输入；代理提出的中间 <code>T</code>、执行不变量、辅助引理及证明步骤，是为完成该任务构造的证明产物。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=4">附录对代理短规约的观察</a></p>
+<div class="author-opinion">
+<p><strong>模型可自动完成</strong> 中间规约、执行不变量、辅助引理和证明搜索，由 Rocq 检查它们能否推出固定的顶层目标，无需人类逐条批准。若把某个中间规约另作对外承诺或新的任务目标，人类再审查它表达的要求。</p>
+</div>
 <h3>2.7 Rocq、生成脚本与证明工具</h3>
 <p>公开主实验的检查流程以 Rocq 为核心：给定二进制映像与固定命题，编译代理提交的证明，再检查假设。检查镜像包含 Rocq、LPS 及相关库，并不携带额外的证明自动化；编译、sanitizer 插桩、映像提取和生成脚本仍然参与整个流程。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/checking.md">检查环境</a></p>
 <p>主实验在 Rocq 中检查二进制证明；Rust 解释器实验采用 Verus 的契约与循环不变量，并由 Z3 完成相应证明义务。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf">附录第 3 页</a></p>
@@ -4166,6 +4178,9 @@ Qed.
 <p>信任基础还包括 ELF 到内存映像的工具、读取映像的插件、检查包装和假设解析程序，以及实际使用的 LPS 定义。检查器确认一个形式命题有证明；这些外围环节决定该命题是否对应预定的验证目标。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/trust.md">信任基础文档</a></p>
 <p>原文脚注还把运行证明检查器所依赖的硬件、操作系统与 OCaml 编译器纳入信任基础。因此，“信任 Rocq 内核”也包含让这份内核实现正确运行的执行环境。<a href="https://www.anthropic.com/research/formal-verification">原文脚注 5</a></p>
 <p>公开发布的材料也有筛选：原文说明提供不需修补的部分完整证明、其他任务的陈述及可信组件，并暂不发布可能揭示未修复漏洞的证明。<a href="https://www.anthropic.com/research/formal-verification">原文的发布范围</a> 固定快照 README 列出 25 个库、60 个入口的公开证明。</p>
+<div class="author-opinion">
+<p><strong>人工审查</strong> 在首次采用或变更检查框架时，确认可信工具链、允许公理和验收规则。每份证明的类型检查、假设核对和二进制匹配可以自动执行；人类无需逐行阅读模型生成的庞大证明文本。</p>
+</div>
 <h2>3. 发现和修复 bug（Finding and fixing bugs）</h2>
 <h3>3.1 发现了哪些 bug，为什么常规 fuzzing 难以触发</h3>
 <p>主实验把库、fuzz 驱动与插桩运行时编译成程序，寻找使它进入规定错误的输入：普通程序故障、ASan 报告后中止、入口断言失败。模型未覆盖的执行也会阻碍无错误证明。</p>
@@ -4175,6 +4190,7 @@ Qed.
 <p>ASan 通过报告与中止暴露内存错误；维护者用断言表达算法要求。LZO 的入口就检查成功状态与还原长度。</p>
 <div class="author-opinion">
 <p><strong>形式化验证也是一种找 bug 的方法。</strong> 即使形式语义有错误，找到的候选 bug 仍可以用具体输入在真实程序上重放，确认是否确实触发了错误。</p>
+<p><strong>模型负责</strong> 寻找候选输入，重放脚本负责确认实际执行结果；人类审查输入是否符合接口约定、失败是否属于需要修复的问题。崩溃的复现过程可以自动化。</p>
 </div>
 <h3>3.2 自动修补后重新生成证明目标</h3>
 <p>原文允许 Claude 在证明过程中修补发现的 bug，随后为修补后的程序重新生成 spec，并继续证明。过程可以分为四步：<a href="https://www.anthropic.com/research/formal-verification">原文的发现与修补流程</a></p>
@@ -4199,6 +4215,9 @@ Qed.
 </div>
 <p>附录第 3 页说明，当时每份入口证明还要覆盖 C 启动、libc 的分配器和输出、ASan 运行时以及驱动，公共部分仍随完整入口重新证明；图 6 展示的是复制已有证明再针对新程序调整。原文报告，一次完整证明的检查可消耗半小时到数小时 CPU 时间。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=3">附录第 3–4 页</a></p>
 <p>原文还记录了修补过程的控制措施：对补丁施加惩罚，奖励刻画补丁改变了哪些输入及其范围，并保存日志、审查补丁。<a href="https://www.anthropic.com/research/formal-verification">原文脚注 6</a></p>
+<div class="author-opinion">
+<p><strong>模型与工具可自动推进</strong> 补丁生成、重编译、目标更新和证明修复。人类审查补丁是否保留应有功能、输入接受范围和接口行为，并决定是否接受；证明检查负责核验修改后程序的既定性质。</p>
+</div>
 <h3>3.3 超越内存安全：LZO 与 p11-kit 的功能断言</h3>
 <div class="author-opinion">
 <p><strong>通过验证的程序仍可能有 bug；这条路线覆盖哪些错误，取决于检查程序在什么情况下会 crash。</strong> 除了段错误等机器故障，sanitizer 的报告、<code>assert</code> 失败也可以使程序中止。把功能要求写成断言，就能把相应功能错误编码成 crash，纳入验证目标。</p>
@@ -4217,6 +4236,7 @@ assert(r == LZO_E_OK &amp;&amp; decompressed_len == size);
 <h3>3.4 补充讨论：功能要求怎样进入检查</h3>
 <div class="author-opinion">
 <p>排序可以用断言检查输出有序、元素及重复次数保持不变，也可以直接陈述 Rocq 的 <code>Permutation</code> 与 <code>Sorted</code>。可执行检查器这条路线还需要保证：原输入副本可靠、检查能终止、判断正确且会被执行；直接写逻辑性质则需要连接机器内存与列表表示。</p>
+<p><strong>人工审查</strong> 先确定所需功能，例如排序要同时有序并保留元素。模型可以实现检查器、提出对应的数学规约并生成证明；检查器与这些性质的对应也可交给 Rocq 核验。</p>
 </div>
 <h3>3.5 为了排除栈溢出，证明红黑树保持对数高度</h3>
 <p>另一个具有代表性的例子来自 cpp-httplib：为了排除 <code>std::set</code> 析构递归引起的栈溢出，证明必须建立 libc++ 红黑树重平衡维持对数树高的性质。这说明无 crash 目标的内部证明，也可能需要复杂的算法不变量。<a href="https://www.anthropic.com/research/formal-verification">原文的红黑树案例</a></p>
@@ -4230,6 +4250,9 @@ assert(r == LZO_E_OK &amp;&amp; decompressed_len == size);
 <p><strong>验证路线选择了 safe Rust、Verus 和 Z3。</strong> 作者选择 Verus 出于它与 Rust 生态的契合及实践偏好，也为了检验 Claude 适应不同形式系统的能力。Verus 用 <code>requires</code>、<code>ensures</code> 与循环不变量表达契约，再调用 Z3；源码层的 Hoare 风格证明是这次实验特意尝试的另一种路线。附录把选择 Verus 而非 Lean 表述为偏好。</p>
 <p>研究者还向早期解释器注入七个错误：其中五个通过了随机测试，七个都使证明失败。定理约束“返回结果时结果符合形式语义”，形式语义与 CPython 的对应另通过约 170 万个程序上的测试检验。</p>
 <p>作者还报告，对安全性质的证明尝试发现了潜伏十余年的逻辑问题；在验证某 PDF 阅读器时，一周内发现的安全缺陷数量相当于该项目通常一年的报告量。<a href="https://www.anthropic.com/research/formal-verification">其他验证案例</a></p>
+<div class="author-opinion">
+<p><strong>人工审查</strong> 在 zlib 案例中关注生成规约是否忠于 RFC，在 Python 案例中关注团队给定的语义是否覆盖目标语言行为。规约确定后，模型可自动构造实现与证明，工具执行测试和证明检查。</p>
+</div>
 <h2>4. 这只是开始（This is just the beginning）</h2>
 <p>原文指出，生成证明可能消耗数亿 token，成本与复用是后续扩展的关键。<a href="https://www.anthropic.com/research/formal-verification">原文的成本讨论</a></p>
 <h3>4.1 图 4：较强模型用更少 token 到达同一完成率</h3>
@@ -4252,6 +4275,9 @@ assert(r == LZO_E_OK &amp;&amp; decompressed_len == size);
 <h3>4.3 图 6：不同项目的证明怎样复用</h3>
 <p><a href="../assets/papers/anthropic-verification/figure-6.png"><img src="../assets/papers/anthropic-verification/figure-6.png" alt="Anthropic 原文图 6：libcups、freerdp 和 libzmq 的证明组成与复用程度"></a></p>
 <p><em>原文图 6。三列分别是 libcups、freerdp 和 libzmq 的完整证明，块的高度按各部分字节占比绘制。深蓝为完全相同，浅蓝为小幅修改，浅棕为更多修改，橙色为新增；浅改的判定采用相同文件且大小变化在 2% 内。右侧标出分配器、sanitizer 运行时、共享库、规约以及普通和插桩构建等部分。<a href="https://www-cdn.anthropic.com/images/4zrzovbb/website/8e295614d599d548fbd2ff97ed3cc3e62f501b2b-1920x1248.png">原图</a></em></p>
+<div class="author-opinion">
+<p><strong>模型可自动完成</strong> 证明检索、复制与适配，Rocq 检查复用后的证明是否推出新目标，工具核对依赖版本。共享引理作为证明内部步骤时可直接接受机器检查；首次对外采用或修改模块契约时，人类确认其是否表达项目需求。</p>
+</div>
 <h3>4.4 先证明共用的基础库，再让上层软件复用</h3>
 <p>很多软件依赖同一批基础库。作者设想把证明按软件包组织：先证明广泛使用的依赖，再让上层程序复用这些结论，重点证明自己的新增逻辑。同一份基础证明被越多项目使用，前期工作就由越多项目分担。<a href="https://www.anthropic.com/research/formal-verification">原文的软件包复用设想</a></p>
 <p>原文以 Mathlib 作类比：接近 30 万条定理由 700 多位贡献者逐步积累，新证明继续使用已有结果。作者希望软件验证也形成这样的共享基础。</p>
@@ -4263,6 +4289,9 @@ assert(r == LZO_E_OK &amp;&amp; decompressed_len == size);
 <p>LPS 的范围说明列出了单线程、静态可执行文件、信号处理及文件系统等限制，也列出了若干未检查的外部假设。文档特别说明：某些模型中过宽的非确定行为，会影响两个程序行为集合的等价比较；行为等价的现实对应需要同时处理这些非确定分支。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/SCOPE.md">LPS 范围与已知缺口</a></p>
 <p>原文指出，实验使用静态链接 musl 的 RISC-V 程序，常见部署则采用 x86 或 ARM、动态链接 glibc。实验没有验证每个库的全部入口；fuzz 入口的覆盖由可达代码决定。调用者的 API 使用条件也影响内存安全，因此库的公开函数还需要调用契约。<a href="https://www.anthropic.com/research/formal-verification">原文的部署与调用边界</a></p>
 <p>附录解释，直接把测试翻译成 Rocq 可能引入翻译错误，源码解释器也可能偏离实际编译结果，因此项目选择解释编译后的二进制。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf">附录第 1–2 页</a></p>
+<div class="author-opinion">
+<p><strong>人工审查</strong> 确认实际架构、链接方式、并发和调用条件是否处于证明范围。工具可以自动核对版本、构建参数和部署配置；是否接受这些保证，需要结合软件实际承担的任务判断。</p>
+</div>
 <h3>5.2 找 crash、无 crash 与完整内存安全</h3>
 <div class="author-opinion">
 <p><strong>找到并确认一个 crash</strong>：给出具体输入和环境，在真实目标重放失败，并确认违反预期契约。</p>
@@ -4281,6 +4310,9 @@ assert(r == LZO_E_OK &amp;&amp; decompressed_len == size);
 p \in \mathrm{Paths}_G(s,t) \land \forall q \in \mathrm{Paths}_G(s,t),\quad \mathrm{Length}_G(p) \le \mathrm{Length}_G(q).
 </annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.7335em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">p</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">∈</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord"><span class="mord"><span class="mord mathrm">Paths</span></span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3283em;"><span style="top:-2.55em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">G</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mopen">(</span><span class="mord mathnormal">s</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal">t</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∧</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:0.8889em;vertical-align:-0.1944em;"></span><span class="mord">∀</span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">∈</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord"><span class="mord"><span class="mord mathrm">Paths</span></span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.3283em;"><span style="top:-2.55em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">G</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.15em;"><span></span></span></span></span></span></span><span class="mopen">(</span><span class="mord mathnormal">s</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal">t</span><span class="mclose">)</span><span class="mpunct">,</span><span class="mspace" style="margin-right:1em;"></span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord"><span class="mord"><span class="mord mathrm">Length</span></span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.2342em;"><span style="top:-2.4559em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">G</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2441em;"><span></span></span></span></span></span></span><span class="mopen">(</span><span class="mord mathnormal">p</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">≤</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord"><span class="mord"><span class="mord mathrm">Length</span></span><span class="msupsub"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:0.2342em;"><span style="top:-2.4559em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mathnormal mtight">G</span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.2441em;"><span></span></span></span></span></span></span><span class="mopen">(</span><span class="mord mathnormal" style="margin-right:0.0359em;">q</span><span class="mclose">)</span><span class="mord">.</span></span></span></span></span></eqn></section><p>这要求返回一条合法路径，且其长度不超过任何其他路径。igraph 的 OSS-Fuzz 测试入口会根据输入字节生成图，再调用距离计算和最短路函数，但没有检查返回路径的长度或最优性。若要用测试代码表达上述规格，就得增加可执行的检查，例如另写一个参考算法并比较结果。但是这样一来，参考算法自身的正确性又成为问题。</p>
 </div>
+<div class="author-opinion">
+<p><strong>人工审查</strong> 要求本身是否正确，例如最短路究竟要保证合法性、最优性还是二者兼有。模型可以编写参考算法、检查器及其证明；Rocq 检查它们满足给定数学规约。</p>
+</div>
 <h3>5.4 RTE：机器故障与源语言运行时错误</h3>
 <p>LPS 的 <code>machine_result</code> 区分正常结果、执行故障与语义未覆盖。<code>sstep_instr_fault</code> 和 <code>sstep_instr_unmodeled</code> 将后两种结果连接到 <code>SError</code>；显式建模中止的目标还通过 <code>error_free_unkilled</code> 排除终止信号。ASan、UBSan 以及组合构建分别有对应的公开目标。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v">进程转换与错误定义</a>、<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/Statements.v">cJSON 的目标</a></p>
 <div class="author-opinion">
@@ -4293,11 +4325,15 @@ p \in \mathrm{Paths}_G(s,t) \land \forall q \in \mathrm{Paths}_G(s,t),\quad \mat
 <h3>5.5 形式化错误影响什么结论</h3>
 <div class="author-opinion">
 <p>模型给出的候选 bug 可以在真实程序中重放；已复现并确认的错误具有独立证据。要把模型内的无错误证明用于真实程序，则需要模型保留实际可能的执行与错误。语义偏差影响这条现实对应，检查链错误则影响模型内证明的有效性。</p>
+<p><strong>模型与工具</strong> 可以寻找语义反例、执行差分测试并补充对应证明。人类审查发现的偏差和目标覆盖范围，决定何时采用某个语义版本；已有结论的适用性随相关变更重新核对。</p>
 </div>
 <h2>6. 结论（Conclusion）</h2>
 <p>原文展望，随着模型能力、证明复用与开发流程改进，形式验证将像类型系统和测试框架一样，逐步成为生产软件开发的内置环节。此次工作展示的是：从现有测试形成目标，直接验证编译后的二进制，由 Claude 构造大规模证明，再交给 Rocq 检查。<a href="https://www.anthropic.com/research/formal-verification">原文结论</a></p>
 <div class="external-commentary">
 <p>QCP 团队的微信文章把取舍归纳为三个方面：机器码路线带来跨语言通用性，也增加底层执行与编译优化的推理工作；现有测试降低规约构建门槛，复杂功能要求仍需要充分表达；逐入口、绑定特定二进制的证明，需要持续处理复用和版本维护。<a href="https://mp.weixin.qq.com/s/-ITZmEqXeOo4g7TVBvzluA">微信文章的总结</a></p>
+</div>
+<div class="author-opinion">
+<p>人类把关需求、语义与补丁的含义；模型构造中间模型、补丁和证明；工具完成构建、重放与形式检查。已经固定并审查过的目标可以持续自动验证，人工审查重点随需求、语义和程序行为的变化而移动。</p>
 </div>
     </article>
     <div class="article-end"><a class="back-link" href="../index.html#writing">← 返回文章列表</a></div>
