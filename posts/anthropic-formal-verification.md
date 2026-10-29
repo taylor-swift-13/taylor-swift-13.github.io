@@ -408,11 +408,6 @@ Definition TSet := list event -> Prop.
 
 公开发布的材料也有筛选：原文说明提供不需修补的部分完整证明、其他任务的陈述及可信组件，并暂不发布可能揭示未修复漏洞的证明。[原文的发布范围](https://www.anthropic.com/research/formal-verification) 固定快照 README 列出 25 个库、60 个入口的公开证明。
 
-@@opinion-begin@@
-
-**人工审查** 在首次采用或变更检查框架时，确认可信工具链、允许公理和验收规则。每份证明的类型检查、假设核对和二进制匹配可以自动执行；人类无需逐行阅读模型生成的庞大证明文本。
-
-@@opinion-end@@
 
 ## 3. 发现和修复 bug（Finding and fixing bugs）
 
