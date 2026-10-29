@@ -10,23 +10,24 @@
 
 **检查什么，已经由现有工具和维护者的断言给出；大模型接手的是证明这些检查对所有允许输入都成立。**
 
-以图片解析器为例：不断改动文件头、尺寸和压缩数据，再调用解析函数，就是 fuzzing。libFuzzer 还会记录触及了哪些代码，把到达新路径的输入留下来继续变异；这叫覆盖率引导。[libFuzzer 官方说明](https://llvm.org/docs/LibFuzzer.html)
-
 @@opinion-end@@
 
-### 0.2 Sanitizer：给执行中的程序增加检查
+### 0.2 Sanitizer：ASan 与 UBSan 各自检查什么
 
-**Sanitizer** 是本文所用运行时检查工具的统称。编译器把检查插入程序；运行时一旦发现对应违规，就报告错误并按配置中止或触发 trap。**ASan（AddressSanitizer）** 用于发现缓冲区越界、释放后使用等内存错误。原文把它加入 fuzz 程序，使这些内存错误能够表现为测试失败。[原文脚注 4](https://www.anthropic.com/research/formal-verification)
+Sanitizer 通过编译器插桩，在程序执行时检查相应错误。本文使用两类：
 
-公开证明仓库还分别提供 ASan、UBSan 和二者组合构建的目标。证明对象包含这些实际编译进去的检查。[cJSON 的构建与目标](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/Statements.v)
+- **ASan（AddressSanitizer）**：检查缓冲区越界、释放后使用等内存错误。本实验的 ASan 构建检测到错误后调用 `abort()`，以 SIGABRT 中止，退出状态为 134。
+- **UBSan（UndefinedBehaviorSanitizer）**：检查启用的未定义行为，包括有符号整数溢出、整数除零、非法移位、对齐等。本实验使用 trap 模式，检查失败触发非法指令，以 SIGILL 终止，退出状态为 132。
+
+公开仓库分别提供普通、ASan、UBSan 和 ASan/UBSan 组合构建的目标；其检查配置固定在构建产物中。[公开构建配置与检查列表](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/building.md)
 
 ### 0.3 ASan 的直观例子：能发现什么，会漏掉什么
 
 @@opinion-begin@@
 
-把内存对象看成箱子，ASan 在箱子外侧和已释放区域布置警报。对一个分配了 16 字节的堆缓冲区写入 `p[16]`，通常就会触发越界报告。[ASan 官方说明](https://clang.llvm.org/docs/AddressSanitizer.html)
+对一个分配了 16 字节的堆缓冲区写入 `p[16]`，通常就会触发越界报告。[ASan 官方说明](https://clang.llvm.org/docs/AddressSanitizer.html)
 
-箱子内部的越界可能漏检：
+结构体内部的越界可能漏检：
 
 ```c
 struct S { char data[8]; int allowed; };
@@ -56,12 +57,6 @@ void put_member(struct S *s, int i) {
 
 `rget c rs1 + sext 64 imm` 计算读取地址，`load_val` 读取数据，`rset rd v` 把结果写入目标寄存器。读不到所需字节时，机器层返回 `MachineFault`，进程层通过 `sstep_instr_fault` 进入 `SError`。[访存解释](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/RiscvSemantics.v#L879)、[故障转换](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v)
 
-@@opinion-begin@@
-
-例如，64 位加载从地址 `0x1000` 读到字节 `2a 00 00 00 00 00 00 00`，目标寄存器就变成 42；所需地址未映射，则进入故障。这些状态变化就是 LPS 中要推理的对象。
-
-@@opinion-end@@
-
 ## 1. 引言：程序验证开始规模化
 
 2026 年 10 月 22 日，Anthropic 与 Theorem 发布了 [*LLMs are making formal software verification feasible at a much larger scale*](https://www.anthropic.com/research/formal-verification)。作者报告：在数周内，为 **123 个开源库的 239 个 fuzz 入口** 完成了特定条件下的 RISC-V 二进制证明，成功证明包含约 **1.8 亿行 Rocq**。
@@ -82,8 +77,11 @@ OSS-Fuzz 中的 fuzz target 是开发者提供的测试入口。它接收输入�
 
 @@anthropic-figure-1@@
 
-*原文图 1：fuzzing 的搜索过程。动画中，一次执行只走过迷宫中的一条路径；红色表示触发崩溃，绿色表示相关问题被修补。不断增加测试次数，会扩展已经尝试过的部分，但迷宫中仍有尚未走到的区域。[原始动画](https://cdn.sanity.io/files/4zrzovbb/website/6851e539c36759ac1682d6b169d0319b1d97a0f7.mp4)*
+*原文图 1：从一个入口反复执行 fuzz 测试。[原始动画](https://cdn.sanity.io/files/4zrzovbb/website/6851e539c36759ac1682d6b169d0319b1d97a0f7.mp4)*
 
+动画先固定左侧的 **Fuzz entrypoint**，再让输入沿迷宫中的不同路线执行。灰色线是一份输入走过的路径；触发崩溃时，路径变红，终点出现红点，左侧 **Crashes found** 增加。问题修补后，相应路线变绿，并标出修补标记。
+
+随后，**Inputs tried** 持续增加，新的执行路径不断出现；结尾仍有大量区域未被这些执行触及。整个动画把“生成输入 → 执行 → 找到崩溃 → 修补 → 继续测试”依次展示出来。
 
 ### 2.2 图 2：程序、语义、规约和证明如何连接
 
@@ -91,17 +89,28 @@ OSS-Fuzz 中的 fuzz target 是开发者提供的测试入口。它接收输入�
 
 @@anthropic-figure-2@@
 
-*原文图 2：从源代码到机器检查过的结论。沿横向依次是源代码、RISC-V 可执行文件、形式陈述、证明。蓝色框标出所依赖的性质定义、机器与操作系统语义、证明检查器；动画中的红色表示证明被拒绝，绿色表示检查通过。绿色结论仍以蓝色部分正确为条件。[原始动画](https://cdn.sanity.io/files/4zrzovbb/website/ce66333a831ef2f37e91c2f0ecfdaca27cdfa2c9.mp4)*
+*原文图 2：从代码到机器检查过的结论。[原始动画](https://cdn.sanity.io/files/4zrzovbb/website/ce66333a831ef2f37e91c2f0ecfdaca27cdfa2c9.mp4)*
 
-图 2 的蓝色语义框由 LPS 提供：它给出连接机器代码与 Rocq 命题的执行定义：指令解码器识别二进制指令，执行语义规定寄存器、内存和程序计数器怎样变化，进程模型连接系统调用、输入输出与错误。公开源码中的 [`Decode.v`](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/Riscv/Decode.v) 和 [`Run.v`](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v) 分别展示了解码和执行关系。
+动画依次补齐四列：**Source code → RISC-V executable → Specification → Proof**。
+
+1. 测试入口、库和运行时先被编译成 RISC-V 可执行文件。
+2. 可执行文件、蓝色的 **Desired property** 和 **RISC-V + Linux semantics** 一起进入机械生成步骤，得到要证明的 **Specification**。
+3. Claude 编写证明，Rocq 检查器检查它。动画先展示红色的拒绝状态，再展示修改后通过检查的绿色状态。
+4. 通过后，证明、命题以及对应可执行文件沿连线变绿。蓝色部分继续标出执行语义、目标性质和证明检查器这些可信组件。
+
+图 2 的蓝色语义框由 LPS 提供：指令解码器识别二进制指令，执行语义规定寄存器、内存和程序计数器怎样变化，进程模型连接系统调用、输入输出与错误。`Decode.v` 将 32 位指令字转换成指令数据类型，`Run.v` 定义进程单步、多步、轨迹与错误。下面提供固定版本的完整源码。
+
+@@lps-source-Decode@@
+
+@@lps-source-Run@@
+
+#### 附录中的路线选择：为什么直接解释编译后的二进制
+
+附录第 1 页比较了三种做法：把 fuzz 测试翻译成 Rocq，需要处理翻译与原程序的对应；解释测试源码，需要处理源码解释器与实际编译结果的对应；本实验选择直接解释编译后的二进制，将指令、运行库和进程行为统一纳入 LPS。[附录第 1 页](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=1)
+
+附录接着解释为何同时验证两个构建：ASan 构建便于把内存错误变成中止，实际用户通常运行普通构建，因此还要比较两者行为，并分别排除错误。顶层目标的实际生成代码见 §2.6.1。
 
 LPS 定义目标指令集的语法、执行规则和系统环境。不同源语言编译到受支持的机器代码后，共享这一层语义；运行时、并发和动态加载等行为由模型的支持范围决定。[LPS 结构说明](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/README.md)
-
-@@opinion-begin@@
-
-二进制路线把困难集中到寄存器、内存布局与运行时。围绕 C 组织符号执行的 QCP 等框架则把困难放在源码层；两种路线都需要正式的执行定义。
-
-@@opinion-end@@
 
 ### 2.3 图 3：把可执行检查变成规约，并在证明途中找 bug
 
@@ -109,13 +118,11 @@ LPS 定义目标指令集的语法、执行规则和系统环境。不同源语�
 
 @@anthropic-figure-3@@
 
-*原文图 3：证明从一个入口出发逐步覆盖可达路径。绿色区域随证明推进而扩展，红点表示证明过程中遇到的问题。动画最后仍有灰色区域，因为这些代码无法从当前入口到达。它展示了入口证明和整个程序覆盖之间的区别。[原始动画](https://cdn.sanity.io/files/4zrzovbb/website/53266e21746d781c80dbe9296b90da94b676dd67.mp4)*
+*原文图 3：证明推进、发现 bug 与修补后的覆盖过程。[原始动画](https://cdn.sanity.io/files/4zrzovbb/website/53266e21746d781c80dbe9296b90da94b676dd67.mp4)*
 
-@@opinion-begin@@
+动画仍从同一个入口出发。最初只有少量路径为绿色；随着证明推进，绿色扩展为从该入口可达的一片区域。途中出现红色缺陷点，修补后再证明，相应位置转为带修补标记的绿色。
 
-证明卡住以后，要沿缺失引理、抽象、执行模型和候选输入定位原因。真实重放把候选输入变成可确认的 bug；证明继续推进则逐步排除入口的其余失败路径。
-
-@@opinion-end@@
+结尾左侧出现机器检查通过的标记：该入口在目标前提下接受的输入都无法触发规定的 crash。迷宫右侧仍为灰色，并标注 **Not reached from this entry point**：这部分代码不由当前入口到达。图 1 扩展的是实际试过的执行，图 3 展示的是证明覆盖的可达执行。
 
 ### 2.4 要证明的命题，比“不会崩溃”更具体
 
@@ -123,100 +130,76 @@ LPS 定义目标指令集的语法、执行规则和系统环境。不同源语�
 
 公开仓库区分 **终止性质（halts）** 与 **行为一致性质（agreement）**。前者在资源与环境前提下要求正常退出；后者比较普通构建和 sanitizer 构建的有限行为轨迹集合，并分别要求两者无错误。`plain_halts` 的 16 GiB 是资源前提，终止是需要单独完成的目标。[定理陈述文档](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/statements.md)
 
-@@opinion-begin@@
-
-**入口安全** 描述指定入口、输入、构建与执行语义中的失败路径；**构建一致性** 描述两组可观察行为之间的关系。
-
-**断言性质** 由入口实际检查的条件给出；**完整功能要求** 则需要表达预期的接受条件、输出与状态变化。
-
-输入范围、错误定义和功能要求共同确定要证明的命题。
-
-一个始终返回错误码的解析器可能很安全。要保证它有用，还要约束合法输入的接受和解析结果。功能要求可以通过断言进入证明，也可以直接写成高层规约。
-
-@@opinion-end@@
-
 ### 2.5 证明规模：运行时占据了什么工作
 
 附录报告，尝试过程中产生约十亿行 Rocq，其中约 1.8 亿行属于成功证明。大量内容由工具和脚本生成，单个证明的检查也需要明显的计算时间。[附录第 3–4 页](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf)
 
 附录用 cJSON 说明规模反差：391 行解析入口对应约 63 万行证明，只有约十分之一围绕 cJSON 本身；链接约 5.1 万行代码的 fftw3 对应约 48 万行证明。典型交付约 60 万行、1,400 个文件，不同库的证明约为 33 万至 90 万行。启动过程、分配器、输出函数、ASan 运行时和驱动都要处理，当时这些共同结果尚需在各证明中处理。超过一半的文本由代理编写的工具生成；约 40% 属于定义、模型、引理与证明步骤等证明正文，其中一部分仍由脚本生成。典型入口的几百行 C 代码可能只编译为约 2,000 条指令，但完整进程的证明仍要处理上述公共组件。检查一个证明可消耗半小时到数小时 CPU 时间。[附录第 3–4 页](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=3)
 
-@@opinion-begin@@
-
-启动、运行时与分配器构成大量共同工作。把这些工作封装成可直接引用的模块，可以同时节省生成、维护与检查成本。
-
-@@opinion-end@@
-
 #### 附录补充：专家观察到的短规约与抽象
 
-附录中的专家观察是，代理经常先写一个描述输出的短规约，再把两个构建分别与它联系起来；这类规约的中位数约 110 行，对应程序机器代码中位数约 86 KB，其中驱动实际涉及约 20%–50%。证明过程却反复展开寄存器、整数转换、地址互异、栈内容与各分支。代理也使用了 framing、布局无关推理和分配器抽象，但使用并不一致，证明规模改善仍有限。附录将更复杂程序上的规模扩展列为开放问题，并以 MachCSL 等其他代理验证项目遇到的复杂度问题，讨论建立更好模块抽象的必要性。后续问题包括：合适抽象是否需要专家证明工程师指导，还是可以提炼通用原则，让代理自行发现支持扩展的抽象。[附录第 4–5 页](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=4)
+附录第 4 页说明，研究团队起初要求模型证明普通构建与 ASan 构建等价，代理几乎普遍先自行提出一个描述输出的短规约，再证明两个构建都符合它。这类中间规约的中位数约 110 行，对应程序机器代码中位数约 86 KB，驱动实际涉及约 20%–50%。[附录第 4 页](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=4)
 
-@@opinion-begin@@
+专家观察到，证明反复写出寄存器内容、整数转换、地址互异、栈内容和各条分支。人类证明工程师通常会引入函数调用约定、不相交指针集合、分配器与栈的抽象，并合并相似分支。代理已经使用 framing、布局无关推理和分配器抽象，但使用并不一致，证明规模仅小幅改善。
 
-中间规约的区分能力决定了它能支撑什么关系。例如，输出 0 与输出 1 都满足“输出非负”；要证明两个程序行为一致，就需要刻画各自全部可观察轨迹。下文 cJSON 的 `*_obs_iff` 正是这种双向刻画。
+附录指出，这些已检查证明与同一定理的其他证明具有相同逻辑效力；接下来的问题是如何扩展到更复杂程序。MachCSL 等项目曾遇到冗长证明造成的复杂度瓶颈，因此作者提出：由专家指导寻找抽象，还是提炼通用原则，让代理自行发现模块化抽象？[附录第 4–5 页](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=4)
 
-抽象的价值集中在扩展、复用、调试和成本。让模型自行找到有效的模块边界，是比模仿人类证明风格更直接的研究目标。
+### 2.6 源码补充：cJSON 的顶层目标与中间规约
 
-@@opinion-end@@
+这里区分三项工作。**人类参与测试和任务设计**：维护者提供 fuzz 入口，研究团队选定执行模型、验证性质及输入与资源条件。**工具机械生成顶层命题**：将任务配置和二进制映像填入既定模板。**代理构造中间规约与证明**：附录第 4 页说明，代理在给定的等价目标下自行提出短规约，再证明两个构建与它的关系。下面固定到公开仓库 `98e995d4` 与 LPS `f1006fe8`。[原文与附录的分工](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=4)
 
-### 2.6 源码补充：沿 cJSON 追踪 spec、LPS 与证明
+#### 2.6.1 顶层 spec 怎样机械生成
 
-源码示例固定到公开证明仓库 `98e995d4` 与 LPS `f1006fe8`。
+cJSON 的 `harness.yaml` 记录了以下目标字段，原样节选：
 
-下面沿一条可以追踪的源码链阅读：`Statements.asan_agrees` → `Shapes.agrees_in` → `run_scfg` 与 `error_free` → cJSON 的共享轨迹规约 → 已发表的 `Proof.v`。所有代码均来自固定快照；完整定义与证明正文按原码展示或仅调整换行，结构节选另行标明。
+```yaml
+  asan_agrees:
+    kind: agreement
+    builds:
+    - plain
+    - asan
+    reading: alloc-forced-only
+    budgets: asan
+```
 
-#### 2.6.1 真实 spec：cJSON 的两条 Rocq 定义
+`kind` 选择行为一致目标，`builds` 指定普通构建和 ASan 构建，`reading` 选择环境失败策略，`budgets` 选择预算组。[实际配置](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/harness.yaml)
 
-[`projects/cjson/cjson_read_fuzzer/Statements.v`](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/Statements.v) 中有以下定义，原样节选并调整换行：
+`shapes.py` 的 `term` 函数将这些字段转换成 Rocq 项。以下为完整的 `agreement` 分支：
+
+```python
+    if kind == "agreement":
+        key = (reading, st.get("abort", "error"), st.get("machine", "rv64g"))
+        shape = AGREEMENT.get(key)
+        if shape is None:
+            raise ShapeError("no agreement shape for reading/abort/machine %r" % (key,))
+        if "budgets" not in st:
+            raise ShapeError("an agreement statement names its budgets")
+        mod = BUDGETS[st["budgets"]][0]
+        env = (ENV[reading] + " ") if reading == "alloc-forced-only" else ""
+        return "", "%s %s%s.lim_source %s.lim_target %s %s" % (shape, env, mod, mod, plain, san)
+```
+
+`AGREEMENT` 按环境策略、中止解释和架构选择模板；本例选中 `agrees_in`。`BUDGETS["asan"]` 选中 `Budgets.Asan`，`image()` 把构建名转换为 `Images.plain`、`Images.asan`。最后一行将模板名与参数拼成命题正文。[形状映射与转换函数](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/shapes.py#L45)
+
+`generate.py` 调用 `shapes.term(st.data)`，再填入下面这段实际模板：
+
+```text
+Definition $name$params : Prop :=
+  $body.
+```
+
+本例得到的结果与公开 `Statements.v` 一致：
 
 ```coq
-Definition plain_halts : Prop :=
-  halts_within_budget
-    Budgets.Standard.lim_source
-    Exits.ok_or_refused
-    Images.plain.
-
 Definition asan_agrees : Prop :=
-  agrees_in
-    Env.alloc_forced_only
-    Budgets.Asan.lim_source
-    Budgets.Asan.lim_target
-    Images.plain Images.asan.
+  agrees_in Env.alloc_forced_only Budgets.Asan.lim_source Budgets.Asan.lim_target Images.plain Images.asan.
 ```
 
-这里的 `Prop` 表明它们是命题。第一条把终止模板应用于普通二进制映像，第二条把无错误且行为一致的模板应用于普通构建和 ASan 构建。具体含义取决于模板、参数和映像；
+这一步由配置读取、模板选择和文本生成完成。`Images.v` 同样由生成器写出，把二进制的加载段、入口地址和程序头组成映像。检查器的 `fingerprint` 还绑定命题正文、相关二进制 SHA-256、`Shapes.v`、映像定义及 LPS 版本；`oft check` 生成包装定义，要求提交证明具有这一固定命题的类型，再检查依赖假设。[生成器](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/generate.py#L87)、[定义模板](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/templates/Statements.v.tmpl#L71)、[指纹计算](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/facts.py#L331)、[检查包装](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/check.py#L252)
 
-在固定版本中，`plain_halts` 仍是开放目标（`open`）：它要求在资源与环境前提下，以允许状态终止。`asan_agrees` 已证明（`proved`）：它要求两个构建无规定错误，且有限可观察行为集合相同。
+#### 2.6.2 实际要证明什么
 
-`ubsan_agrees` 与 `asan_ubsan_agrees` 也已证明，分别对应相应插桩构建的一致性与无错误要求。关于输入分布的概率界，以及识别一致输入的可判定性命题，仍是开放目标。
-
-上述证明状态来自该入口的 [README](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/README.md)。其中还说明，入口会解析、打印和压缩 JSON 文本，但输出被释放，没有进一步比较内容。其可观察规约描述驱动的输出与退出行为，JSON 解析内容未被比较。
-
-#### 2.6.2 指定 ELF 怎样变成证明中的映像
-
-[`Images.v`](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/Images.v) 给普通构建的定义是：
-
-```coq
-Definition plain : Image :=
-  mkImage
-    Plain.M.loaded_segments
-    Plain.M.init_pc
-    Plain.M.phdrs.
-```
-
-三个参数分别来自该二进制的可加载段、入口地址和程序头信息。底层段数据由 `elf-snapshot` 在构建时生成；[`harness.yaml`](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/harness.yaml) 则记录源版本、构建和二进制 SHA-256。映像良构性检查确认存在合法启动状态。
-
-这个驱动会读取输入文件并调用 fuzz 入口。参数错误、文件不可读、头部不完整或文件达到 64 MiB 时，可以直接返回状态 2。允许的正常退出集合包含 0 和 2，驱动可以在调用库函数前拒绝相应文件。各构建还固定了部分环境函数的结果，例如 `getenv()` 返回空指针、`getpid()` 返回 1。这些细节也属于被验证程序的身份。[入口与驱动说明](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/README.md)
-
-@@opinion-begin@@
-
-二进制哈希、驱动和环境设置共同固定了证明对象。驱动接受哪些输入、拒绝哪些输入，也应成为规约设计的一部分。
-
-@@opinion-end@@
-
-#### 2.6.3 完整目标：量词、预算、三个结论与单独的终止义务
-
-[`Shapes.v`](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/theories/Shapes.v) 的 `agrees_in` 完整定义如下，保留全部量词、前提与三个结论：
+`Shapes.v` 中的 `agrees_in` 完整定义如下：
 
 ```coq
 Definition agrees_in (env : SpuriousCfg) (lim_plain lim_san : Z) (plain san :
@@ -232,109 +215,23 @@ Definition agrees_in (env : SpuriousCfg) (lim_plain lim_san : Z) (plain san :
                    (bh_traces (run_scfg env san lim_san en_san inp)).
 ```
 
-外层对两个构建的启动布局和进程输入分别全称量化。进程输入包括参数、环境变量、初始文件、标准输入等；启动布局包括栈、堆起点和相关随机字节。两个构建的布局不必相同。前提成立后，要得到普通构建无错误、插桩构建无错误，以及两者有限轨迹集合相同。
+逐行读这段 Rocq：`forall` 量化合法进程输入和两个独立的启动布局；连续的 `->` 给出前提；预算前提约束普通构建。最后三个结论分别是普通构建无错误、ASan 构建无错误，以及两者有限可观察轨迹集合相同。[完整模板](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/theories/Shapes.v)
 
-逐行读这段 Rocq：`forall` 量化固定映像下所有合法进程输入与两个独立的启动布局；连续的 `->` 引入必须满足的前提；`~ run_scfg_budget_refused ...` 是对普通构建运行的预算前提；最后的 `/\` 把三个义务合取。第一项直接要求普通构建无错误。第三项比较两组可能的有限轨迹。
+输入包括参数、环境变量、初始文件和标准输入；布局包括栈、堆起点与随机字节。cJSON 的目标采用普通构建 2 GiB、ASan 构建 512 GiB 的预算。`alloc_forced_only` 要求内存请求只在预算耗尽或缺少地址空间时失败，其他请求仍可能失败。
 
-`run_scfg` 的参数依次给出环境失败策略、二进制映像、预算、启动布局和输入。cJSON 的 ASan 一致性目标采用普通构建 2 GiB、插桩构建 512 GiB 的预算；普通终止目标另用 16 GiB。`alloc_forced_only` 要求内存请求只在预算耗尽或找不到可用地址范围时失败，其他种类的请求仍可能失败。[参数与模板定义](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/theories/Shapes.v)
+行为观察包括标准输入读取、标准输出和错误输出、退出状态或终止信号、最终文件系统；性能不在其中。有限轨迹没有单独记下 crash，因此发生错误与不再产生事件的死循环可能具有相同前缀。这也是模板分别要求两个构建无错误的原因。[附录第 1–2 页](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=1)
 
-@@opinion-begin@@
+**该入口的已完成目标是 `asan_agrees`、`ubsan_agrees` 和 `asan_ubsan_agrees`。** `plain_halts` 仍是开放目标：它另用 16 GiB 预算，要求所有许可执行最终以 0 或 2 退出，排除无限执行、卡住、错误与信号终止。其环境策略 `forced_only_cfg` 要求环境只在被状态强制时拒绝请求。ASan 的地址空间预留在被拒绝后会等待，因此仓库没有为它提供任意环境失败下的同类 `halts_may_fail` 目标。[证明状态与环境](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/README.md)
 
-真实 spec 的难点集中在量词和前提：环境失败怎样允许、预算放在哪个构建上、轨迹怎样比较。这些选择直接决定证明难度与保证范围。
+驱动在参数、文件或输入头部不合要求，或文件达到 64 MiB 时可返回 2；部分环境函数被固定为 `getenv()` 返回 NULL、`getpid()` 返回 1。入口调用 JSON 解析、打印与压缩，但释放输出而不比较内容。概率界和可判定性命题也仍为开放目标。
 
-@@opinion-end@@
+#### 2.6.3 LPS 怎样执行系统调用并定义 crash
 
-再对照同文件中的终止模板。终止模板使用谓词 `must_exit_in_scfg`：
+遇到 `ecall` 后，LPS 收集系统调用号、参数寄存器、可读内存和可写范围，交给 `syscall_spec`。对应的规约用 `Sys` Monad 描述许可结果：返回值、内存及文件状态变化、可观察事件。`sstep_syscall` 把任一满足规约的效果应用到进程状态，再继续执行。[参数与转换](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v#L394)、[系统调用规约](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Specs.v)
 
-```coq
-Definition halts_within_budget (lim : Z) (allowed : list word) (img : Image) :
-  Prop :=
-  forall (en : ExecEntry) (inp : ProcInput),
-    valid_entry img en inp ->
-    valid_input inp ->
-    ~ run_scfg_budget_refused forced_only_cfg img lim en inp ->
-    must_exit_in_scfg forced_only_cfg allowed img lim en inp.
-```
+例如 `read` 的输入字节由进程输入固定，非确定的是一次读出多少字节；规约允许短读，并描述输入耗尽和相应失败情形。`SpuriousCfg` 再约束哪些环境失败被允许。证明需要覆盖全部许可后继。[官方 read 规约](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Sys/Fs/ReadWrite.v#L345)
 
-它要求每一条允许执行最终正常退出，且状态属于 `allowed`；因而同时排除无限执行、卡住、错误和信号终止。`forced_only_cfg` 还禁止环境无缘无故拒绝请求，比一致性目标的 `alloc_forced_only` 更强。代入 cJSON 的 `plain_halts` 后，预算是 16 GiB，允许退出状态为 0 或 2；这个目标在固定 README 中为 `open`。
-
-ASan 没有任意环境失败下的同类 `halts_may_fail` 目标：运行时的启动地址空间预留若被拒绝，会刻意等待不结束。
-
-#### 2.6.4 为什么三个结论缺一不可：轨迹一致可能掩盖 crash 与挂起
-
-附录先要求 ASan 构建无错误，再比较它与普通构建的可观察行为，最后单独排除普通构建的错误。观察对象包括标准输入读取、标准输出和错误输出写入、退出状态或终止信号，以及最终文件系统；性能不在这个比较范围内。错误则包括故障、主动中止和语义未覆盖的行为。[附录第 1–2 页](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=1)
-
-这个拆分有实际原因：有限轨迹本身没有单独记录 crash，一个程序发生错误、另一个进入不再产生事件的死循环，可能仍具有相同的有限观察。这就是分别陈述两个构建无错误性质的原因。§2.6.3 的公开模板把两个 `error_free` 与轨迹一致性明确合在同一命题中，但终止仍是另外的目标。
-
-#### 2.6.5 LPS 的源码结构：指令、机器状态、系统调用与整体行为
-
-从 spec 向下阅读，首先是 `Riscv/Instr.v`、`Decode.v` 和 `DecodeC.v`：它们定义指令语法及普通、压缩指令解码。`Riscv/Sem.v` 规定指令对核心状态产生的效果；`LinuxProcessSem/RiscvSemantics.v` 将这些效果与机器状态、映像和虚拟内存连接起来。
-
-进程层的 `State.v` 定义输入、系统调用效果、系统状态与事件。`Sys/` 与 `Specs.v` 规定系统调用的许可结果和分派；`Run.v` 再定义进程转换关系、运行轨迹和错误。`EquivalenceDefinition/` 中的行为一致、终止等性质，为上层 spec 提供通用命题模板。
-
-这些文件共同组成不同层次的语义定义。可以从具体映像沿解码、执行、系统调用一路读到整体行为，再回到上层 spec。[LPS 仓库结构](https://github.com/theorem-labs/rocq-linux-process-semantics/tree/f1006fe8178338a499b5e5c41be83006c4edd058/theories)
-
-机器状态的几个字段如下，来自 [`RiscvSemantics.v`](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/RiscvSemantics.v)。以下为字段节选，省略处用 `...` 标出：
-
-```coq
-Record machine_state := {
-  ms_regs : bvmap 5 word;
-  ...
-  ms_pc_val : word;
-  ...
-  ms_mem : word -> option byte;
-  ...
-}.
-```
-
-寄存器文件、程序计数器和按地址查询的字节内存是其中一部分；完整状态还含浮点寄存器、待处理系统调用和只读内存等。指令语法也是真实的 Rocq 数据类型，例如 [`Instr.v`](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/Riscv/Instr.v) 用构造子区分加载、存储、跳转和运算。随后由解码与执行定义解释这些对象。
-
-@@opinion-begin@@
-
-LPS 承担了目标架构、运行时和系统环境的复杂性；每个项目共享这层语义，再在其上建立自己的执行证明。
-
-@@opinion-end@@
-
-#### 2.6.6 一步如何执行，系统调用为什么是非确定的
-
-[`Sem.v`](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/Riscv/Sem.v) 将解码后的指令与核心状态映射到效果对象。访存效果交给机器层解释；系统调用则交给进程层处理。LPS 的 [`Specs.v`](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Specs.v) 用以下定义选择相应系统调用规约：
-
-```coq
-Definition syscall_spec
-  : Sys SyscallEffect :=
-  dispatch spec_table.
-```
-
-一个系统调用规约可以允许多个结果，例如读取部分可用字节，或在所选环境允许时返回失败。实际效果包括返回值、写入内存的字节，以及映射、清零等变化；进程转换关系再将允许的效果应用到状态。证明覆盖系统调用规约允许的全部分支。[系统调用效果](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/State.v)
-
-源码通过机器步进、系统调用处理和 `sstep` 转换关系定义执行；最终的运行行为则收集任意有限步数所能产生的轨迹。[步进与运行关系](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v)
-
-机器层还区分正常结果、程序故障和模型未覆盖的情形。后两者都妨碍相应的无错误目标成立，但诊断意义不同：非法访存可能是真实错误，未支持的指令或系统调用属于模型覆盖范围。这个区别保存在进程执行定义中。[机器结果与进程转换](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v)
-
-#### 2.6.7 整体行为是什么，证明文件又交付什么
-
-[`Run.v`](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v) 的整体行为记录如下，原样节选：
-
-```coq
-Record behavior := mkBehavior {
-  bh_traces : list event -> Prop;
-  bh_errors : Prop;
-  bh_all_errors : Prop;
-  bh_unmodeled : Prop;
-}.
-```
-
-第一项表示有限事件序列的集合；其余项目分别记录是否存在错误执行、是否所有执行都进入错误，以及是否存在到达模型未覆盖部分的执行。集合式行为为非确定执行提供了表示，用于描述全部可能的有限观察。
-
-证明文件最终要交付一个具有固定 spec 类型的证明项。检查程序独立生成包装定义，把候选证明放到指定目标的类型下，再审计依赖假设；包装定义将候选证明的类型固定为指定目标。[证明交付格式](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/proving.md)、[检查流程](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/checking.md)
-
-#### 2.6.8 crash 在 Rocq 中是什么：错误单步、可达性和否定命题
-
-LPS 先规定指令、访存和系统调用怎样执行，再规定哪些结果进入错误分支，最后提出错误不可达的命题。下面沿固定版本的源码展开这条链。
-
-机器层的 `machine_result` 区分正常结果 `MachineOk`、真实执行故障 `MachineFault` 和语义未支持的 `MachineUnmodeled`。例如，访存解释需要读取的字节不存在，或存储范围含不可写字节，便产生故障；取指失败时，还会区分真实不可执行地址与模型自身无法解释的情形。[机器结果与访存解释](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/RiscvSemantics.v)
-
-进程层的 `sstep` 是一步转换关系。以下是 `Run.v` 的实际故障构造子，从归纳定义中原样节选：
+对普通指令，以下是实际的故障转换规则：
 
 ```coq
 | sstep_instr_fault : forall ms model,
@@ -344,119 +241,35 @@ LPS 先规定指令、访存和系统调用怎样执行，再规定哪些结果�
     sstep (mkCfg ms model) [] SError
 ```
 
-三个箭头前提分别要求进程尚未正常退出、当前没有待处理系统调用，以及本次机器步进确实产生 `MachineFault`；满足后，结论就是存在一步到达 `SError`。相邻的 `sstep_instr_unmodeled` 规则把 `MachineUnmodeled` 也送到 `SError`。系统调用另有规则；返回错误码也是程序可以处理的正常结果。
-
-接着，`star` 连接零步或多步正常转换，`reaches_error` 的定义把“某条执行能出错”精确写成存在量词：
+机器步进返回 `MachineFault` 时，进程进入 `SError`；`MachineUnmodeled` 也有进入 `SError` 的规则。零步或多步正常执行后再走一步错误，就构成错误可达：
 
 ```coq
 Definition reaches_error (c0 : config) : Prop :=
   exists tr c evs, star c0 tr c /\ sstep c evs SError.
 ```
 
-`exists tr c evs` 提供反例执行的见证：从初态 `c0` 沿轨迹 `tr` 到达 `c`，再由一步 `sstep` 进入错误。只要存在一个这样的见证，无错误命题就不成立；证明无错误要排除全部见证。
-
-带环境失败策略的实际运行定义如下。它由映像与启动布局构造初始配置，再把错误可达性放进 `behavior` 记录：
-
-```coq
-Definition run_scfg (cfg : SpuriousCfg) (img : Image) (lim : Z) (en : ExecEntry)
-    (inp : ProcInput) : behavior :=
-  match img, en with
-  | mkImage segs pc ph, mkEntry sp brk0 mbase rnd =>
-    let c0 := init_config segs pc ph sp brk0 mbase rnd lim inp in
-    {| bh_traces := obs_trace_cfg segs cfg c0;
-       bh_errors := reaches_error_cfg segs cfg c0;
-       bh_all_errors := all_traces_error_cfg segs cfg c0;
-       bh_unmodeled := reaches_unmodeled_cfg segs cfg c0 |}
-  end.
-```
-
-这里 `_cfg` 版本在 `SpuriousCfg` 指定的许可分支上建立同样的可达关系。上层 `agrees_in` 使用的正是它。在 `Equivalence.v` 中，无错误的完整短定义是：
+运行定义把这一可达性记录在 `bh_errors` 中，最终的无错误谓词就是：
 
 ```coq
 Definition error_free (b : behavior)
   : Prop := ~ bh_errors b.
 ```
 
-所以真正的逻辑链是：**合法输入和布局 → 初始配置 → 许可单步关系 → 是否存在到达错误的有限路径 → 该存在命题的否定**。证明使用归纳、不变量、模拟关系和组合引理处理这些定义。[进程转换与运行定义](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v)、[无错误定义](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/EquivalenceDefinition/Equivalence.v#L194)
+因此，目标要求在许可初态和执行关系下排除所有错误路径。ASan 插入的地址检查也属于二进制指令，检查失败后的中止路径同样需要排除。显式建模 `abort` 的命题族还会使用 `KillEv` 与 `error_free_unkilled` 禁止信号终止。[运行与错误定义](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v)、[信号终止定义](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/EquivalenceDefinition/Equivalence.v#L194)
 
-ASan 本身也是这些机器指令的一部分。证明会跟随地址检查、影子内存读取和条件分支；如果检查失败，后续报告与中止路径就成为必须排除的执行。
+#### 2.6.4 代理生成的中间 spec 怎样帮助证明
 
-中止的具体编码还取决于所用命题族。默认设置与显式建模 `abort` 的设置不同；后者可以产生 `KillEv`，而不经过 `SError`。相应的 `_abort_modelled` 安全目标采用 `error_free_unkilled`，另外禁止信号终止。**这一目标同时排除 `SError` 与信号终止。**[中止与信号终止的定义](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/EquivalenceDefinition/Equivalence.v#L194)
-
-#### 2.6.9 真实证明实例：共享轨迹规约、三个子目标与最终 Qed
-
-附录提到代理往往先写短规约，再分别把普通构建和插桩构建与它联系起来。cJSON 的公开代码正好能把这个过程展开。这里的中间规约描述可观察轨迹集合；[`ShapeAlg.v`](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/ShapeAlg.v) 定义：
+顶层目标固定以后，代理可以为组织证明引入中间规约。cJSON 使用的类型是：
 
 ```coq
 Definition TSet := list event -> Prop.
 ```
 
-一个 `TSet` 回答某条有限事件序列是否属于该规约。`ShapeSpec.v` 的 `t_body` 根据输入头部决定拒绝还是调用，并描述驱动输出；下面保留完整定义，只调整换行并省去导出注释标记：
+一个 `TSet` 描述允许出现哪些有限事件序列。实际 `t_body` 规约按驱动头部决定拒绝还是调用：输入上限为 `67108864` 字节，即 64 MiB；合法输入触发 1–4 次调用，输出相应数量的 `0` 加换行，最后以状态 0 退出；拒绝分支写错误消息并以状态 2 退出。这里描述的是驱动的可观察行为。[实际中间规约](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/ShapeSpec.v)
+
+代理分别建立 `Hsource` 和 `Htarget`，证明普通构建与 ASan 构建实现同一个中间规约 `T`。组合引理的证明体如下，原样节选：
 
 ```coq
-Fixpoint zero_lines (calls : nat) : list byte :=
-  match calls with
-  | O => []
-  | S k => Z_to_bv 8 48 :: Z_to_bv 8 10 :: zero_lines k
-  end.
-
-Definition MAX_INPUT : Z := 67108864%Z.
-
-Definition t_body (data : list byte) (fs : Fs.Fs) : TSet :=
-  let len := length data in
-  if (MAX_INPUT <=? Z.of_nat len)%Z then t_die msg_refused fs
-  else if (len <? 6)%nat then t_die msg_short fs
-  else
-    let b0 := bv_unsigned (nth 0 data (Z_to_bv 8 0)) in
-    let b1 := bv_unsigned (nth 1 data (Z_to_bv 8 0)) in
-    let b2 := bv_unsigned (nth 2 data (Z_to_bv 8 0)) in
-    let cfg := (b0 + 256 * b1)%Z in
-    let config_len := Z.to_nat (cfg mod 32768) in
-    if (len <? 6 + config_len)%nat then t_die msg_overrun fs
-    else
-      let calls := match config_len with O => 1%nat | _ => S (Z.to_nat (b2 mod 4))
-        end in
-      t_emit (W 1 (zero_lines calls)) (t_exit (exit_code 0) fs).
-```
-
-`67108864 = 2^26`，即 64 MiB。少于 6 字节的头部、配置长度越过输入末尾、输入达到上限，都会走 `t_die`；它定义为向文件描述符 2 写入对应错误消息，再以状态 2 退出。合法头部确定调用次数 `calls`：没有配置时为 1，否则为 1–4。`zero_lines` 生成相应数量的 `0\n`，`W 1` 将字节写到标准输出，最后以状态 0 退出并带上文件系统状态 `fs`。`t_emit` 同时包含有限前缀，符合前述轨迹集合的读法。[实际中间规约](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/ShapeSpec.v)、[轨迹组合定义](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/ShapeAlg.v)
-
-这段规约刻画 CLI 与 fuzz driver 的可观察行为：拒绝条件、调用次数、输出字节和退出状态。驱动释放 JSON 内部输出，规约中相应记录的是驱动产生的 `0\n`。
-
-中间规约通过 `node_ok` 连接实际机器单步。`ShapeAlg.v` 在固定 `segs` 的 Section 中给出以下完整定义，`ACFG` 是证明所用环境策略：
-
-```coq
-Definition node_ok (c : config) (I : Type)
-    (evs : I -> list event) (nx : I -> config) : Prop :=
-  (forall i, sstep_cfg segs ACFG c (evs i) (SNext (nx i)))
-  /\ (forall e st, sstep_cfg segs ACFG c e st -> exists i, e = evs i /\ st = SNext
-    (nx i)).
-```
-
-第一个 `forall` 要求索引集合 `I` 列出的每种事件与后继，都是实际 `sstep_cfg` 允许的正常一步；第二个 `forall` 反过来要求任意实际一步都在该索引描述中，而且结果是 `SNext`。这两项共同刻画全部许可后继，并要求它们都是正常后继。下层 `realizes` 归纳证明再把这些单步与后继证明组合起来。[连接规约与单步的定义](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/ShapeAlg.v#L248)
-
-证明怎样利用这个中间层？`ATop.v` 中以下完整引理把两个运行联系到同一个 `T`；只调整换行前后的空白，使用该文件已有的 imports 与局部记号：
-
-```coq
-Theorem shape_strong_equiv_sef_AS :
-  forall source_segs rpc rph rsp rbrk rmb rrnd (rlim : Z)
-         target_segs apc aph asp abrk amb arnd (alim : Z)
-         (T : TSet) (inp : ProcInput),
-  realizes source_segs (init_config source_segs rpc rph rsp rbrk rmb rrnd rlim
-    inp) T ->
-  AS.SpinAlg.srealizes target_segs (init_config target_segs apc aph asp abrk amb
-    arnd alim inp) T ->
-  error_free (run_scfg ACFG (mkImage source_segs rpc rph) rlim (mkEntry rsp rbrk
-    rmb rrnd) inp)
-  /\ error_free (run_scfg ACFG (mkImage target_segs apc aph) alim (mkEntry asp
-    abrk amb arnd) inp)
-  /\ trace_equiv (bh_traces (run_scfg ACFG (mkImage source_segs rpc rph) rlim
-    (mkEntry rsp rbrk rmb rrnd) inp))
-                 (bh_traces (run_scfg ACFG (mkImage target_segs apc aph) alim
-                   (mkEntry asp abrk amb arnd) inp)).
-Proof.
-  intros source_segs rpc rph rsp rbrk rmb rrnd rlim target_segs apc aph asp abrk
-    amb arnd alim T inp Hsource Htarget.
   split; [| split].
   - cbn. eapply realizes_no_error; exact Hsource.
   - cbn. eapply AS.SpinAlg.srealizes_no_error; exact Htarget.
@@ -464,34 +277,11 @@ Proof.
     rewrite (realizes_obs_iff source_segs _ T Hsource tr).
     rewrite (AS.SpinAlg.srealizes_obs_iff target_segs _ T Htarget tr).
     reflexivity.
-Qed.
 ```
 
-`Hsource` 是普通构建从给定初态实现 `T` 的证明；`Htarget` 是 ASan 构建满足对应 `srealizes` 关系的证明。`split; [| split]` 把结论拆成三个子目标：前两个分别调用 `realizes_no_error` 与 `srealizes_no_error` 排除错误；第三个任取轨迹 `tr`，用两个 `*_obs_iff` 将两边“能产生这条轨迹”都改写成 `T tr`，于是以 `reflexivity` 收尾。**两个 `*_obs_iff` 给出双向的轨迹刻画。** 大量机器执行、ASan 运行时与驱动细节已经由 `Hsource`、`Htarget` 所引用的下层引理承担；[完整组合引理](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/A/ATop.v#L27)
+`Hsource` 是普通构建实现 `T` 的证明，`Htarget` 是 ASan 构建实现 `T` 的证明。`split` 拆开两个无错误目标和一个轨迹一致目标；前两项使用 `*_no_error`，第三项用两个 `*_obs_iff` 将两边轨迹都改写为 `T tr`，再由 `reflexivity` 完成。[实际组合证明](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/A/ATop.v#L27)
 
-最终交付的 `Proof.v` 则很短，原样代码仅重新换行：
-
-```coq
-From OssFuzzTheorems.cjson.cjson_read_fuzzer
-  Require Statements.
-From OssFuzzTheorems.Proofs.cjson.cjson_read_fuzzer.lib
-  Require Theorems.
-
-Theorem asan_agrees_holds :
-  OssFuzzTheorems.cjson.cjson_read_fuzzer.Statements.asan_agrees.
-Proof.
-  exact
-    OssFuzzTheorems.Proofs.cjson.cjson_read_fuzzer.lib.Theorems.strong_universal_error_free_cjson_read_fuzzer_asan.
-Qed.
-```
-
-`Theorem ... : Statements.asan_agrees` 的冒号右侧固定了目标；`exact` 提交一个具有该类型的既有证明项，`Qed` 结束检查。它沿 `Theorems.v` 进入 `TopAsanClosed.v`，再用已经证明的 refill 与 quarantine 引理关闭运行时接口义务，并接回上述组合结果。依赖证明项通过 Rocq 的类型检查与项目的假设审计。[证明入口](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/asan_agrees/Proof.v)、[顶层定理](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/Theorems.v)、[关闭运行时义务](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/A/TopAsanClosed.v)
-
-@@opinion-begin@@
-
-顶层证明很短，是因为庞大的执行分析已经封装在下层引理中。适合复用的成果应同时带上精确类型、模型版本和检查结果。
-
-@@opinion-end@@
+这里，维护者提供的测试、框架给定的性质模板和工具生成的顶层命题，是任务输入；代理提出的中间 `T`、执行不变量、辅助引理及证明步骤，是为完成该任务构造的证明产物。[附录对代理短规约的观察](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=4)
 
 ### 2.7 Rocq、生成脚本与证明工具
 
@@ -501,7 +291,7 @@ Qed.
 
 @@opinion-begin@@
 
-**人类设计宏观任务与检查接口，模型承担繁重的形式化和证明。** 这种组织方式让通用代理直接面对困难语义，也把工具研究的问题转成：哪种抽象和自动化能让强模型更快完成任务。
+人类设计宏观任务与检查接口，模型承担繁重的形式化和证明。
 
 @@opinion-end@@
 
@@ -513,17 +303,7 @@ Qed.
 
 原文脚注还把运行证明检查器所依赖的硬件、操作系统与 OCaml 编译器纳入信任基础。因此，“信任 Rocq 内核”也包含让这份内核实现正确运行的执行环境。[原文脚注 5](https://www.anthropic.com/research/formal-verification)
 
-@@opinion-begin@@
-
-从需求走到部署，需要分别核对几个环节。**需求与规约** 要检查命题、前提、输出与错误定义是否包含实际需求；**执行语义** 要检查指令、系统调用、启动与环境模型是否忠于目标平台；**软件产物** 要用哈希、映像、版本与依赖确认指向的确实是这份二进制。
-
-**证明检查** 要核对内核、允许公理、独立包装与审计，排除额外假设和错误目标；**实际部署** 还要满足定理要求的架构、链接方式、并发与资源条件。
-
-可信组件可以共享，加固一次就能让多个项目受益。目标固定、产物固定与假设审计，也让生成证明的模型可以反复试错。
-
-@@opinion-end@@
-
-公开发布的材料也有筛选：原文说明提供不需修补的部分完整证明、其他任务的陈述及可信组件，并暂不发布可能揭示未修复漏洞的证明。[原文的发布范围](https://www.anthropic.com/research/formal-verification)
+公开发布的材料也有筛选：原文说明提供不需修补的部分完整证明、其他任务的陈述及可信组件，并暂不发布可能揭示未修复漏洞的证明。[原文的发布范围](https://www.anthropic.com/research/formal-verification) 固定快照 README 列出 25 个库、60 个入口的公开证明。
 
 ## 3. 发现和修复 bug（Finding and fixing bugs）
 
@@ -547,13 +327,36 @@ ASan 通过报告与中止暴露内存错误；维护者用断言表达算法要
 
 ### 3.2 自动修补后重新生成证明目标
 
-原文允许 Claude 修补证明过程中发现的问题，再为新程序重新生成目标；脚注同时讨论了修改程序以迎合目标的风险，并介绍了补丁惩罚、行为变化奖励和日志审计。[原文脚注 6](https://www.anthropic.com/research/formal-verification)
+原文允许 Claude 在证明过程中修补发现的 bug，随后为修补后的程序重新生成 spec，并继续证明。过程可以分为四步：[原文的发现与修补流程](https://www.anthropic.com/research/formal-verification)
+
+1. **定位错误。** 证明推进中暴露失败路径，构造能触发它的输入，在真实目标上重放并确认。
+2. **修改并重编译。** 修改库代码后，重新得到相关普通构建和 sanitizer 构建，提取新 ELF 的加载段、入口地址与程序头。
+3. **生成新目标。** 将新的映像填入相应性质模板；重新计算目标指纹，绑定新的二进制和执行定义。
+4. **调整证明并检查。** Claude 接着证明新目标，检查器编译证明、生成类型包装并核对依赖假设。
+
+第三步具体体现为 `facts.py` 中的以下连续代码：
+
+```python
+    params, body = shapes.term(st.data)
+    builds = st.harness.data["builds"]
+    lines = [FINGERPRINT_TAG, st.id, "Definition %s%s : Prop := %s." % (st.name, params, body)]
+    for b in sorted(set(st.data["builds"])):
+        lines.append("build %s %s" % (b, builds[b]["sha256"]))
+    lines += ["shapes %s" % digests["theories/Shapes.v"], "images %s" % digests["theories/Images.v"],
+              "semantics %s" % lps]
+```
+
+其中 `lines` 收集命题名及正文、各构建的 SHA-256、`Shapes.v` 与映像定义的摘要，以及 LPS 版本。函数最后对这些内容计算 SHA-256。`rules.py` 检查证明记录中的 `fingerprint` 是否等于当前目标的指纹；不一致时要求重新检查。[指纹计算](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/facts.py#L331)、[证明与目标的绑定](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/tools/oft/rules.py#L416)
 
 @@opinion-begin@@
 
-最极端的“补丁”是拒绝全部输入：崩溃消失，功能也消失。自动修补需要同时约束合法输入、输出关系与变化范围。
+**整份证明要针对新目标重新通过检查，已有证明可以复用。** 数学引理、未改变的公共组件和仍满足接口的函数证明可以继续使用；绑定具体指令字节、地址或寄存器状态的部分，需要随编译结果调整。源码改动可能传播为指令地址、内联结果与寄存器分配的变化，因此证明维护的范围可能大于补丁本身。
 
 @@opinion-end@@
+
+附录第 3 页说明，当时每份入口证明还要覆盖 C 启动、libc 的分配器和输出、ASan 运行时以及驱动，公共部分仍随完整入口重新证明；图 6 展示的是复制已有证明再针对新程序调整。原文报告，一次完整证明的检查可消耗半小时到数小时 CPU 时间。[附录第 3–4 页](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=3)
+
+原文还记录了修补过程的控制措施：对补丁施加惩罚，奖励刻画补丁改变了哪些输入及其范围，并保存日志、审查补丁。[原文脚注 6](https://www.anthropic.com/research/formal-verification)
 
 ### 3.3 超越内存安全：LZO 与 p11-kit 的功能断言
 
@@ -579,55 +382,11 @@ assert(r == LZO_E_OK && decompressed_len == size);
 
 第一条检查压缩成功；当压缩结果小于原输入时，后续分支解压并检查成功状态及还原长度。断言失败会进入中止路径，因而排除 crash 的证明也覆盖这些要求。在二进制中，两条断言编成跳向 abort 处理程序的分支，证明按确切指令地址分析并排除这些分支。附录还介绍了管理智能卡与密码硬件的 p11-kit：其配置词法分析器在识别 PEM 块时，断言块长度不超过输入缓冲区末尾；这类维护者写在入口中的约束，同样成为证明需要排除的失败分支。[附录第 6 页代码与说明](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=6)
 
-@@opinion-begin@@
-
-这两条断言覆盖成功状态和还原长度。逐字节往返正确性还需要比较解压内容与原输入；可以把这项要求写进入口，再证明相应失败分支不可达。
-
-@@opinion-end@@
-
-### 3.4 补充讨论：怎样把排序要求编码为检查
+### 3.4 补充讨论：功能要求怎样进入检查
 
 @@opinion-begin@@
 
-原文把主要工作方式概括为让 **“this test suite always passes”** 成为形式命题。沿着这种无错误模板，功能要求也可以先写成程序中的检查，失败时调用 `abort` 或触发断言，再证明失败路径不可达。功能要求由此编码为可执行失败条件。[原文对规约的说明](https://www.anthropic.com/research/formal-verification)
-
-以整数排序为例，如果继续使用“入口不失败”这个模板，可以先保留原始输入，再运行排序，并检查输出有序且元素多重集合保持不变。下面用排序作补充示例：
-
-```text
-before = copy(input)
-after = sort(input)
-if not (ordered(after) and
-        same_multiset(before, after)):
-    abort()
-```
-
-`same_multiset` 比较元素及其重复次数。只比较出现的元素、长度、总和或异或值，都会遗漏要求。例如 `[1, 2, 3]` 与 `[0, 3, 3]` 都有序，长度均为 3、总和均为 6、异或值均为 0；二者的多重集合不同。
-
-如果要从“检查程序不失败”推出排序性质，需要建立检查器的成功意味着真实性质成立。将正确排序性质缩写为 $F$，至少要有下面这种可靠性关系，并保证检查器会终止返回：
-
-$$
-\begin{aligned}
-&\operatorname{Check}(before,after)=\mathrm{true}\\
-&\qquad\Longrightarrow F(before,after).
-\end{aligned}
-$$
-
-具体义务还包括：输入副本确实在排序前保存且未被破坏，比较顺序与预期一致，检查覆盖全部相关元素和路径，失败确实触发被命题禁止的结果，检查器自身没有溢出、越界或挂起。若检查器在错误输出上无限循环，单纯的无 crash 性质仍可能成立；若输入与输出实际上别名到同一份已修改数组，排列检查也可能退化成对象与自身比较。
-
-可执行规约把一部分功能义务交给检查器：成功意味着目标性质成立。这个对应关系可以通过证明建立，也可以先用测试和独立审查检验。
-
-也可以直接把 Rocq 的排列与有序性作为目标。下面 `before`、`after` 表示整数列表：
-
-```coq
-Permutation before after /\
-Sorted Z.le after
-```
-
-`Permutation` 描述排列关系，`Sorted` 描述给定关系下的有序性。[Rocq 的排列定义](https://rocq-prover.org/doc/V9.1.0/stdlib/Stdlib.Sorting.Permutation.html)、[有序性定义](https://rocq-prover.org/doc/V9.0.0/stdlib/Stdlib.Sorting.Sorted.html) 要将它们用于二进制程序，还需定义机器内存怎样表示这些列表，并证明程序执行前后的表示关系。这样做是在使用同一类形式语义提出更强的功能命题，需要专门的功能证明。
-
-另一种做法是证明可执行检查器与这些 Rocq 性质相对应，再把检查器接回入口。由此可以将通用无错误模板与已有的高层数学定义结合起来，“返回时结果正确”与“一定返回”分别陈述功能与终止。
-
-可执行规约让模型集中处理庞大的执行证明；检查器与数学性质的对应，则决定了功能保证的强度。排序既可以直接证明 `Permutation` 与 `Sorted`，也可以先证明检查器正确，再接回通用无错误模板。
+排序可以用断言检查输出有序、元素及重复次数保持不变，也可以直接陈述 Rocq 的 `Permutation` 与 `Sorted`。可执行检查器这条路线还需要保证：原输入副本可靠、检查能终止、判断正确且会被执行；直接写逻辑性质则需要连接机器内存与列表表示。
 
 @@opinion-end@@
 
@@ -639,7 +398,7 @@ Sorted Z.le after
 
 原文还报告了 x86 二进制的 zlib 格式规约验证，以及使用 Verus 验证 Rust 编写的 Python 子集解释器。**x86 实验采用 Claude 生成并经过大量测试的 ISA 语义**；RISC-V 主实验使用 Theorem 的 LPS。[原文其他案例与脚注 7](https://www.anthropic.com/research/formal-verification)
 
-zlib 的功能规约依据 RFC 1950，验证对象是 Linux 内核中的实现。作者还在另外约 6 个广泛使用的库上重复尝试，并发现若干不可利用的边界缺陷。作者据此认为，这些经过充分测试的代码库已接近正确，而且可以为真实现有代码建立端到端的正确性证明。[其他验证案例](https://www.anthropic.com/research/formal-verification)
+在 zlib 案例中，研究者指定 RFC 1950，Claude 据此编写形式规约，再证明 Linux 内核实现的 x86 二进制满足规约。作者还在另外约 6 个广泛使用的库上重复尝试，并发现若干不可利用的边界缺陷。作者据此认为，这些经过充分测试的代码库已接近正确，而且可以为真实现有代码建立端到端的正确性证明。[原文的其他验证案例](https://www.anthropic.com/research/formal-verification)
 
 对于模型生成的 x86 语义，作者在脚注中进一步报告：可以通过语义单步执行，在 Linux 内核之上启动 Ubuntu 用户空间；构建过程还发现参考文档中的数百处错误和少量硬件问题。[原文脚注 7](https://www.anthropic.com/research/formal-verification)
 
@@ -647,13 +406,11 @@ zlib 的功能规约依据 RFC 1950，验证对象是 Linux 内核中的实现�
 
 #### Python 解释器的完整实验条件与变异检验
 
-解释器实验采用 safe Rust、Verus 和 Z3，按基于 λπ 的形式语义完成 17 个层次的证明。结论约束返回结果；与 CPython 的对应由测试检验。作者另外向早期版本注入七个错误，其中五个通过了随机测试，七个都使证明失败。作者选择 Verus 出于实践偏好，并借此检验模型适应不同形式系统的能力。这里是源码层的 Hoare 风格验证：以 `requires`、`ensures` 与循环不变量等契约表达要求，再由 Verus 调用 Z3 证明代码满足契约，与主实验的 Rocq 二进制路线不同。[附录第 2–3 页](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=2)
+**任务与语义由研究团队给定。** 附录第 3 页说明，团队选择基于 λπ 的 Python 子集，并依据相关论文定义形式语义；Claude 在开发解释器的同时使用这套语义证明实现。Claude 完成了全部 17 个层次，Verus 检查各层定理无错误。[附录第 3 页](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=3)
 
-@@opinion-begin@@
+**验证路线选择了 safe Rust、Verus 和 Z3。** 作者选择 Verus 出于它与 Rust 生态的契合及实践偏好，也为了检验 Claude 适应不同形式系统的能力。Verus 用 `requires`、`ensures` 与循环不变量表达契约，再调用 Z3；源码层的 Hoare 风格证明是这次实验特意尝试的另一种路线。附录把选择 Verus 而非 Lean 表述为偏好。
 
-解释器案例呈现了一种很有吸引力的分工：实现满足形式语义交给证明，形式语义与 CPython 的对应交给大规模测试。工作重心由反复测试实现转向检查 formalization 是否准确。
-
-@@opinion-end@@
+研究者还向早期解释器注入七个错误：其中五个通过了随机测试，七个都使证明失败。定理约束“返回结果时结果符合形式语义”，形式语义与 CPython 的对应另通过约 170 万个程序上的测试检验。
 
 作者还报告，对安全性质的证明尝试发现了潜伏十余年的逻辑问题；在验证某 PDF 阅读器时，一周内发现的安全缺陷数量相当于该项目通常一年的报告量。[其他验证案例](https://www.anthropic.com/research/formal-verification)
 
@@ -671,31 +428,23 @@ zlib 的功能规约依据 RFC 1950，验证对象是 Linux 内核中的实现�
 
 这些小任务由真实入口缩减而来，使用简化运行时和 mini-ASan，输入限制为 64 字节。[附录第 5 页](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf)
 
-@@opinion-begin@@
-
-模型升级本身已经能节省大量证明搜索。新方法的收益，应放在强代理上，用相同预算下的完成率来衡量。
-
-@@opinion-end@@
-
 #### 这 36 个任务具体怎样缩减
 
 缩减任务仍保留真实代码的核心：有的沿用 OpenVPN 的 base64 入口，有的由短驱动调用 libidn 的 punycode 解码、LZO 安全解压、miniz 的 inflate、zstd 帧头解码或 curl 的 fnmatch。mini-ASan 约百条指令，真实运行时则超过十万条指令。[附录第 5 页的任务来源](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=5)
 
-比较模型的 36 个任务分为三组，每组 12 个：从较小程序的插桩无错误，到更大程序，再到同时要求两个构建无错误且行为一致。实验将输入缩为 64 字节，以少量函数替代 libc，用约百条指令的 mini-ASan 替代大型运行时，最终程序为 283–2,491 条指令。[附录第 5 页](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=5)
+36 个任务分为三组，每组 12 个：第一组要求 mini-ASan 构建无错误；第二组换成较大的程序；第三组使用第一组程序，加强为普通构建与 mini-ASan 构建均无错误且行为一致。除库代码外，实验以少量内存和字符串函数替换 libc，将输入缩为 64 字节，以约百条指令的 mini-ASan 检查内存访问，最终程序为 283–2,491 条指令。每个代理使用与完整 OSS-Fuzz 实验类似的任务驱动和证明检查器独立工作。[附录第 5 页](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=5)
 
 ### 4.2 图 5：共享证明减少重复劳动
 
 @@anthropic-figure-5@@
 
-*原文图 5，默认展示内容完整的静态图，展开可播放原始 GIF。横向按任务完成顺序排列，橙色弧线连接复用了相同文件的证明；向下的柱表示成功所需 token，黑色短横线是相应任务由独立代理完成的平均消耗。深蓝表示比独立运行更省，浅蓝表示没有更省；图中两项标注为独立运行未完成。[原始 GIF](https://www-cdn.anthropic.com/images/4zrzovbb/website/5078468fa7e09774b1ab6e86984ec5691d3d11fa-1080x712.gif)*
+*原文图 5：按任务完成顺序展示证明复用与 token 消耗，展开可播放原始 GIF。[原始动画](https://www-cdn.anthropic.com/images/4zrzovbb/website/5078468fa7e09774b1ab6e86984ec5691d3d11fa-1080x712.gif)*
+
+动画分三步展开。首先，已完成的证明从左到右出现；橙色弧线连接复用了同一份未修改文件的证明，**Files reused** 计数最终达到 324。其次，各任务的 token 柱向下出现，并加入独立代理的平均成本黑线：深蓝柱更省，浅蓝柱没有更省。最后，两项独立运行未完成的任务标为 **Never proved alone**，统计框显示有独立成本可比的 34 项中，30 项更省 token。
+
+横向位置表示完成顺序；向下的柱长表示 token 消耗。弧线展示文件怎样被后续证明接着使用，柱与黑线展示这种协作对应的成本结果。
 
 共享工作区实验报告，代理所需 token 比独立运行少 **17%**。在有独立运行成本可对照的 34 个完成证明中，30 个更省 token；另外两项任务的独立代理没有完成。[原文的共享证明结果](https://www.anthropic.com/research/formal-verification)
-
-@@opinion-begin@@
-
-共享工作区把已完成的证明变成了后续任务的起点。下一步是从复制文件走向引用稳定接口，让代理集中证明新增部分。
-
-@@opinion-end@@
 
 ### 4.3 图 6：不同项目的证明怎样复用
 
@@ -703,19 +452,15 @@ zlib 的功能规约依据 RFC 1950，验证对象是 Linux 内核中的实现�
 
 *原文图 6。三列分别是 libcups、freerdp 和 libzmq 的完整证明，块的高度按各部分字节占比绘制。深蓝为完全相同，浅蓝为小幅修改，浅棕为更多修改，橙色为新增；浅改的判定采用相同文件且大小变化在 2% 内。右侧标出分配器、sanitizer 运行时、共享库、规约以及普通和插桩构建等部分。[原图](https://www-cdn.anthropic.com/images/4zrzovbb/website/8e295614d599d548fbd2ff97ed3cc3e62f501b2b-1920x1248.png)*
 
-### 4.4 从依赖包复用到软件生态路线图
+### 4.4 先证明共用的基础库，再让上层软件复用
+
+很多软件依赖同一批基础库。作者设想把证明按软件包组织：先证明广泛使用的依赖，再让上层程序复用这些结论，重点证明自己的新增逻辑。同一份基础证明被越多项目使用，前期工作就由越多项目分担。[原文的软件包复用设想](https://www.anthropic.com/research/formal-verification)
+
+原文以 Mathlib 作类比：接近 30 万条定理由 700 多位贡献者逐步积累，新证明继续使用已有结果。作者希望软件验证也形成这样的共享基础。
 
 @@opinion-begin@@
 
-Theorem 的[软件栈路线图](https://theorem.dev/blog/verified-software-stack/)以每 KB 机器代码约 40 美元等起始参数，结合验证能力持续快速增长的假设，估算 Nix 生态的验证进度与费用。主实验正文与附录未披露完整美元账单。
-
-@@opinion-end@@
-
-原文以接近 30 万条定理、700 多位贡献者共同积累的 Mathlib 作类比，提出按依赖包复用证明的设想：软件依赖分布集中，先验证少量被广泛使用的依赖，可能让更多上层程序变得可验证。[原文的复用与生态设想](https://www.anthropic.com/research/formal-verification)
-
-@@opinion-begin@@
-
-完整成本应合计生成、失败尝试、检查、语义开发和补丁审查。跨模型比较同时记录 token、单价和检查时间，跨项目比较则记录复用与维护成本。
+Theorem 的[软件栈路线图](https://theorem.dev/blog/verified-software-stack/)把每 KB 机器代码约 40 美元作为起始成本参数，并假设验证能力继续增长，用来估算验证 Nix 软件生态的进度与费用。主实验未披露完整美元账单。
 
 @@opinion-end@@
 
@@ -726,12 +471,6 @@ Theorem 的[软件栈路线图](https://theorem.dev/blog/verified-software-stack
 LPS 的范围说明列出了单线程、静态可执行文件、信号处理及文件系统等限制，也列出了若干未检查的外部假设。文档特别说明：某些模型中过宽的非确定行为，会影响两个程序行为集合的等价比较；行为等价的现实对应需要同时处理这些非确定分支。[LPS 范围与已知缺口](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/SCOPE.md)
 
 原文指出，实验使用静态链接 musl 的 RISC-V 程序，常见部署则采用 x86 或 ARM、动态链接 glibc。实验没有验证每个库的全部入口；fuzz 入口的覆盖由可达代码决定。调用者的 API 使用条件也影响内存安全，因此库的公开函数还需要调用契约。[原文的部署与调用边界](https://www.anthropic.com/research/formal-verification)
-
-@@opinion-begin@@
-
-对全称安全性质，覆盖真实执行的保守过近似可以足够；对行为集合相等，模型多出的行为也会影响结论。语义需要按目标性质建立对应，并记录版本、差分结果与变更后的重查范围。
-
-@@opinion-end@@
 
 附录解释，直接把测试翻译成 Rocq 可能引入翻译错误，源码解释器也可能偏离实际编译结果，因此项目选择解释编译后的二进制。[附录第 1–2 页](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf)
 
@@ -755,38 +494,21 @@ cJSON 的公开陈述明确列出 ASan 检测范围的缺口，包括访问落�
 
 @@opinion-end@@
 
-### 5.3 补充例子：ASan 的检测范围与漏检
+### 5.3 规约表达的困难：微信文章中的最短路例子
 
-@@opinion-begin@@
+@@wechat-quote-begin@@
 
-ASan 的内存访问检查可能遗漏几类情况。**对象内部越界**，例如数组成员越界覆盖同一结构体的后续成员，默认检查未必区分内部边界。**错误访问落入另一个活对象** 时，目标地址仍可访问，ASan 未必知道指针本应属于另一个对象。**未插桩代码中的普通访问** 则可能没有相应检查；拦截器可以覆盖部分操作，但不能视为全面覆盖。
+以下引自 QCP 团队在“曹钦翔-程序验证”发布的[《解析 Anthropic 的机器码形式化验证：技术路线、潜力与局限》](https://mp.weixin.qq.com/s/-ITZmEqXeOo4g7TVBvzluA)：
 
-**逻辑有效长度** 也是另一种边界：分配 1,024 字节、只有前 64 字节有效时，读取第 100 字节可能不报错，需要长度不变量或相应标注。**未初始化值的使用** 主要由 MemorySanitizer 检查；**整数溢出、非法移位等未定义行为** 需要相应 UBSan 配置；**数据竞争** 由 ThreadSanitizer 等检查，而主实验限定单线程。
+**复杂的规格难以用测试表述。** 有些性质用数学语言容易表达，写成测试程序却很麻烦。以最短路为例，设有向图 $G=(V,E,w)$：$V$ 是顶点集合，$E$ 是边集合，$w$ 为每条边给出非负权重。设 $\mathrm{Paths}_G(s,t)$ 是从起点 $s$ 到终点 $t$ 所有路径的集合，$\mathrm{Length}_G(p)$ 是路径 $p$ 上各条边的权重之和。若程序返回路径 $p$，正确性规格可以写成：
 
-**功能或权限错误**，例如输出内容错误、遗漏权限检查，通常还需要功能规约或断言提供判断标准。通用 sanitizer 不会自动知道业务预期。
+$$
+p \in \mathrm{Paths}_G(s,t) \land \forall q \in \mathrm{Paths}_G(s,t),\quad \mathrm{Length}_G(p) \le \mathrm{Length}_G(q).
+$$
 
-公开 cJSON 命题明确列出“访问落入另一个活对象”和“未插桩代码”两类限制。[项目中的明确说明](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/Statements.v) 容器内部逻辑边界可以通过专门标注增强检查；逻辑有效数据边界依赖相应标注。[ASan 容器检查说明](https://clang.llvm.org/docs/AddressSanitizer.html#disabling-container-overflow-checks)
+这要求返回一条合法路径，且其长度不超过任何其他路径。igraph 的 OSS-Fuzz 测试入口会根据输入字节生成图，再调用距离计算和最短路函数，但没有检查返回路径的长度或最优性。若要用测试代码表达上述规格，就得增加可执行的检查，例如另写一个参考算法并比较结果。但是这样一来，参考算法自身的正确性又成为问题。
 
-一个更容易看见的对象内部越界例子如下，同样是解释性示例：
-
-```c
-struct S {
-    char data[8];
-    int allowed;
-};
-
-void put_member(struct S *s, int i) {
-    s->data[i] = 1;
-}
-```
-
-在常见布局下，`i == 8` 可能写到 `allowed` 的字节。它已经越过 `data` 的数组边界，却仍处于整个结构体对象内部；默认 ASan 可能不报警。用箱子比喻，这相当于破坏了箱子内部的隔间，但没有碰到外侧警报。某些 UBSan 边界检查或额外布局插桩可以覆盖部分此类情况。[ASan 开发者对内部越界的说明](https://github.com/google/sanitizers/wiki/AddressSanitizerIntraObjectOverflow)
-
-其他 sanitizer 也各有目标：[MemorySanitizer](https://clang.llvm.org/docs/MemorySanitizer.html) 关注未初始化值的使用，[UBSan](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html) 覆盖启用的未定义行为检查，[ThreadSanitizer](https://clang.llvm.org/docs/ThreadSanitizer.html) 检测数据竞争。实际检查集合由构建配置决定，业务要求由功能规约或断言给出。
-
-形式证明把“警报在样本中没有响”推进为“允许执行中警报都不响”。要扩大保证范围，可以继续补充对象归属、子对象边界和业务要求，并把它们纳入模型与命题。
-
-@@opinion-end@@
+@@wechat-quote-end@@
 
 ### 5.4 RTE：机器故障与源语言运行时错误
 
@@ -798,13 +520,7 @@ LPS 的 `machine_result` 区分正常结果、执行故障与语义未覆盖。`
 
 如果 RTE 指 C 源码验证中的运行时错误，它通常还包含非法指针访问、算术溢出等未定义行为。Frama-C 的 RTE 插件就为这类表达式生成需要证明的断言。源语言 RTE 需要由相应检查或直接规约覆盖。[Frama-C 对 RTE 的定义](https://www.frama-c.com/fc-plugins/rte.html)
 
-一个解释性例子是整数除零：
-
-```c
-int divide(int x, int y) {
-    return x / y;
-}
-```
+例如 C 表达式 `x / y` 在 `y == 0` 时发生整数除零。
 
 在 C 中，`y == 0` 是需要排除的运行时错误；但若生成的机器代码直接执行 RISC-V 整数除法指令，除零不会触发硬件异常，而会返回指令集规定的结果。LPS 的 `mul_div` 也明确实现了这一规则。这条机器指令的正常结果，和 C 源语言要排除的除零是两个层次。[RISC-V 除法规范](https://docs.riscv.org/reference/isa/v20240411/unpriv/m-st-ext.html)、[LPS 除法定义](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/Riscv/Sem.v#L120)
 
@@ -816,95 +532,16 @@ int divide(int x, int y) {
 
 @@opinion-begin@@
 
-继续使用仓库的比喻：形式语义像一份描述通道、边界和警报器的地图。依据地图找到可疑位置，再到真实仓库确认确实出错，这个发现不因地图其他地方画错而失效。反过来，仅在地图上证明所有路线都安全，结论能否适用于仓库，就取决于地图是否保留了真实可能发生的危险。
-
-```text
-找 bug：
-  模型提供候选输入
-  → 真实目标复现失败
-
-提供保证：
-  模型内完成全称证明
-  ＋ 模型与真实执行的可靠对应
-  → 前提范围内排除规定错误
-```
-
-形式化错误会带来漏报或无法复现的候选输入。真实目标上已复现并确认的 bug 仍然有效。对全称保证，模型需要覆盖真实执行并保留错误：把本应失败的操作写成正常后继，会让错误模型中的无错误证明与真实程序脱节。
-
-对全称安全性质，保守覆盖真实执行可以足够；行为等价还要处理模型额外允许的行为。差分执行、独立审计和参考语义的对应证明，可以逐步加强这条联系。
-
-语义错误影响从模型结论到真实程序的推导；检查链错误则影响模型内证明的有效性。[项目的信任基础](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/trust.md)
-
-找漏洞可以先采用经过测试、仍有缺口的地图，再到真实程序确认发现。提供全称保证，则要建立地图与真实执行之间的可靠对应。
+模型给出的候选 bug 可以在真实程序中重放；已复现并确认的错误具有独立证据。要把模型内的无错误证明用于真实程序，则需要模型保留实际可能的执行与错误。语义偏差影响这条现实对应，检查链错误则影响模型内证明的有效性。
 
 @@opinion-end@@
 
 ## 6. 结论（Conclusion）
 
-原文展望，形式验证将逐步成为生产软件开发内置的环节，像类型系统与测试框架一样进入日常工作流。模型能力、语言设计和开发流程共同推动这一变化。[原文结论](https://www.anthropic.com/research/formal-verification)
+原文展望，随着模型能力、证明复用与开发流程改进，形式验证将像类型系统和测试框架一样，逐步成为生产软件开发的内置环节。此次工作展示的是：从现有测试形成目标，直接验证编译后的二进制，由 Claude 构造大规模证明，再交给 Rocq 检查。[原文结论](https://www.anthropic.com/research/formal-verification)
 
-### 6.1 规格生成需要独立的正确性与充分性评价
+@@wechat-quote-begin@@
 
-@@opinion-begin@@
+QCP 团队的微信文章把取舍归纳为三个方面：机器码路线带来跨语言通用性，也增加底层执行与编译优化的推理工作；现有测试降低规约构建门槛，复杂功能要求仍需要充分表达；逐入口、绑定特定二进制的证明，需要持续处理复用和版本维护。[微信文章的总结](https://mp.weixin.qq.com/s/-ITZmEqXeOo4g7TVBvzluA)
 
-**规约可以是逻辑公式、可执行检查、参考算法或抽象状态机。** 解析器的接受与输出、权限检查的拒绝条件、数值程序的误差和特殊值，都可以据此提出。
-
-code2spec 可以用独立需求、参考模型、审查和变异程序评价。排序要求有序并保留多重集合；操作系统可以先给出抽象状态转换，再让模型寻找实现与抽象状态之间的关系和不变量。
-
-@@opinion-end@@
-
-### 6.2 让模型 formalize，再测试 formalization，能走多远
-
-@@opinion-begin@@
-
-**让模型把代码 formalize 到 Rocq 或 Lean，测试 formalization，再证明功能性质**，是一条值得投入的路线。模型测试应对照输入输出、中间状态、错误和发散，记录支持子集与失败案例；对应证明进一步连接形式模型与原程序。
-
-源码、IR 与二进制可以服务于不同任务。浮点 C 的模型需要表达舍入、NaN、无穷大、有符号零和编译选项。固定性质和产物上的证明，可以减少重复测试，把测试资源更多投入语义、环境和版本变化。
-
-@@opinion-end@@
-
-### 6.3 模块化抽象需要证明它能改善后续任务
-
-@@opinion-begin@@
-
-分配器契约、调用约定与分离逻辑规则，应以跨程序和跨版本的预算节省、维护成本、模型升级后的收益来评价。
-
-@@opinion-end@@
-
-### 6.4 评测要同时约束目标、实现和资源
-
-@@opinion-begin@@
-
-规约评价需求覆盖，模型评价执行对应，复用评价新任务收益，补丁评价行为变化，成本评价完整交付。关键需求和验收方式由独立证据约束，并记录每次有意义的改变。
-
-@@opinion-end@@
-
-### 6.5 更强的模型，要求更准确的保证表述
-
-@@opinion-begin@@
-
-大量局部执行推理正在成为通用代理能力。人类把握宏观设计、模型持续推进繁重证明的组织方式，已经值得采用。
-
-后续研究可以把重点放在需求、形式语义、补丁与部署之间的对应，交付可复用接口与可复现的完整成本。
-
-@@opinion-end@@
-
-## 7. 原始资料与图表索引
-
-- [Anthropic 原文](https://www.anthropic.com/research/formal-verification)：2026 年 10 月 22 日发布，本文展示其全部六张编号图。
-- [六页附录](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf)：定理含义、Python 解释器案例、证明规模与小任务设置；无独立图表。
-- [公开证明仓库快照](https://github.com/theorem-labs/oss-verify-proofs/tree/98e995d4daced70a0a4aa2c810854b88720735f1)：查阅时 README 列出 25 个库、60 个入口的公开证明。
-- [定理陈述说明](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/statements.md)、[检查流程](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/checking.md)、[信任基础](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/trust.md)：单个证明使用的定义、前提与检查流程。
-- [cJSON 的 spec](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/Statements.v)、[证明状态](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/README.md)、[通用命题模板](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/theories/Shapes.v)：第 2.6 节源码示例的固定来源。
-- [LPS 的指令语义](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/Riscv/Sem.v)、[机器状态与步进](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/RiscvSemantics.v)、[进程行为](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v)：从单条指令到整体运行的定义。
-- [LPS 语义与已知缺口](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/SCOPE.md)：固定到公开发布所使用的语义版本。
-- [ASan 官方文档](https://clang.llvm.org/docs/AddressSanitizer.html)、[对象内部越界说明](https://github.com/google/sanitizers/wiki/AddressSanitizerIntraObjectOverflow)、[UBSan](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html)、[MemorySanitizer](https://clang.llvm.org/docs/MemorySanitizer.html)、[ThreadSanitizer](https://clang.llvm.org/docs/ThreadSanitizer.html)：第 5 节对检查机制、盲区与工具分工的补充来源。
-- [RTE 的定义](https://www.frama-c.com/fc-plugins/rte.html)、[RISC-V 除法规则](https://docs.riscv.org/reference/isa/v20240411/unpriv/m-st-ext.html)、[无错误与信号终止定义](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/EquivalenceDefinition/Equivalence.v)：第 5.4 与第 2.6.8 节的直接来源。
-- [Rocq 的 Permutation](https://rocq-prover.org/doc/V9.1.0/stdlib/Stdlib.Sorting.Permutation.html)、[Sorted](https://rocq-prover.org/doc/V9.0.0/stdlib/Stdlib.Sorting.Sorted.html)：排序示例中高层逻辑性质的定义；示例本身属于本文解释。
-- [OSS Verify 项目说明](https://theorem.dev/oss-verify/)、[软件栈路线图](https://theorem.dev/blog/verified-software-stack/)：项目工作方式，以及软件生态规模的成本预测。
-
-图表位置：图 1 见 §2.1，图 2 见 §2.2，图 3 见 §2.3，图 4 见 §4.1，图 5 见 §4.2，图 6 见 §4.3。原文六张编号图均使用原始媒体，图内文字未经翻译；相关归纳与评价均写成段落。
-
-附录六个主题已合并：定理含义见 §2.6.3 和 §2.6.4，Python 解释器见 §3.6，证明规模见 §2.5，专家观察见 §2.5，小任务设置见 §4.1，LZO 与 p11-kit 断言见 §3.3；第 2.6 节另以真实 Rocq 代码展开它们在公开证明中的落点。全部原始图像和动画归 Anthropic 及相应权利人所有；本地媒体的来源与校验值记录在 [sources.json](../assets/papers/anthropic-verification/sources.json)。
-
-Rocq 证明代码的新增来源：[中间轨迹规约 ShapeSpec.v](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/ShapeSpec.v)、[组合证明 ATop.v](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/lib/A/ATop.v)、[最终 Proof.v](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/proofs/cjson/cjson_read_fuzzer/asan_agrees/Proof.v)。这些文件采用 Apache-2.0 OR MIT 许可，代码节选保留对应来源。
+@@wechat-quote-end@@

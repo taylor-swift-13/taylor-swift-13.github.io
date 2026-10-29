@@ -71,6 +71,18 @@ function articleHtml(article) {
   if (opinionDepth || body.includes('@@opinion-')) {
     throw new Error(`Unclosed or invalid opinion marker in ${article.slug}.md`);
   }
+  let quoteDepth = 0;
+  body = body.replace(/<p>@@wechat-quote-(begin|end)@@<\/p>/g, (_, boundary) => {
+    if (boundary === 'begin') {
+      if (quoteDepth) throw new Error('Nested WeChat quotation');
+      quoteDepth = 1;
+      return '<div class="external-commentary">';
+    }
+    if (!quoteDepth) throw new Error('Unexpected WeChat quotation end');
+    quoteDepth = 0;
+    return '</div>';
+  });
+  if (quoteDepth || body.includes('@@wechat-quote-')) throw new Error('Unclosed WeChat quotation');
   for (const [marker, fragment] of [
     ['log', 'log-inequality.html'],
   ]) {
@@ -103,8 +115,25 @@ function articleHtml(article) {
 </figure>`;
   });
   if (body.includes('@@anthropic-figure-')) throw new Error(`Unresolved source figure in ${article.slug}.md`);
+  body = body.replace(/<p>@@lps-source-(Decode|Run)@@<\/p>/g, (_, name) => {
+    if (article.slug !== 'anthropic-formal-verification') throw new Error('Unexpected LPS source');
+    const folder = 'assets/papers/anthropic-verification/code/lps';
+    const manifest = JSON.parse(readFileSync(path.join(root, folder, 'sources.json'), 'utf8'));
+    const entry = manifest.files.find(file => file.name === `${name}.v`);
+    const bytes = readFileSync(path.join(root, folder, entry.name));
+    if (createHash('sha256').update(bytes).digest('hex') !== entry.sha256) {
+      throw new Error(`LPS source digest mismatch: ${entry.name}`);
+    }
+    const local = `../${folder}/${entry.name}`;
+    return `<details class="source-code-full" data-source-file="${entry.name}">
+<summary>展开 ${entry.name} 完整源码（${entry.lines.toLocaleString('en-US')} 行）</summary>
+<p class="source-code-meta"><a href="${entry.source}">官方仓库 · ${manifest.revision.slice(0, 8)}</a> · <a href="${local}" download>下载 ${entry.name}</a> · <a href="../${folder}/LICENSE">MIT 许可</a></p>
+<pre tabindex="0" aria-label="${entry.name} 完整源码"><code class="language-coq">${escapeHtml(bytes.toString('utf8'))}</code></pre>
+</details>`;
+  });
+  if (body.includes('@@lps-source-')) throw new Error('Unresolved LPS source');
   if (article.slug === 'anthropic-formal-verification') {
-    body = '<p class="reading-key">黑色为原文、附录与公开源码中的内容；<span class="commentary-key">橙色为补充讨论、例子与评价</span>。</p>\n' + body;
+    body = '<p class="reading-key">黑色为原文、附录与公开源码中的内容；<span class="commentary-key">橙色为补充讨论、例子与评价</span>；<span class="external-commentary">蓝色为引用的微信文章内容</span>。</p>\n' + body;
   }
   const title = escapeHtml(article.title);
   const description = escapeHtml(article.description);

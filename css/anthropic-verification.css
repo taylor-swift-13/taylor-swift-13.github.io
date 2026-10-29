@@ -1,5 +1,12 @@
 .source-figures .prose{color:#111}
 .source-figures .prose .author-opinion,.source-figures .commentary-key{color:#bf5700}
+.source-figures .external-commentary{color:#1d4ed8}
+.source-figures .external-commentary blockquote{color:inherit;border-left-color:currentColor}
 .source-figures .source-figure+p,.source-figures .prose p:has(> img)+p,.source-figures .prose p:has(> a > img)+p{color:#111}
 .source-figures .reading-key{border-bottom:1px solid var(--line);padding-bottom:22px;line-height:1.8}
+.source-code-full{margin:0 0 24px;border:1px solid var(--line);border-radius:6px;padding:14px 16px}
+.source-code-full summary{cursor:pointer;font-weight:600}
+.source-code-full[open] summary{margin-bottom:12px}
+.source-code-full .source-code-meta{font-size:12px;line-height:1.7;margin-bottom:12px}
+.source-code-full pre{max-height:70vh;margin-bottom:0;overflow:auto}
 @media(max-width:640px){.source-figures .prose pre,.source-figures .prose pre code{white-space:pre-wrap;overflow-wrap:anywhere}}
