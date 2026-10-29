@@ -57,7 +57,7 @@ void put_member(struct S *s, int i) {
 
 @@opinion-begin@@
 
-**结构化译文：加载指令**
+**加载指令**
 
 - **输入**：当前状态中的基址寄存器 `rs1`、偏移量 `imm`、读取宽度 `msz`、有符号标记 `sgn`，以及目标寄存器 `rd`。
 - **计算地址**：读取 `rs1`，把 `imm` 符号扩展到 64 位，再将两者相加。
@@ -206,7 +206,7 @@ Definition $name$params : Prop :=
 
 @@opinion-begin@@
 
-**结构化译文：生成命题的模板**
+**生成命题的模板**
 
 - **名称与参数**：将 `$name` 换成命题名，将 `$params` 换成需要的形式参数；没有额外参数时，这一项为空。
 - **命题正文**：将 `$body` 换成生成器选出的性质模板及其实际参数。
@@ -223,7 +223,7 @@ Definition asan_agrees : Prop :=
 
 @@opinion-begin@@
 
-**结构化译文：cJSON 的顶层命题**
+**cJSON 的顶层命题**
 
 - **命名**：把下面这个命题命名为 `asan_agrees`。
 - **比较对象**：普通二进制 `Images.plain` 与 ASan 二进制 `Images.asan`。
@@ -260,7 +260,7 @@ Definition agrees_in (env : SpuriousCfg) (lim_plain lim_san : Z) (plain san :
 
 @@opinion-begin@@
 
-**结构化译文：行为一致目标的完整条件**
+**行为一致目标的完整条件**
 
 - **给定**：环境策略 `env`、普通侧和插桩侧的预算，以及两份二进制映像。
 - **任取**：同一个进程输入 `inp`，以及两个构建各自的启动布局 `en_plain`、`en_san`。
@@ -296,7 +296,7 @@ Definition agrees_in (env : SpuriousCfg) (lim_plain lim_san : Z) (plain san :
 
 @@opinion-begin@@
 
-**结构化译文：一条指令怎样进入错误状态**
+**一条指令怎样进入错误状态**
 
 - **当前情况**：进程尚未正常退出，且没有待处理的系统调用。
 - **前提**：执行当前机器指令并记入资源开销，得到 `MachineFault`。
@@ -313,7 +313,7 @@ Definition reaches_error (c0 : config) : Prop :=
 
 @@opinion-begin@@
 
-**结构化译文：什么叫“能够到达错误”**
+**什么叫“能够到达错误”**
 
 - **起点**：给定初始配置 `c0`。
 - **寻找一条路径**：存在事件序列 `tr` 和中间配置 `c`，从 `c0` 经过零步或多步正常转换到达 `c`。
@@ -330,7 +330,7 @@ Definition error_free (b : behavior)
 
 @@opinion-begin@@
 
-**结构化译文：什么叫“无错误”**
+**什么叫“无错误”**
 
 - **对象**：程序的整体行为记录 `b`。
 - **要求**：否定 `bh_errors b`，也就是排除这份行为记录所允许的错误执行。`~` 是逻辑否定，整条定义给出的是待证明的命题。
@@ -349,7 +349,7 @@ Definition TSet := list event -> Prop.
 
 @@opinion-begin@@
 
-**结构化译文：用谓词表示轨迹规约**
+**用谓词表示轨迹规约**
 
 - **输入**：一段有限的事件序列，类型为 `list event`。
 - **给出的内容**：关于这段事件序列的一个命题，类型为 `Prop`。
@@ -373,7 +373,7 @@ Definition TSet := list event -> Prop.
 
 @@opinion-begin@@
 
-**结构化译文：怎样把中间规约接回最终结论**
+**怎样把中间规约接回最终结论**
 
 - **已经有的证明**：`Hsource` 说明普通构建实现中间规约 `T`；`Htarget` 说明 ASan 构建实现同一个 `T`。
 - **拆成三项**：`split; [| split]` 把目标拆为普通构建无错误、ASan 构建无错误、两者轨迹一致。

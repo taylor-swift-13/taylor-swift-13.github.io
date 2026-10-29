@@ -66,7 +66,7 @@ void put_member(struct S *s, int i) {
       (λ v, EDone (rset rd v cn))
 </code></pre>
 <div class="author-opinion">
-<p><strong>结构化译文：加载指令</strong></p>
+<p><strong>加载指令</strong></p>
 <ul>
 <li><strong>输入</strong>：当前状态中的基址寄存器 <code>rs1</code>、偏移量 <code>imm</code>、读取宽度 <code>msz</code>、有符号标记 <code>sgn</code>，以及目标寄存器 <code>rd</code>。</li>
 <li><strong>计算地址</strong>：读取 <code>rs1</code>，把 <code>imm</code> 符号扩展到 64 位，再将两者相加。</li>
@@ -502,7 +502,7 @@ Goal decode 0x00000001 = None. Proof. vm_compute. reflexivity. Qed.
 Goal decode 0x0000852a = None. Proof. vm_compute. reflexivity. Qed.
 </code></pre>
 <div class="author-opinion code-translation">
-<p><strong>结构化译文：Decode.v</strong></p>
+<p><strong>Decode.v</strong></p>
 <ul><li><strong>输入：</strong>一个 32 位机器指令字 w。</li>
 <li><strong>拆字段：</strong>从指令字提取操作码、寄存器编号、功能码和各类立即数；立即数在这一层保留编码宽度。</li>
 <li><strong>选择指令：</strong>依据操作码与功能码，构造跳转、加载、存储、整数运算、原子操作、浮点或控制状态寄存器指令。</li>
@@ -4053,7 +4053,7 @@ Proof.
 Qed.
 </code></pre>
 <div class="author-opinion code-translation">
-<p><strong>结构化译文：Run.v</strong></p>
+<p><strong>Run.v</strong></p>
 <ul><li><strong>输入与初态：</strong>根据二进制映像、启动布局、进程输入和内存预算建立初始寄存器、内存及 Linux 进程状态。</li>
 <li><strong>一步执行 sstep：</strong>普通指令调用机器语义；系统调用采用其规约允许的结果，再更新寄存器、内存和文件状态。正常退出、信号终止与错误分别按对应规则处理。</li>
 <li><strong>多步执行 star：</strong>把零步或多步正常转换连接起来，并把各步产生的事件串成有限轨迹。</li>
@@ -4127,7 +4127,7 @@ Qed.
   $body.
 </code></pre>
 <div class="author-opinion">
-<p><strong>结构化译文：生成命题的模板</strong></p>
+<p><strong>生成命题的模板</strong></p>
 <ul>
 <li><strong>名称与参数</strong>：将 <code>$name</code> 换成命题名，将 <code>$params</code> 换成需要的形式参数；没有额外参数时，这一项为空。</li>
 <li><strong>命题正文</strong>：将 <code>$body</code> 换成生成器选出的性质模板及其实际参数。</li>
@@ -4139,7 +4139,7 @@ Qed.
   agrees_in Env.alloc_forced_only Budgets.Asan.lim_source Budgets.Asan.lim_target Images.plain Images.asan.
 </code></pre>
 <div class="author-opinion">
-<p><strong>结构化译文：cJSON 的顶层命题</strong></p>
+<p><strong>cJSON 的顶层命题</strong></p>
 <ul>
 <li><strong>命名</strong>：把下面这个命题命名为 <code>asan_agrees</code>。</li>
 <li><strong>比较对象</strong>：普通二进制 <code>Images.plain</code> 与 ASan 二进制 <code>Images.asan</code>。</li>
@@ -4166,7 +4166,7 @@ Qed.
                    (bh_traces (run_scfg env san lim_san en_san inp)).
 </code></pre>
 <div class="author-opinion">
-<p><strong>结构化译文：行为一致目标的完整条件</strong></p>
+<p><strong>行为一致目标的完整条件</strong></p>
 <ul>
 <li><strong>给定</strong>：环境策略 <code>env</code>、普通侧和插桩侧的预算，以及两份二进制映像。</li>
 <li><strong>任取</strong>：同一个进程输入 <code>inp</code>，以及两个构建各自的启动布局 <code>en_plain</code>、<code>en_san</code>。</li>
@@ -4190,7 +4190,7 @@ Qed.
     sstep (mkCfg ms model) [] SError
 </code></pre>
 <div class="author-opinion">
-<p><strong>结构化译文：一条指令怎样进入错误状态</strong></p>
+<p><strong>一条指令怎样进入错误状态</strong></p>
 <ul>
 <li><strong>当前情况</strong>：进程尚未正常退出，且没有待处理的系统调用。</li>
 <li><strong>前提</strong>：执行当前机器指令并记入资源开销，得到 <code>MachineFault</code>。</li>
@@ -4202,7 +4202,7 @@ Qed.
   exists tr c evs, star c0 tr c /\ sstep c evs SError.
 </code></pre>
 <div class="author-opinion">
-<p><strong>结构化译文：什么叫“能够到达错误”</strong></p>
+<p><strong>什么叫“能够到达错误”</strong></p>
 <ul>
 <li><strong>起点</strong>：给定初始配置 <code>c0</code>。</li>
 <li><strong>寻找一条路径</strong>：存在事件序列 <code>tr</code> 和中间配置 <code>c</code>，从 <code>c0</code> 经过零步或多步正常转换到达 <code>c</code>。</li>
@@ -4214,7 +4214,7 @@ Qed.
   : Prop := ~ bh_errors b.
 </code></pre>
 <div class="author-opinion">
-<p><strong>结构化译文：什么叫“无错误”</strong></p>
+<p><strong>什么叫“无错误”</strong></p>
 <ul>
 <li><strong>对象</strong>：程序的整体行为记录 <code>b</code>。</li>
 <li><strong>要求</strong>：否定 <code>bh_errors b</code>，也就是排除这份行为记录所允许的错误执行。<code>~</code> 是逻辑否定，整条定义给出的是待证明的命题。</li>
@@ -4226,7 +4226,7 @@ Qed.
 <pre><code class="language-coq">Definition TSet := list event -&gt; Prop.
 </code></pre>
 <div class="author-opinion">
-<p><strong>结构化译文：用谓词表示轨迹规约</strong></p>
+<p><strong>用谓词表示轨迹规约</strong></p>
 <ul>
 <li><strong>输入</strong>：一段有限的事件序列，类型为 <code>list event</code>。</li>
 <li><strong>给出的内容</strong>：关于这段事件序列的一个命题，类型为 <code>Prop</code>。</li>
@@ -4244,7 +4244,7 @@ Qed.
     reflexivity.
 </code></pre>
 <div class="author-opinion">
-<p><strong>结构化译文：怎样把中间规约接回最终结论</strong></p>
+<p><strong>怎样把中间规约接回最终结论</strong></p>
 <ul>
 <li><strong>已经有的证明</strong>：<code>Hsource</code> 说明普通构建实现中间规约 <code>T</code>；<code>Htarget</code> 说明 ASan 构建实现同一个 <code>T</code>。</li>
 <li><strong>拆成三项</strong>：<code>split; [| split]</code> 把目标拆为普通构建无错误、ASan 构建无错误、两者轨迹一致。</li>

@@ -135,7 +135,7 @@ function articleHtml(article) {
 <p class="source-code-meta"><a href="${entry.source}">官方仓库 · ${manifest.revision.slice(0, 8)}</a> · <a href="${local}" download>下载 ${entry.name}</a> · <a href="../${folder}/LICENSE">MIT 许可</a></p>
 <pre tabindex="0" aria-label="${entry.name} 完整源码"><code class="language-coq">${escapeHtml(bytes.toString('utf8'))}</code></pre>
 <div class="author-opinion code-translation">
-<p><strong>结构化译文：${entry.name}</strong></p>
+<p><strong>${entry.name}</strong></p>
 <ul>${translation}</ul>
 </div>
 </details>`;
