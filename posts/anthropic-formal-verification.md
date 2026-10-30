@@ -463,20 +463,11 @@ assert(r == LZO_E_OK && decompressed_len == size);
 
 第一条检查压缩成功；当压缩结果小于原输入时，后续分支解压并检查成功状态及还原长度。断言失败会进入中止路径，因而排除 crash 的证明也覆盖这些要求。在二进制中，两条断言编成跳向 abort 处理程序的分支，证明按确切指令地址分析并排除这些分支。附录还介绍了管理智能卡与密码硬件的 p11-kit：其配置词法分析器在识别 PEM 块时，断言块长度不超过输入缓冲区末尾；这类维护者写在入口中的约束，同样成为证明需要排除的失败分支。[附录第 6 页代码与说明](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=6)
 
-### 3.4 补充讨论：功能要求怎样进入检查
-
-@@opinion-begin@@
-
-排序可以用断言检查输出有序、元素及重复次数保持不变，也可以直接陈述 Rocq 的 `Permutation` 与 `Sorted`。可执行检查器这条路线还需要保证：原输入副本可靠、检查能终止、判断正确且会被执行；直接写逻辑性质则需要连接机器内存与列表表示。
-
-
-@@opinion-end@@
-
-### 3.5 为了排除栈溢出，证明红黑树保持对数高度
+### 3.4 为了排除栈溢出，证明红黑树保持对数高度
 
 另一个具有代表性的例子来自 cpp-httplib：为了排除 `std::set` 析构递归引起的栈溢出，证明必须建立 libc++ 红黑树重平衡维持对数树高的性质。这说明无 crash 目标的内部证明，也可能需要复杂的算法不变量。[原文的红黑树案例](https://www.anthropic.com/research/formal-verification)
 
-### 3.6 其他案例：zlib 与 Python 解释器
+### 3.5 其他案例：zlib 与 Python 解释器
 
 原文还报告了 x86 二进制的 zlib 格式规约验证，以及使用 Verus 验证 Rust 编写的 Python 子集解释器。**x86 实验采用 Claude 生成并经过大量测试的 ISA 语义**；RISC-V 主实验使用 Theorem 的 LPS。[原文其他案例与脚注 7](https://www.anthropic.com/research/formal-verification)
 
@@ -496,11 +487,11 @@ assert(r == LZO_E_OK && decompressed_len == size);
 
 作者还报告，对安全性质的证明尝试发现了潜伏十余年的逻辑问题；在验证某 PDF 阅读器时，一周内发现的安全缺陷数量相当于该项目通常一年的报告量。[其他验证案例](https://www.anthropic.com/research/formal-verification)
 
-### 3.7 公开源码中的三种结果：证明成立、找到反例、模型无法覆盖
+### 3.6 公开源码中的三种结果：证明成立、找到反例、模型无法覆盖
 
 以下核对公开仓库 `a6839bb9`（2026 年 10 月 30 日）的状态。`proved` 表示已收录证明；`open` 表示尚无已收录证明，不能据此判断是否尝试过；`witnessed-false` 表示已有具体反例；`model-gap` 表示受当前执行模型限制。[完整状态索引](https://github.com/theorem-labs/oss-verify-proofs/blob/a6839bb9e433b34c0d0710df5280194528877139/index/statements.tsv)
 
-#### 3.7.1 zlib：通过无错误证明，得到具体的校验和性质
+#### 3.6.1 zlib：通过无错误证明，得到具体的校验和性质
 
 `checksum_fuzzer` 对同一输入分别进行分块计算和一次性计算，并用断言比较 CRC-32 与 Adler-32 的结果。CRC 循环中的以下片段来自实际入口：
 
@@ -529,7 +520,7 @@ assert(r == LZO_E_OK && decompressed_len == size);
 
 @@opinion-end@@
 
-#### 3.7.2 libarchive：内存分配失败，使五个目标被反例否定
+#### 3.6.2 libarchive：内存分配失败，使五个目标被反例否定
 
 `libarchive_xar_fuzzer` 把输入当作 XAR 归档读取，遍历条目、访问文件名和元数据，并读取条目内容。它没有比较解包结果的功能断言。该入口的四个带预算前提的 `*_halts` 仍开放；两个 `*_halts_may_fail` 和三个 `*_agrees` 则已标为 **`witnessed-false`**。[入口和状态](https://github.com/theorem-labs/oss-verify-proofs/blob/a6839bb9e433b34c0d0710df5280194528877139/projects/libarchive/libarchive_xar_fuzzer/README.md)
 
@@ -543,7 +534,7 @@ assert(r == LZO_E_OK && decompressed_len == size);
 
 @@opinion-end@@
 
-#### 3.7.3 Apache Arrow：线程与 CPU 亲和性超出当前模型
+#### 3.6.3 Apache Arrow：线程与 CPU 亲和性超出当前模型
 
 `arrow-csv-fuzz` 对同一份输入运行五种读取方式，包括串行表读取、并行表读取、流式读取，以及两种换行配置下的异步行数统计。入口没有比较这些读取方式产生的表格和行数。
 

@@ -4297,13 +4297,9 @@ r = lzo1x_decompress(compressed, compressed_len,
 assert(r == LZO_E_OK &amp;&amp; decompressed_len == size);
 </code></pre>
 <p>第一条检查压缩成功；当压缩结果小于原输入时，后续分支解压并检查成功状态及还原长度。断言失败会进入中止路径，因而排除 crash 的证明也覆盖这些要求。在二进制中，两条断言编成跳向 abort 处理程序的分支，证明按确切指令地址分析并排除这些分支。附录还介绍了管理智能卡与密码硬件的 p11-kit：其配置词法分析器在识别 PEM 块时，断言块长度不超过输入缓冲区末尾；这类维护者写在入口中的约束，同样成为证明需要排除的失败分支。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=6">附录第 6 页代码与说明</a></p>
-<h3>3.4 补充讨论：功能要求怎样进入检查</h3>
-<div class="author-opinion">
-<p>排序可以用断言检查输出有序、元素及重复次数保持不变，也可以直接陈述 Rocq 的 <code>Permutation</code> 与 <code>Sorted</code>。可执行检查器这条路线还需要保证：原输入副本可靠、检查能终止、判断正确且会被执行；直接写逻辑性质则需要连接机器内存与列表表示。</p>
-</div>
-<h3>3.5 为了排除栈溢出，证明红黑树保持对数高度</h3>
+<h3>3.4 为了排除栈溢出，证明红黑树保持对数高度</h3>
 <p>另一个具有代表性的例子来自 cpp-httplib：为了排除 <code>std::set</code> 析构递归引起的栈溢出，证明必须建立 libc++ 红黑树重平衡维持对数树高的性质。这说明无 crash 目标的内部证明，也可能需要复杂的算法不变量。<a href="https://www.anthropic.com/research/formal-verification">原文的红黑树案例</a></p>
-<h3>3.6 其他案例：zlib 与 Python 解释器</h3>
+<h3>3.5 其他案例：zlib 与 Python 解释器</h3>
 <p>原文还报告了 x86 二进制的 zlib 格式规约验证，以及使用 Verus 验证 Rust 编写的 Python 子集解释器。<strong>x86 实验采用 Claude 生成并经过大量测试的 ISA 语义</strong>；RISC-V 主实验使用 Theorem 的 LPS。<a href="https://www.anthropic.com/research/formal-verification">原文其他案例与脚注 7</a></p>
 <p>在 zlib 案例中，研究者指定 RFC 1950，Claude 据此编写形式规约，再证明 Linux 内核实现的 x86 二进制满足规约。作者还在另外约 6 个广泛使用的库上重复尝试，并发现若干不可利用的边界缺陷。作者据此认为，这些经过充分测试的代码库已接近正确，而且可以为真实现有代码建立端到端的正确性证明。<a href="https://www.anthropic.com/research/formal-verification">原文的其他验证案例</a></p>
 <p>对于模型生成的 x86 语义，作者在脚注中进一步报告：可以通过语义单步执行，在 Linux 内核之上启动 Ubuntu 用户空间；构建过程还发现参考文档中的数百处错误和少量硬件问题。<a href="https://www.anthropic.com/research/formal-verification">原文脚注 7</a></p>
@@ -4313,9 +4309,9 @@ assert(r == LZO_E_OK &amp;&amp; decompressed_len == size);
 <p><strong>验证路线选择了 safe Rust、Verus 和 Z3。</strong> 作者选择 Verus 出于它与 Rust 生态的契合及实践偏好，也为了检验 Claude 适应不同形式系统的能力。Verus 用 <code>requires</code>、<code>ensures</code> 与循环不变量表达契约，再调用 Z3；源码层的 Hoare 风格证明是这次实验特意尝试的另一种路线。附录把选择 Verus 而非 Lean 表述为偏好。</p>
 <p>研究者还向早期解释器注入七个错误：其中五个通过了随机测试，七个都使证明失败。定理约束“返回结果时结果符合形式语义”，形式语义与 CPython 的对应另通过约 170 万个程序上的测试检验。</p>
 <p>作者还报告，对安全性质的证明尝试发现了潜伏十余年的逻辑问题；在验证某 PDF 阅读器时，一周内发现的安全缺陷数量相当于该项目通常一年的报告量。<a href="https://www.anthropic.com/research/formal-verification">其他验证案例</a></p>
-<h3>3.7 公开源码中的三种结果：证明成立、找到反例、模型无法覆盖</h3>
+<h3>3.6 公开源码中的三种结果：证明成立、找到反例、模型无法覆盖</h3>
 <p>以下核对公开仓库 <code>a6839bb9</code>（2026 年 10 月 30 日）的状态。<code>proved</code> 表示已收录证明；<code>open</code> 表示尚无已收录证明，不能据此判断是否尝试过；<code>witnessed-false</code> 表示已有具体反例；<code>model-gap</code> 表示受当前执行模型限制。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/a6839bb9e433b34c0d0710df5280194528877139/index/statements.tsv">完整状态索引</a></p>
-<h4>3.7.1 zlib：通过无错误证明，得到具体的校验和性质</h4>
+<h4>3.6.1 zlib：通过无错误证明，得到具体的校验和性质</h4>
 <p><code>checksum_fuzzer</code> 对同一输入分别进行分块计算和一次性计算，并用断言比较 CRC-32 与 Adler-32 的结果。CRC 循环中的以下片段来自实际入口：</p>
 <pre><code class="language-c">    uint32_t crc3 = crc32_z(crc0, data + offset, buffSize);
     uint32_t crc4 = crc32_combine_op(crc1, crc3, op);
@@ -4334,14 +4330,14 @@ assert(r == LZO_E_OK &amp;&amp; decompressed_len == size);
 <div class="author-opinion">
 <p>这个案例直接说明：<strong>可执行检查可以承载功能规约，不需要先把要求改写成独立的 Rocq 数学定义。</strong> 这里已经得到的是校验和实现之间的具体关系；完整压缩格式正确性是另一项要求。该入口的普通构建证明，也不能替代尚未完成的 sanitizer 构建证明。</p>
 </div>
-<h4>3.7.2 libarchive：内存分配失败，使五个目标被反例否定</h4>
+<h4>3.6.2 libarchive：内存分配失败，使五个目标被反例否定</h4>
 <p><code>libarchive_xar_fuzzer</code> 把输入当作 XAR 归档读取，遍历条目、访问文件名和元数据，并读取条目内容。它没有比较解包结果的功能断言。该入口的四个带预算前提的 <code>*_halts</code> 仍开放；两个 <code>*_halts_may_fail</code> 和三个 <code>*_agrees</code> 则已标为 <strong><code>witnessed-false</code></strong>。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/a6839bb9e433b34c0d0710df5280194528877139/projects/libarchive/libarchive_xar_fuzzer/README.md">入口和状态</a></p>
 <p>仓库给出了同一个具体反例：使用其记录的输入文件，在第六次内存请求——一次 <strong>16,384 字节的 <code>mmap</code></strong>——发生时拒绝分配。普通构建和 UBSan 构建会因未捕获的 <code>std::bad_alloc</code> 以 <strong>SIGABRT</strong> 中止；记录来自 <code>qemu-riscv64 10.0.11</code> 下的重放。</p>
 <p>这足以否定两个“允许任意请求失败时仍能退出”的目标，也足以否定三个要求普通侧无错误的行为一致目标。这些 <code>agrees</code> 允许环境主动拒绝分配，区别于 cJSON 使用的 <code>alloc-forced-only</code> 策略。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/a6839bb9e433b34c0d0710df5280194528877139/projects/libarchive/libarchive_xar_fuzzer/README.md">反例与环境前提</a></p>
 <div class="author-opinion">
 <p><strong>这里不是证明搜索尚未完成，而是原命题确实有反例。</strong> 下一步可以修复分配失败路径，或根据实际需求重新选择环境前提；两者得到的保证不同。限制环境失败会缩小保证范围，不等于原程序已经能正确处理任意内存分配失败。</p>
 </div>
-<h4>3.7.3 Apache Arrow：线程与 CPU 亲和性超出当前模型</h4>
+<h4>3.6.3 Apache Arrow：线程与 CPU 亲和性超出当前模型</h4>
 <p><code>arrow-csv-fuzz</code> 对同一份输入运行五种读取方式，包括串行表读取、并行表读取、流式读取，以及两种换行配置下的异步行数统计。入口没有比较这些读取方式产生的表格和行数。</p>
 <p><strong>四个终止目标和三个行为一致目标全部标为 <code>model-gap</code>。</strong> 仓库说明：二进制会查询 CPU 亲和性并启动线程，而这一版模型不支持相关执行。文档进一步指出，这些路径使相应目标在当前模型中不成立，原因在模型覆盖范围，而非已经确认的程序错误。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/a6839bb9e433b34c0d0710df5280194528877139/projects/arrow/arrow-csv-fuzz/README.md">Arrow 入口与模型缺口</a></p>
 <div class="author-opinion">
