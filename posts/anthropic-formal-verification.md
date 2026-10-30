@@ -594,12 +594,6 @@ assert(r == LZO_E_OK && decompressed_len == size);
 
 *原文图 6。三列分别是 libcups、freerdp 和 libzmq 的完整证明，块的高度按各部分字节占比绘制。深蓝为完全相同，浅蓝为小幅修改，浅棕为更多修改，橙色为新增；浅改的判定采用相同文件且大小变化在 2% 内。右侧标出分配器、sanitizer 运行时、共享库、规约以及普通和插桩构建等部分。[原图](https://www-cdn.anthropic.com/images/4zrzovbb/website/8e295614d599d548fbd2ff97ed3cc3e62f501b2b-1920x1248.png)*
 
-@@opinion-begin@@
-
-**模型可自动完成** 证明检索、复制与适配，Rocq 检查复用后的证明是否推出新目标，工具核对依赖版本。共享引理作为证明内部步骤时可直接接受机器检查；首次对外采用或修改模块契约时，人类确认其是否表达项目需求。
-
-@@opinion-end@@
-
 ### 4.4 先证明共用的基础库，再让上层软件复用
 
 很多软件依赖同一批基础库。作者设想把证明按软件包组织：先证明广泛使用的依赖，再让上层程序复用这些结论，重点证明自己的新增逻辑。同一份基础证明被越多项目使用，前期工作就由越多项目分担。[原文的软件包复用设想](https://www.anthropic.com/research/formal-verification)

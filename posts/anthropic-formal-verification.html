@@ -4370,9 +4370,6 @@ assert(r == LZO_E_OK &amp;&amp; decompressed_len == size);
 <h3>4.3 图 6：不同项目的证明怎样复用</h3>
 <p><a href="../assets/papers/anthropic-verification/figure-6.png"><img src="../assets/papers/anthropic-verification/figure-6.png" alt="Anthropic 原文图 6：libcups、freerdp 和 libzmq 的证明组成与复用程度"></a></p>
 <p><em>原文图 6。三列分别是 libcups、freerdp 和 libzmq 的完整证明，块的高度按各部分字节占比绘制。深蓝为完全相同，浅蓝为小幅修改，浅棕为更多修改，橙色为新增；浅改的判定采用相同文件且大小变化在 2% 内。右侧标出分配器、sanitizer 运行时、共享库、规约以及普通和插桩构建等部分。<a href="https://www-cdn.anthropic.com/images/4zrzovbb/website/8e295614d599d548fbd2ff97ed3cc3e62f501b2b-1920x1248.png">原图</a></em></p>
-<div class="author-opinion">
-<p><strong>模型可自动完成</strong> 证明检索、复制与适配，Rocq 检查复用后的证明是否推出新目标，工具核对依赖版本。共享引理作为证明内部步骤时可直接接受机器检查；首次对外采用或修改模块契约时，人类确认其是否表达项目需求。</p>
-</div>
 <h3>4.4 先证明共用的基础库，再让上层软件复用</h3>
 <p>很多软件依赖同一批基础库。作者设想把证明按软件包组织：先证明广泛使用的依赖，再让上层程序复用这些结论，重点证明自己的新增逻辑。同一份基础证明被越多项目使用，前期工作就由越多项目分担。<a href="https://www.anthropic.com/research/formal-verification">原文的软件包复用设想</a></p>
 <p>原文以 Mathlib 作类比：接近 30 万条定理由 700 多位贡献者逐步积累，新证明继续使用已有结果。作者希望软件验证也形成这样的共享基础。</p>
