@@ -416,7 +416,7 @@ ASan 通过报告与中止暴露内存错误；维护者用断言表达算法要
 
 ### 3.2 自动修补后重新生成证明目标
 
-原文允许 Claude 在证明过程中修补发现的 bug，随后为修补后的程序重新生成 spec，并继续证明。过程可以分为四步：[原文的发现与修补流程](https://www.anthropic.com/research/formal-verification)
+Claude 可以在发现 bug 后自动修补代码、重新生成 spec 并继续证明，无需每次停下来等待人类处理。过程可以分为四步：[原文的发现与修补流程](https://www.anthropic.com/research/formal-verification)
 
 1. **定位错误。** 证明推进中暴露失败路径，构造能触发它的输入，在真实目标上重放并确认。
 2. **修改并重编译。** 修改库代码后，重新得到相关普通构建和 sanitizer 构建，提取新 ELF 的加载段、入口地址与程序头。
@@ -445,7 +445,7 @@ ASan 通过报告与中止暴露内存错误；维护者用断言表达算法要
 
 附录第 3 页说明，当时每份入口证明还要覆盖 C 启动、libc 的分配器和输出、ASan 运行时以及驱动，公共部分仍随完整入口重新证明；图 6 展示的是复制已有证明再针对新程序调整。原文报告，一次完整证明的检查可消耗半小时到数小时 CPU 时间。[附录第 3–4 页](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=3)
 
-原文还记录了修补过程的控制措施：对补丁施加惩罚，奖励刻画补丁改变了哪些输入及其范围，并保存日志、审查补丁。[原文脚注 6](https://www.anthropic.com/research/formal-verification)
+研究团队记录并审查补丁，检查是否存在通过改变程序功能来规避验证目标的情况。为减少这类行为，实验还对修改代码施加惩罚，并奖励证明补丁改变了哪些输入、影响范围有多小。[原文脚注 6](https://www.anthropic.com/research/formal-verification)
 
 ### 3.3 超越内存安全：LZO 与 p11-kit 的功能断言
 
