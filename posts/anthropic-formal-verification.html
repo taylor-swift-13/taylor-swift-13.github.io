@@ -4171,10 +4171,9 @@ int main(void) {
 <p>行为观察包括标准输入读取、标准输出和错误输出、退出状态或终止信号、最终文件系统；性能不在其中。有限轨迹没有单独记下 crash，因此发生错误与不再产生事件的死循环可能具有相同前缀。这也是模板分别要求两个构建无错误的原因。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=1">附录第 1–2 页</a></p>
 <p><strong>该入口的已完成目标是 <code>asan_agrees</code>、<code>ubsan_agrees</code> 和 <code>asan_ubsan_agrees</code>。</strong> <code>plain_halts</code> 仍是开放目标：它另用 16 GiB 预算，要求所有许可执行最终以 0 或 2 退出，排除无限执行、卡住、错误与信号终止。其环境策略 <code>forced_only_cfg</code> 要求环境只在被状态强制时拒绝请求。ASan 的地址空间预留在被拒绝后会等待，因此仓库没有为它提供任意环境失败下的同类 <code>halts_may_fail</code> 目标。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/README.md">证明状态与环境</a></p>
 <p>驱动在参数、文件或输入头部不合要求，或文件达到 64 MiB 时可返回 2；部分环境函数被固定为 <code>getenv()</code> 返回 NULL、<code>getpid()</code> 返回 1。入口调用 JSON 解析、打印与压缩，但释放输出而不比较内容。概率界和可判定性命题也仍为开放目标。</p>
-<h4>2.6.3 错误：存在一条路径进入 SError</h4>
-<p>遇到 <code>ecall</code> 后，LPS 收集系统调用号、参数寄存器、可读内存和可写范围，交给 <code>syscall_spec</code>。对应的规约用 <code>Sys</code> Monad 描述许可结果：返回值、内存及文件状态变化、可观察事件。<code>sstep_syscall</code> 把任一满足规约的效果应用到进程状态，再继续执行。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v#L394">参数与转换</a>、<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Specs.v">系统调用规约</a></p>
-<p>例如 <code>read</code> 的输入字节由进程输入固定，非确定的是一次读出多少字节；规约允许短读，并描述输入耗尽和相应失败情形。<code>SpuriousCfg</code> 再约束哪些环境失败被允许。证明需要覆盖全部许可后继。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Sys/Fs/ReadWrite.v#L345">官方 read 规约</a></p>
-<p>对普通指令，以下是实际的故障转换规则：</p>
+<h4>2.6.3 错误状态、错误路径与排除错误路径</h4>
+<p><strong>第一步：错误状态——什么时候进入 <code>SError</code>？</strong></p>
+<p>LPS 用 <code>SError</code> 表示执行进入错误。下面是普通机器指令发生故障时的一条实际规则：</p>
 <pre><code class="language-coq">| sstep_instr_fault : forall ms model,
     m_halted model = None -&gt;
     ms_svc_pending ms = None -&gt;
@@ -4182,36 +4181,45 @@ int main(void) {
     sstep (mkCfg ms model) [] SError
 </code></pre>
 <div class="author-opinion">
-<p><strong>一条指令怎样进入错误状态</strong></p>
 <ul>
-<li><strong>前提</strong>：尚未退出、没有待处理系统调用，当前指令产生 <code>MachineFault</code>。</li>
-<li><strong>结果</strong>：一步进入 <code>SError</code>；<code>[]</code> 表示这一步没有可观察事件。</li>
+<li><strong>前提</strong>：进程尚未退出，没有待处理的系统调用，当前机器步进得到 <code>MachineFault</code>。</li>
+<li><strong>转换</strong>：从当前配置 <code>mkCfg ms model</code> 走一步，进入 <code>SError</code>。</li>
+<li><strong>事件</strong>：<code>[]</code> 表示这一步没有产生可观察的输入输出事件。</li>
 </ul>
 </div>
-<p>模型未覆盖的指令另有进入 <code>SError</code> 的规则。错误可达性定义为：</p>
+<p><strong>验证目标也排除 ASan 检查失败，不只排除段错误。</strong> ASan 插入的检查本身就在待证明的二进制里；检查失败后调用 <code>abort()</code>，相应中止路径也必须排除。上面的 <code>sstep_instr_fault</code> 只展示机器故障这一种情况，完整执行关系还处理模型未覆盖等情况；显式建模 <code>abort</code> 的命题族则通过 <code>KillEv</code> 和 <code>error_free_unkilled</code> 排除相应信号终止。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/building.md">ASan 的失败策略</a>、<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v">执行规则</a>、<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/EquivalenceDefinition/Equivalence.v#L194">信号终止谓词</a></p>
+<p><strong>第二步：错误路径——能否从初始状态走到错误？</strong></p>
+<p><code>reaches_error</code> 定义了错误可达性：</p>
 <pre><code class="language-coq">Definition reaches_error (c0 : config) : Prop :=
   exists tr c evs, star c0 tr c /\ sstep c evs SError.
 </code></pre>
 <div class="author-opinion">
-<p><strong>什么叫“能够到达错误”</strong></p>
 <ul>
-<li><strong>路径</strong>：从 <code>c0</code> 经过零步或多步到达 <code>c</code>，再一步进入 <code>SError</code>。</li>
-<li><strong>含义</strong>：存在这样一条路径，<code>reaches_error c0</code> 就成立。</li>
+<li><strong>起点</strong>：初始配置 <code>c0</code>。</li>
+<li><strong>前面的执行</strong>：<code>star c0 tr c</code> 表示经过零步或多步，到达配置 <code>c</code>，沿途产生事件序列 <code>tr</code>。</li>
+<li><strong>最后一步</strong>：<code>sstep c evs SError</code> 表示再走一步进入错误。</li>
+<li><strong>整句含义</strong>：只要存在这样一条路径，<code>reaches_error c0</code> 就成立。例如“启动 → 读取输入 → 计算地址 → 非法访存 → <code>SError</code>”。</li>
 </ul>
 </div>
-<p>运行定义把这一可达性记录在 <code>bh_errors</code> 中，最终的无错误谓词就是：</p>
+<p><strong>第三步：排除错误路径——证明这样的路径不存在。</strong></p>
+<p>运行定义把错误可达性记入行为记录的 <code>bh_errors</code> 字段，无错误谓词对它取逻辑否定：</p>
 <pre><code class="language-coq">Definition error_free (b : behavior)
   : Prop := ~ bh_errors b.
 </code></pre>
 <div class="author-opinion">
-<p><strong>什么叫“无错误”</strong></p>
 <ul>
-<li><strong>对象</strong>：程序行为 <code>b</code>。</li>
+<li><strong>对象</strong>：程序的行为记录 <code>b</code>。</li>
 <li><strong>要求</strong>：<code>~ bh_errors b</code>，即不存在允许的错误执行。</li>
+<li><strong>放回顶层目标</strong>：对每个满足前提的输入和启动布局，都要排除错误路径；Claude 构造证明，Rocq 检查证明。只要有一个允许的分支会出错，这个无错误目标就不成立。</li>
 </ul>
 </div>
-<p>因此，目标要求在许可初态和执行关系下排除所有错误路径。ASan 插入的地址检查也属于二进制指令，检查失败后的中止路径同样需要排除。显式建模 <code>abort</code> 的命题族还会使用 <code>KillEv</code> 与 <code>error_free_unkilled</code> 禁止信号终止。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v">运行与错误定义</a>、<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/EquivalenceDefinition/Equivalence.v#L194">信号终止定义</a></p>
-<h4>2.6.4 证明：用同一个中间规约连接两边</h4>
+<h4>2.6.4 系统调用：用规约描述允许的状态变化</h4>
+<p>LPS 用系统调用规约描述内核允许的效果，不逐条执行 Linux 内核实现。遇到 <code>ecall</code> 后，模型收集系统调用号、参数寄存器、当前内存及可写范围，交给 <code>syscall_spec</code>。规约用 <code>Sys</code> Monad 组织返回值、内存及文件状态变化、可观察事件；<code>sstep_syscall</code> 将满足规约的效果应用到进程状态，再继续执行。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v#L394">参数与转换</a>、<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Specs.v">系统调用规约</a></p>
+<p>例如，标准输入的 <code>read</code> 可以短读：字节内容来自固定的输入流，一次读出多少字节则可以有多种许可结果。规约同时描述写入缓冲区的内容、返回长度和输入流位置的更新。<code>SpuriousCfg</code> 再约束哪些环境失败被允许，证明需要覆盖相应的全部许可后继。<a href="https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Sys/Fs/ReadWrite.v#L345">实际 read 规约</a></p>
+<div class="author-opinion">
+<p><strong>返回错误码与进入错误状态是两回事。</strong> <code>read</code> 系统调用返回 <code>-EBADF</code>（文件描述符无效）等错误码，可以是规约允许的结果，由程序继续处理；模型无法描述的调用情形则记为 <code>Unmodeled</code>，会阻碍无错误证明。</p>
+</div>
+<h4>2.6.5 证明：用同一个中间规约连接两边</h4>
 <p>顶层目标固定以后，代理可以为组织证明引入中间规约。cJSON 使用的类型是：</p>
 <pre><code class="language-coq">Definition TSet := list event -&gt; Prop.
 </code></pre>

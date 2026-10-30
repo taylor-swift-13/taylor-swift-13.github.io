@@ -267,13 +267,11 @@ int main(void) {
 
 驱动在参数、文件或输入头部不合要求，或文件达到 64 MiB 时可返回 2；部分环境函数被固定为 `getenv()` 返回 NULL、`getpid()` 返回 1。入口调用 JSON 解析、打印与压缩，但释放输出而不比较内容。概率界和可判定性命题也仍为开放目标。
 
-#### 2.6.3 错误：存在一条路径进入 SError
+#### 2.6.3 错误状态、错误路径与排除错误路径
 
-遇到 `ecall` 后，LPS 收集系统调用号、参数寄存器、可读内存和可写范围，交给 `syscall_spec`。对应的规约用 `Sys` Monad 描述许可结果：返回值、内存及文件状态变化、可观察事件。`sstep_syscall` 把任一满足规约的效果应用到进程状态，再继续执行。[参数与转换](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v#L394)、[系统调用规约](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Specs.v)
+**第一步：错误状态——什么时候进入 `SError`？**
 
-例如 `read` 的输入字节由进程输入固定，非确定的是一次读出多少字节；规约允许短读，并描述输入耗尽和相应失败情形。`SpuriousCfg` 再约束哪些环境失败被允许。证明需要覆盖全部许可后继。[官方 read 规约](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Sys/Fs/ReadWrite.v#L345)
-
-对普通指令，以下是实际的故障转换规则：
+LPS 用 `SError` 表示执行进入错误。下面是普通机器指令发生故障时的一条实际规则：
 
 ```coq
 | sstep_instr_fault : forall ms model,
@@ -285,14 +283,17 @@ int main(void) {
 
 @@opinion-begin@@
 
-**一条指令怎样进入错误状态**
-
-- **前提**：尚未退出、没有待处理系统调用，当前指令产生 `MachineFault`。
-- **结果**：一步进入 `SError`；`[]` 表示这一步没有可观察事件。
+- **前提**：进程尚未退出，没有待处理的系统调用，当前机器步进得到 `MachineFault`。
+- **转换**：从当前配置 `mkCfg ms model` 走一步，进入 `SError`。
+- **事件**：`[]` 表示这一步没有产生可观察的输入输出事件。
 
 @@opinion-end@@
 
-模型未覆盖的指令另有进入 `SError` 的规则。错误可达性定义为：
+**验证目标也排除 ASan 检查失败，不只排除段错误。** ASan 插入的检查本身就在待证明的二进制里；检查失败后调用 `abort()`，相应中止路径也必须排除。上面的 `sstep_instr_fault` 只展示机器故障这一种情况，完整执行关系还处理模型未覆盖等情况；显式建模 `abort` 的命题族则通过 `KillEv` 和 `error_free_unkilled` 排除相应信号终止。[ASan 的失败策略](https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/docs/building.md)、[执行规则](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v)、[信号终止谓词](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/EquivalenceDefinition/Equivalence.v#L194)
+
+**第二步：错误路径——能否从初始状态走到错误？**
+
+`reaches_error` 定义了错误可达性：
 
 ```coq
 Definition reaches_error (c0 : config) : Prop :=
@@ -301,14 +302,16 @@ Definition reaches_error (c0 : config) : Prop :=
 
 @@opinion-begin@@
 
-**什么叫“能够到达错误”**
-
-- **路径**：从 `c0` 经过零步或多步到达 `c`，再一步进入 `SError`。
-- **含义**：存在这样一条路径，`reaches_error c0` 就成立。
+- **起点**：初始配置 `c0`。
+- **前面的执行**：`star c0 tr c` 表示经过零步或多步，到达配置 `c`，沿途产生事件序列 `tr`。
+- **最后一步**：`sstep c evs SError` 表示再走一步进入错误。
+- **整句含义**：只要存在这样一条路径，`reaches_error c0` 就成立。例如“启动 → 读取输入 → 计算地址 → 非法访存 → `SError`”。
 
 @@opinion-end@@
 
-运行定义把这一可达性记录在 `bh_errors` 中，最终的无错误谓词就是：
+**第三步：排除错误路径——证明这样的路径不存在。**
+
+运行定义把错误可达性记入行为记录的 `bh_errors` 字段，无错误谓词对它取逻辑否定：
 
 ```coq
 Definition error_free (b : behavior)
@@ -317,16 +320,25 @@ Definition error_free (b : behavior)
 
 @@opinion-begin@@
 
-**什么叫“无错误”**
-
-- **对象**：程序行为 `b`。
+- **对象**：程序的行为记录 `b`。
 - **要求**：`~ bh_errors b`，即不存在允许的错误执行。
+- **放回顶层目标**：对每个满足前提的输入和启动布局，都要排除错误路径；Claude 构造证明，Rocq 检查证明。只要有一个允许的分支会出错，这个无错误目标就不成立。
 
 @@opinion-end@@
 
-因此，目标要求在许可初态和执行关系下排除所有错误路径。ASan 插入的地址检查也属于二进制指令，检查失败后的中止路径同样需要排除。显式建模 `abort` 的命题族还会使用 `KillEv` 与 `error_free_unkilled` 禁止信号终止。[运行与错误定义](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v)、[信号终止定义](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/EquivalenceDefinition/Equivalence.v#L194)
+#### 2.6.4 系统调用：用规约描述允许的状态变化
 
-#### 2.6.4 证明：用同一个中间规约连接两边
+LPS 用系统调用规约描述内核允许的效果，不逐条执行 Linux 内核实现。遇到 `ecall` 后，模型收集系统调用号、参数寄存器、当前内存及可写范围，交给 `syscall_spec`。规约用 `Sys` Monad 组织返回值、内存及文件状态变化、可观察事件；`sstep_syscall` 将满足规约的效果应用到进程状态，再继续执行。[参数与转换](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Run.v#L394)、[系统调用规约](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Specs.v)
+
+例如，标准输入的 `read` 可以短读：字节内容来自固定的输入流，一次读出多少字节则可以有多种许可结果。规约同时描述写入缓冲区的内容、返回长度和输入流位置的更新。`SpuriousCfg` 再约束哪些环境失败被允许，证明需要覆盖相应的全部许可后继。[实际 read 规约](https://github.com/theorem-labs/rocq-linux-process-semantics/blob/f1006fe8178338a499b5e5c41be83006c4edd058/theories/LinuxProcessSem/Sys/Fs/ReadWrite.v#L345)
+
+@@opinion-begin@@
+
+**返回错误码与进入错误状态是两回事。** `read` 系统调用返回 `-EBADF`（文件描述符无效）等错误码，可以是规约允许的结果，由程序继续处理；模型无法描述的调用情形则记为 `Unmodeled`，会阻碍无错误证明。
+
+@@opinion-end@@
+
+#### 2.6.5 证明：用同一个中间规约连接两边
 
 顶层目标固定以后，代理可以为组织证明引入中间规约。cJSON 使用的类型是：
 
