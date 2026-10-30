@@ -4283,9 +4283,6 @@ int main(void) {
 <p>附录第 3 页说明，当时每份入口证明还要覆盖 C 启动、libc 的分配器和输出、ASan 运行时以及驱动，公共部分仍随完整入口重新证明；图 6 展示的是复制已有证明再针对新程序调整。原文报告，一次完整证明的检查可消耗半小时到数小时 CPU 时间。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=3">附录第 3–4 页</a></p>
 <p>原文还记录了修补过程的控制措施：对补丁施加惩罚，奖励刻画补丁改变了哪些输入及其范围，并保存日志、审查补丁。<a href="https://www.anthropic.com/research/formal-verification">原文脚注 6</a></p>
 <h3>3.3 超越内存安全：LZO 与 p11-kit 的功能断言</h3>
-<div class="author-opinion">
-<p><strong>通过验证的程序仍可能有 bug；这条路线覆盖哪些错误，取决于检查程序在什么情况下会 crash。</strong> 除了段错误等机器故障，sanitizer 的报告、<code>assert</code> 失败也可以使程序中止。把功能要求写成断言，就能把相应功能错误编码成 crash，纳入验证目标。</p>
-</div>
 <p>原文列举了入口可以检查的高层性质：编码与解码往返、幂等性、代数律、差分测试、自洽性，以及与参考实现等价。违反这些检查会触发失败，因而可以进入无 crash 的证明目标。<a href="https://www.anthropic.com/research/formal-verification">原文的功能性质讨论</a></p>
 <p>附录第 6 页的这段原始 C 代码同时包含控制分支、函数调用与两条断言；这里只调整换行：</p>
 <pre><code class="language-c">r = lzo1x_1_compress(data, size, compressed, &amp;compressed_len, wrkmem);
