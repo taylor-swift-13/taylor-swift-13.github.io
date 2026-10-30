@@ -4304,6 +4304,9 @@ assert(r == LZO_E_OK &amp;&amp; decompressed_len == size);
 <p>在 zlib 案例中，研究者指定 RFC 1950，Claude 据此编写形式规约，再证明 Linux 内核实现的 x86 二进制满足规约。作者还在另外约 6 个广泛使用的库上重复尝试，并发现若干不可利用的边界缺陷。作者据此认为，这些经过充分测试的代码库已接近正确，而且可以为真实现有代码建立端到端的正确性证明。<a href="https://www.anthropic.com/research/formal-verification">原文的其他验证案例</a></p>
 <p>对于模型生成的 x86 语义，作者在脚注中进一步报告：可以通过语义单步执行，在 Linux 内核之上启动 Ubuntu 用户空间；构建过程还发现参考文档中的数百处错误和少量硬件问题。<a href="https://www.anthropic.com/research/formal-verification">原文脚注 7</a></p>
 <p>解释器的附录定理要求：<strong>如果解释器返回结果，结果就符合所选形式语义</strong>。形式语义与 CPython 的对应另用测试检验；在约 170 万个程序上，一致率为 99.95%；作者将剩余差异归为已知的边界情况。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf">附录第 2–3 页</a></p>
+<div class="author-opinion">
+<p><strong>测试 formalization 而不是实现</strong>：这里强调把测试用于检验形式模型与真实执行是否一致，再在模型上证明实现的性质。例如，让模型和真实机器执行同一条指令或同一段程序，比较寄存器、内存和错误结果。这种差分测试能暴露模型错误，但测试通过本身不能保证模型在所有情况都正确。</p>
+</div>
 <h4>Python 解释器的完整实验条件与变异检验</h4>
 <p><strong>任务与语义由研究团队给定。</strong> 附录第 3 页说明，团队选择基于 λπ 的 Python 子集，并依据相关论文定义形式语义；Claude 在开发解释器的同时使用这套语义证明实现。Claude 完成了全部 17 个层次，Verus 检查各层定理无错误。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=3">附录第 3 页</a></p>
 <p><strong>验证路线选择了 safe Rust、Verus 和 Z3。</strong> 作者选择 Verus 出于它与 Rust 生态的契合及实践偏好，也为了检验 Claude 适应不同形式系统的能力。Verus 用 <code>requires</code>、<code>ensures</code> 与循环不变量表达契约，再调用 Z3；源码层的 Hoare 风格证明是这次实验特意尝试的另一种路线。附录把选择 Verus 而非 Lean 表述为偏好。</p>
@@ -4400,7 +4403,6 @@ p \in \mathrm{Paths}_G(s,t) \land \forall q \in \mathrm{Paths}_G(s,t),\quad \mat
 <p><strong>如果目的是保证没有 bug，形式模型的正确性就很关键。</strong> 例如，真实指令可能因非法访存而失败，模型却允许它正常读取；或者模型漏掉一种系统调用结果。Rocq 只检查证明是否符合给定定义，无法自动确认定义忠实描述了机器。因此，模型内的无错误证明不一定能排除真实执行中的错误。</p>
 <p><strong>即使形式模型完全正确，也不意味着能发现或排除所有 bug。</strong> 模型描述程序怎样执行，规约决定哪些行为算错误；把 bug 定义完整，本身就像写好 spec 一样困难。Sanitizer 的检查不能覆盖所有内存错误，例如 ASan 可能漏掉同一对象内部的越界。完整内存安全要求按对象边界、生命周期等规则排除非法访问，包括没有导致 crash 的访问。<a href="https://github.com/theorem-labs/oss-verify-proofs/blob/98e995d4daced70a0a4aa2c810854b88720735f1/projects/cjson/cjson_read_fuzzer/Statements.v">公开陈述中的 ASan 覆盖限制</a></p>
 <p>功能错误更难完整刻画：程序可以内存安全、不崩溃、通过所有现有检查，却仍然算错结果或遗漏业务要求。没有写进规约或检查的错误，也就不在相应证明的保证范围内。无 crash 的结论还受入口、输入、环境和资源前提约束，并不自动排除死循环；终止性需要单独证明。</p>
-<p><strong>测试 formalization 而不是实现</strong>：这里强调把测试用于检验形式模型与真实执行是否一致，再在模型上证明实现的性质。例如，让模型和真实机器执行同一条指令或同一段程序，比较寄存器、内存和错误结果。这种差分测试能暴露模型错误，但测试通过本身不能保证模型在所有情况都正确。</p>
 </div>
 <h2>6. 结论（Conclusion）</h2>
 <p>随着模型能力、证明复用与开发流程改进，形式验证将像类型系统和测试框架一样，逐步成为生产软件开发的内置环节。此次工作展示的是：从现有测试形成目标，直接验证编译后的二进制，由 Claude 构造大规模证明，再交给 Rocq 检查。</p>
