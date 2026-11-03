@@ -219,37 +219,76 @@ $$
 
 Forward KL 同理：使用 $\operatorname{sg}(q_a/p_a)(-\log p_a)$，是为了让自动求导得到 $(q_a/p_a)\nabla(-\log p_a)$。两种方法都是先推导所需梯度，再用固定权重的代理 loss 实现它。
 
-## 5. Forward 权重为什么还可以减去 1
+## 5. Forward 权重减去 1 有什么意义
 
-对学生采样，常数权重对应的平均 SFT 梯度为零：
+### 5.1 先看作用：让权重直接表示学生与老师的偏差
 
-$$
-\begin{aligned}
-\mathbb E_{a\sim p}\!\left[\nabla(-\log p_a)\right]
-&=-\sum_i p_i\nabla\log p_i\\
-&=-\sum_i\nabla p_i=0.
-\end{aligned}
-$$
-
-因此，forward 权重可以从 $q_a/p_a$ 改为 $q_a/p_a-1$，仍然得到同一个平均梯度：
+原始的 forward 权重是 $q_a/p_a$。假设学生已经与老师完全一致，即所有 token 都满足 $p_i=q_i$，这个权重仍然是 $1$。于是抽到 token $a$ 后，单次梯度仍为
 
 $$
-\widehat L_{\mathrm F,0}(a)
-=\operatorname{sg}\!\left(\frac{q_a}{p_a}-1\right)
-(-\log p_a).
+\frac{q_a}{p_a}\nabla(-\log p_a)=\nabla(-\log p_a).
 $$
 
-这相当于减去一个常数基线。基线改变单次随机梯度和方差，但不改变其期望；减去 $1$ 也不保证在所有情况下都能降低方差。一个直接的区别是：当 $p=q$ 时，原权重为 $1$，单个样本仍可能产生非零梯度；减去 $1$ 后，每个样本的权重都为零。
+也就是说，虽然学生已经学对，单次采样仍会推动它提高抽中 token 的概率。不同采样结果产生的梯度在期望上相互抵消，但每次更新仍可能产生随机波动。
 
-用这个版本与 reverse 比较，就能让“双方一致时权重为零”成为共同的参照点。$q/p>1$ 表示学生低估这个 token，$q/p<1$ 表示学生高估它：
+如果把权重改成 $q_a/p_a-1$，它就直接反映两者的偏差：
 
-| $q/p$ | Forward：$q/p-1$ | Reverse：$\log(q/p)$ |
+- **$q_a>p_a$：** 权重为正，推动学生提高这个 token 的概率。
+- **$q_a<p_a$：** 权重为负，推动学生降低这个 token 的概率。
+- **$q_a=p_a$：** 权重为零，这个样本不产生更新。
+
+特别是当整个分布 $p=q$ 时，每个样本的梯度都为零，不再只是平均梯度为零。这里说的提高或降低，是该样本单独做足够小的一步梯度下降时的方向；实际训练还会合并其他样本的梯度。
+
+这也让它更方便与 reverse 权重 $\log(q_a/p_a)$ 比较：两者都在 $q_a/p_a=1$ 时为零，在比值大于 $1$ 时为正、小于 $1$ 时为负。
+
+| $q_a/p_a$ | Forward：$q_a/p_a-1$ | Reverse：$\log(q_a/p_a)$ |
 | --- | ---: | ---: |
 | $100$ | $99$ | $4.61$ |
 | $1$ | $0$ | $0$ |
 | $0.01$ | $-0.99$ | $-4.61$ |
 
-这些权重都乘在 $-\log p_a$ 前，并在求导时固定。对这个样本单独做足够小的一步梯度下降，正权重沿提高 $\log p_a$ 的方向更新，负权重沿降低它的方向更新。实际训练还会合并其他样本的梯度，参数共享也会影响其他 token 的概率。
+### 5.2 为什么减去 1 不改变平均梯度
+
+减去 $1$，相当于从每个样本的原始梯度中减去一份 SFT 梯度：
+
+$$
+\left(\frac{q_a}{p_a}-1\right)\nabla(-\log p_a)
+=\frac{q_a}{p_a}\nabla(-\log p_a)-\nabla(-\log p_a).
+$$
+
+关键在于：按学生分布采样时，被减去的这一项，其期望恰好为零。逐步展开：
+
+$$
+\begin{aligned}
+\mathbb E_{a\sim p}[\nabla(-\log p_a)]
+&=\sum_i p_i\nabla(-\log p_i)\\
+&=-\sum_i p_i\frac{1}{p_i}\nabla p_i\\
+&=-\sum_i\nabla p_i\\
+&=-\nabla\left(\sum_i p_i\right)\\
+&=-\nabla 1=0.
+\end{aligned}
+$$
+
+因此，修改后的平均梯度等于原平均梯度减去零：
+
+$$
+\begin{aligned}
+\mathbb E_{a\sim p}\left[\left(\frac{q_a}{p_a}-1\right)\nabla(-\log p_a)\right]
+&=\mathbb E_{a\sim p}\left[\frac{q_a}{p_a}\nabla(-\log p_a)\right]
+-\mathbb E_{a\sim p}[\nabla(-\log p_a)]\\
+&=\nabla L_{\mathrm F}-0\\
+&=\nabla L_{\mathrm F}.
+\end{aligned}
+$$
+
+实现时，修改后的权重仍然需要固定：
+
+$$
+\widehat L_{\mathrm F,0}(a)
+=\operatorname{sg}\!\left(\frac{q_a}{p_a}-1\right)(-\log p_a).
+$$
+
+这种做法叫作减去一个常数基线。**它改变单次样本的梯度，但不改变平均训练方向。** 它消除了 $p=q$ 时的采样梯度波动，不过并不保证在所有分布下都能降低方差。
 
 ## 6. 为什么一些 sampled-token 实现偏向 Reverse KL
 
