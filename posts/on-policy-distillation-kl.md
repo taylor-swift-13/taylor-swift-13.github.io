@@ -47,6 +47,10 @@ L_{\mathrm{SFT}}=-\log p_i,
 \nabla_\theta L_{\mathrm{SFT}}=\nabla_\theta(-\log p_i).
 $$
 
+![SFT loss 曲线：概率越高，负对数损失越低](../assets/plots/sft-negative-log.svg)
+
+*使用自然对数：$p_i=0.1$ 时损失约为 $2.30$，$p_i=0.5$ 时约为 $0.69$，$p_i=1$ 时为 $0$；当 $p_i$ 趋近 $0$，损失趋向无穷。*
+
 概率 $p_i$ 越大，$-\log p_i$ 越小。因此，沿负梯度做足够小的一步更新，会降低这个损失、提高指定 token 的概率。加上本次求导时固定的权重 $w$ 后，更新变成
 
 $$
