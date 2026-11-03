@@ -17,6 +17,29 @@
 
 本文约定 forward KL 为 $D_{\mathrm{KL}}(q\|p)$，reverse KL 为 $D_{\mathrm{KL}}(p\|q)$。这里的 $p$ 始终表示学生，$q$ 始终表示老师；阅读不同资料时，需要先确认各自的符号约定。
 
+### 1.1 全词表计算与采样 token 计算，区别在哪里
+
+固定同一个前缀，例如“法国的首都是”。学生和老师都会给词表里的每个 token 一个概率。**全词表计算**在这个前缀下遍历所有 token，直接计算完整 KL：
+
+$$
+L_{\mathrm F}=\sum_{i\in V}q_i\log\frac{q_i}{p_i},
+\qquad
+L_{\mathrm R}=\sum_{i\in V}p_i\log\frac{p_i}{q_i}.
+$$
+
+**采样 token 计算**则按学生分布抽出一个 token $a$，只用这个 token 的 $p_a,q_a$ 构造一次随机梯度，不在损失中求整个词表的和。本文推导的加权 SFT 公式属于这种计算方式。
+
+| 同一个前缀下 | 全词表计算 | 采样 token 计算 |
+| --- | --- | --- |
+| 参与损失的 token | 词表中的每个 token | 学生实际抽中的 token $a$ |
+| 教师概率 | 使用整个分布 $q_i$ | 只使用抽中位置的 $q_a$ |
+| 计算结果 | 该前缀下的完整 KL 及其梯度 | 完整 KL 梯度的随机估计 |
+| 是否需要本文的采样权重 | 直接对完整 KL 求导 | 用固定权重乘以 $-\log p_a$ |
+
+例如词表只有 A、B、C：全词表计算把三个 token 的项相加；采样计算若抽到 B，本次只计算 B 的加权项。采样梯度不要求每次等于完整梯度，要求的是按学生分布抽样后的期望等于完整梯度。
+
+**学生生成了回答，不等于损失只计算生成的 token。** 一条学生回答提供多个前缀；每个前缀既可以计算全词表 KL，也可以只使用实际抽中的下一个 token。是否 on-policy 看前缀和回答由谁生成；全词表或采样计算看每个前缀下使用多少个 token 的概率。这里的“只用一个 token”指损失使用的项，模型输出层仍可能计算整个词表的 logits。
+
 ## 2. Forward KL：把老师加权改写成学生采样
 
 ### 2.1 从完整 loss 求梯度
@@ -362,6 +385,16 @@ $$
 这与第 3 节的 reverse KL 采样代理 loss 完全相同。这里的 $A(a)$ 由当前学生概率计算，但本次反向传播必须固定；它的正确性由 reverse KL 的梯度推导保证，不能把它当作参数无关的奖励直接对整个期望求导。
 
 因此，接入 RL 流程的关键很直接：保留“学生采样、计算 advantage、执行策略梯度更新”的结构，把 advantage 换成教师与学生的对数概率差。老师更认可的 token 得到正 advantage，学生过度生成的 token 得到负 advantage。
+
+由此可以统一理解：**在本文讨论的采样策略梯度形式下，RL 与 OPD 都可以用“固定权重 × SFT loss”产生训练梯度，区别是权重的来源。**
+
+| 训练方式 | 固定权重 $w_a$ | 采样代理 loss |
+| --- | --- | --- |
+| 策略梯度 RL | advantage $A(a)$ | $\operatorname{sg}(A(a))(-\log p_a)$ |
+| Reverse-KL OPD | $\log(q_a/p_a)$ | $\operatorname{sg}(\log(q_a/p_a))(-\log p_a)$ |
+| Forward-KL OPD | $q_a/p_a$，或 $q_a/p_a-1$ | $\operatorname{sg}(w_a)(-\log p_a)$ |
+
+RL 的 advantage 来自奖励与基线，OPD 的权重来自教师和学生的概率比较。这里统一的是产生梯度的代理 loss；全词表 OPD 可以直接对完整 KL 求导，PPO 等方法还会加入新旧策略比值、裁剪等处理。
 
 Thinking Machines 的 OPD 实现先记录学生生成 token 时的 log probability，再查询教师对相同 token 的 log probability，用“教师减学生”的差作为逐 token advantage，接入 RL 的 importance-sampling loss。
 
