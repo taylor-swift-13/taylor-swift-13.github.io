@@ -38,7 +38,24 @@ L_{\mathrm F}=\sum_{i\in V}q_i\log\frac{q_i}{p_i},
 L_{\mathrm R}=\sum_{i\in V}p_i\log\frac{p_i}{q_i},
 $$
 
-然后正常反向传播。**其中所有依赖学生参数的 $p_i$ 都参与求导，无须使用本文的 stop-gradient 采样权重。**
+然后直接对完整 KL 反向传播。例如词表只有 A、B，完整的 reverse KL 是
+
+$$
+L_{\mathrm R}
+=p_A\log\frac{p_A}{q_A}
++p_B\log\frac{p_B}{q_B}.
+$$
+
+外面的 $p_A,p_B$ 和对数里的 $p_A,p_B$ 都随学生参数变化，求导时全部保留；教师的 $q_A,q_B$ 固定。这个公式已经包含两个 token 对目标的贡献，直接求导就是完整 KL 的梯度，**不需要加 $\operatorname{sg}$**。若把外面的学生概率固定，反而会漏掉乘积求导中的一部分。
+
+而 sampled-token 若只抽到 A，使用的是专门构造的代理 loss：
+
+$$
+\widehat L_{\mathrm R}(A)
+=\operatorname{sg}\!\left(\log\frac{q_A}{p_A}\right)(-\log p_A).
+$$
+
+它通过“固定权重 × SFT loss”产生一个随机梯度，其采样期望等于完整 KL 的梯度。这里的 $\operatorname{sg}$ 服务于代理 loss 的构造。**全词表直接对完整 KL 求导；本文的采样方法则对固定权重的代理 loss 求导。**
 
 采样计算则抽取 $a\sim p$，使用下文推导的代理 loss：
 
