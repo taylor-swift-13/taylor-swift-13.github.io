@@ -139,6 +139,31 @@ $$
 \end{aligned}
 $$
 
+其中第二项的化简单独写出来，就是：
+
+$$
+\begin{aligned}
+p_i\nabla\log p_i
+&=p_i\left(\frac{1}{p_i}\nabla p_i\right)\\
+&=\left(p_i\frac{1}{p_i}\right)\nabla p_i\\
+&=1\cdot\nabla p_i\\
+&=\nabla p_i.
+\end{aligned}
+$$
+
+所以，两项都含有同一个向量 $\nabla p_i$，可以提取这个公因子：
+
+$$
+\begin{aligned}
+\log\frac{p_i}{q_i}\,\nabla p_i+p_i\nabla\log p_i
+&=\log\frac{p_i}{q_i}\,\nabla p_i+\nabla p_i\\
+&=\log\frac{p_i}{q_i}\,\nabla p_i+1\cdot\nabla p_i\\
+&=\left(\log\frac{p_i}{q_i}+1\right)\nabla p_i.
+\end{aligned}
+$$
+
+这和 $ax+x=ax+1\cdot x=(a+1)x$ 一样。这里的 $+1$ 来自第二项的系数；到这一步还没有把它消去。下面再对所有 token 求和，说明为什么这部分的总和为零。
+
 现在才对所有 token 求和，并把两类项分开：
 
 $$
