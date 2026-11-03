@@ -39,31 +39,21 @@ $$
 =\sum_i q_i\,\nabla(-\log p_i).
 $$
 
-这里把 $-\log p_i$ 称为这个 token 的 **SFT loss**。SFT 是监督微调；对指定 token $i$，它使用负对数概率作为损失。对学生参数 $\theta$ 求导，就得到本文所说的 **SFT 梯度**：
-
-$$
-L_{\mathrm{SFT}}=-\log p_i,
-\qquad
-\nabla_\theta L_{\mathrm{SFT}}=\nabla_\theta(-\log p_i).
-$$
+这里把 $-\log p_i$ 称为这个 token 的 **SFT loss**（监督微调损失）；对学生参数求导得到 **SFT 梯度** $\nabla_\theta(-\log p_i)$。最小化这个损失会提高指定 token 的概率。
 
 ![SFT loss 曲线：概率越高，负对数损失越低](../assets/plots/sft-negative-log.svg)
 
-*使用自然对数：$p_i=0.1$ 时损失约为 $2.30$，$p_i=0.5$ 时约为 $0.69$，$p_i=1$ 时为 $0$；当 $p_i$ 趋近 $0$，损失趋向无穷。*
+*自然对数下，$p_i=0.1$ 时损失约为 $2.30$，$p_i=0.5$ 时约为 $0.69$，$p_i=1$ 时为 $0$。*
 
-概率 $p_i$ 越大，$-\log p_i$ 越小。因此，沿负梯度做足够小的一步更新，会降低这个损失、提高指定 token 的概率。加上本次求导时固定的权重 $w$ 后，更新变成
+**$w$ 表示乘在 SFT loss 前面的权重，本次求导时固定。** Forward 取 $w=q_i/p_i$，Reverse 取 $w=\log(q_i/p_i)$。对加权损失 $w(-\log p_i)$ 做梯度下降：
 
-$$
-\theta_{\text{新}}
-=\theta_{\text{旧}}-\eta w\nabla_\theta(-\log p_i),
-\qquad \eta>0.
-$$
+- **正权重（$w>0$）**：提高指定 token 的概率。
+- **负权重（$w<0$）**：降低指定 token 的概率。
+- **零权重（$w=0$）**：不产生更新。
 
-- **$w>0$：** 沿降低 SFT loss 的方向更新，提高该 token 的概率。
-- **$w<0$：** 更新方向反转，提高 SFT loss，降低该 token 的概率。
-- **$w=0$：** 这个样本不产生更新。
+例如，指定 token 是“巴黎”，$w=2$ 就推动模型提高“巴黎”的概率，$w=-1$ 则推动降低。这里描述的是单个样本、足够小的一步更新；多个样本的梯度会合并。
 
-也可以直接看 **logits 的梯度**。设 softmax 之前的分数为 $z_j$：
+也可以看 **logits**：设 softmax 前的分数为 $z_j$，则
 
 $$
 p_j=\frac{e^{z_j}}{\sum_k e^{z_k}},
@@ -71,35 +61,17 @@ p_j=\frac{e^{z_j}}{\sum_k e^{z_k}},
 L=-\log p_i=-z_i+\log\sum_k e^{z_k}.
 $$
 
-对任意 logit $z_j$ 求导，得到
+对 $z_j$ 求导：
 
 $$
-\frac{\partial L}{\partial z_j}
-=-\mathbf 1_{j=i}+\frac{e^{z_j}}{\sum_k e^{z_k}}
-=p_j-\mathbf 1_{j=i}.
+\frac{\partial(wL)}{\partial z_j}
+=w\left(-\mathbf1_{j=i}+\frac{e^{z_j}}{\sum_k e^{z_k}}\right)
+=w(p_j-\mathbf1_{j=i}).
 $$
 
-其中 $\mathbf 1_{j=i}$ 在 $j=i$ 时为 $1$，否则为 $0$。因此，对目标 token 和其他 token 分别有
+其中 $\mathbf1_{j=i}$ 在 $j=i$ 时为 $1$，否则为 $0$。所以目标 token 的梯度是 $w(p_i-1)$，其他 token 的梯度是 $wp_j$。若直接更新 logits，正权重让目标分数上升、其他分数下降；负权重则相反。例如 $p=(0.2,0.3,0.5)$，目标为第一个 token，$w=1$ 时梯度是 $(-0.8,0.3,0.5)$，梯度下降沿相反方向更新。实际模型通过链式法则把这些梯度传回参数 $\theta$。
 
-$$
-\frac{\partial(wL)}{\partial z_i}=w(p_i-1),
-\qquad
-\frac{\partial(wL)}{\partial z_j}=wp_j\quad(j\ne i).
-$$
-
-若把 logits 直接当作可更新变量，梯度下降会让它们变成
-
-$$
-z_i^{\text{新}}=z_i^{\text{旧}}+\eta w(1-p_i),
-\qquad
-z_j^{\text{新}}=z_j^{\text{旧}}-\eta wp_j\quad(j\ne i).
-$$
-
-所以 $w>0$ 时，目标 logit 上升、其他 logits 下降，目标概率提高；$w<0$ 时方向相反。例如 $p=(0.2,0.3,0.5)$，目标是第一个 token，则 $w=1$ 时的 logit 梯度为 $(-0.8,0.3,0.5)$，更新量为 $(+0.8\eta,-0.3\eta,-0.5\eta)$；$w=-1$ 时全部反向。实际神经网络更新的是参数 $\theta$，通过链式法则计算 $\nabla_\theta(wL)=\sum_j w(p_j-\mathbf 1_{j=i})\nabla_\theta z_j$。
-
-例如，前缀是“法国的首都是”，本次指定 token 是“巴黎”。若 $w=2$，就沿提高“巴黎”概率的方向更新，步长是 $w=1$ 时的两倍；若 $w=-1$，则沿降低“巴黎”概率的方向更新。这里描述的是该样本单独做足够小的一步更新；合并其他样本的梯度后，实际变化还受它们影响。
-
-在 OPD 中，指定 token 也可以由学生自己抽出，不一定是人工标注的标准答案。这里沿用“SFT loss”和“SFT 梯度”，指的是相同的负对数概率计算形式；前面的权重决定要鼓励还是抑制这个 token。
+OPD 中的指定 token 可以由学生自己采样；“SFT”在这里指负对数概率的计算形式，不要求它是人工标注的答案。
 
 ### 2.2 用学生抽样的频率提供外层权重
 
