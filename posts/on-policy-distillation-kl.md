@@ -33,48 +33,29 @@ L_{\mathrm F}
 \end{aligned}
 $$
 
-先对上式逐项求导。老师的 $q_i$ 不依赖学生参数，因此 $q_i\log q_i$ 的梯度为零，另一项中的 $q_i$ 可以提出：
+因此，它的梯度是每个 token 的负对数似然梯度，乘以老师概率后求和：
 
 $$
-\begin{aligned}
 \nabla L_{\mathrm F}
-&=\sum_i\nabla(q_i\log q_i)+\sum_i\nabla\big[q_i(-\log p_i)\big]\\
-&=\sum_i 0+\sum_i q_i\nabla(-\log p_i)\\
-&=\sum_i q_i\nabla(-\log p_i).
-\end{aligned}
+=\sum_i q_i\,\nabla(-\log p_i).
 $$
 
 这里把 $-\log p_i$ 称为这个 token 的 SFT loss。即使该 token 由学生抽出，给定它以后，负对数似然的计算形式仍与 SFT 相同。
 
-### 2.2 把求和写成学生采样下的期望
+### 2.2 用学生抽样的频率提供外层权重
 
-先记 $g_i=\nabla(-\log p_i)$。因为 $p_i>0$，每一项都可以乘上等于 $1$ 的 $p_i/p_i$：
+学生抽中 $i$ 的概率是 $p_i$，而完整梯度按 $q_i$ 加权。给每项乘、除同一个 $p_i$，即可把两者连接起来：
 
 $$
-\begin{aligned}
+\boxed{
 \nabla L_{\mathrm F}
-&=\sum_i q_i g_i\\
-&=\sum_i\frac{p_i}{p_i}q_i g_i\\
-&=\sum_i p_i\left(\frac{q_i}{p_i}g_i\right).
-\end{aligned}
+=\sum_i p_i\left[
+\frac{q_i}{p_i}\,\nabla(-\log p_i)
+\right].
+}
 $$
 
-离散随机变量的期望定义是：若 $\Pr(a=i)=p_i$，则对任意量 $f(i)$，
-
-$$
-\mathbb E_{a\sim p}[f(a)]=\sum_i p_i f(i).
-$$
-
-取 $f(i)=(q_i/p_i)g_i$，上面的求和就成为
-
-$$
-\boxed{\nabla L_{\mathrm F}
-=\mathbb E_{a\sim p}\left[\frac{q_a}{p_a}\nabla(-\log p_a)\right].}
-$$
-
-**外面的 $p_i$ 体现在抽中 token $i$ 的概率里，不需要在单个样本上再乘一次。** 每个前缀只采样一次也可以得到一个随机梯度。比如只有 A、B 两个 token，抽到它们的概率分别为 $0.8$、$0.2$，单次结果是 $f(A)$ 或 $f(B)$，期望才是 $0.8f(A)+0.2f(B)$。无偏表示这个期望等于目标梯度，并不表示单次结果就等于目标梯度；重复采样用于减小随机误差。
-
-这里的 $q_i/p_i$ 是重要性权重：目标原本按教师分布 $q$ 加权，现在改用学生分布 $p$ 抽样，所以要修正两者的差异。它与“旧学生采样、当前学生更新”时使用的新旧策略比值不同；即使完全 on-policy，教师分布与学生分布仍可能不同，仍需要这个权重。
+外面的 $p_i$ 由学生抽样的频率提供。抽到哪个 token，就计算方括号里的梯度；在同一上下文、同一学生参数下重复采样，平均梯度便回到全词表的结果。这就是重要性采样：用 $q_i/p_i$ 修正“按学生抽样”和“按老师加权”的差别。
 
 记 $\operatorname{sg}(x)$ 为 stop-gradient：前向计算时取值等于 $x$，反向传播时将它视为常数。抽到 token $a$ 后，可以使用代理损失
 
@@ -86,18 +67,7 @@ $$
 }
 $$
 
-抽中的 $a$ 在本次反向传播中固定。由于 $\nabla\operatorname{sg}(x)=0$，乘积求导得到
-
-$$
-\begin{aligned}
-\nabla\widehat L_{\mathrm F}(a)
-&=\underbrace{\nabla\operatorname{sg}(q_a/p_a)}_{0}(-\log p_a)
-+\operatorname{sg}(q_a/p_a)\nabla(-\log p_a)\\
-&=\frac{q_a}{p_a}\nabla(-\log p_a).
-\end{aligned}
-$$
-
-这正是上面期望括号里的随机梯度。
+固定权重后，它对学生参数的梯度恰好是所需的 $(q_a/p_a)\nabla(-\log p_a)$。
 
 ## 3. Reverse KL：为什么最后出现对数权重
 
