@@ -48,12 +48,39 @@ $$
 
 外面的 $p_A,p_B$ 和对数里的 $p_A,p_B$ 都随学生参数变化，求导时全部保留；教师的 $q_A,q_B$ 固定。这个公式已经包含两个 token 对目标的贡献，直接求导就是完整 KL 的梯度，**不需要加 $\operatorname{sg}$**。若把外面的学生概率固定，反而会漏掉乘积求导中的一部分。
 
+全词表也会在乘积求导时出现两部分。对任意词表，完整 reverse KL 的梯度是
+
+$$
+\nabla L_{\mathrm R}
+=\sum_i\log\frac{p_i}{q_i}\nabla p_i
++\underbrace{\sum_i p_i\nabla\log\frac{p_i}{q_i}}_{\text{对对数中的概率求导}}.
+$$
+
+第二部分并没有被省略，而是在求和后变成零：
+
+$$
+\sum_i p_i\nabla\log\frac{p_i}{q_i}
+=\sum_i p_i\frac{1}{p_i}\nabla p_i
+=\nabla\sum_i p_i
+=\nabla 1=0.
+$$
+
+所以，全词表是正常求导后，由概率总和为 $1$ 自动抵消这一部分，不需要用 $\operatorname{sg}$ 阻止求导。
+
 而 sampled-token 若只抽到 A，使用的是专门构造的代理 loss：
 
 $$
 \widehat L_{\mathrm R}(A)
 =\operatorname{sg}\!\left(\log\frac{q_A}{p_A}\right)(-\log p_A).
 $$
+
+如果这个代理 loss 不固定权重，乘积求导会多出
+
+$$
+(-\log p_A)\nabla\log\frac{q_A}{p_A}.
+$$
+
+它与完整 KL 中求和后为零的那一项不同，一般不能靠采样平均抵消。**完整 KL 与采样代理 loss 是两个不同的表达式；前者直接求导，后者用 $\operatorname{sg}$ 保证产生正确的随机梯度。**
 
 它通过“固定权重 × SFT loss”产生一个随机梯度，其采样期望等于完整 KL 的梯度。这里的 $\operatorname{sg}$ 服务于代理 loss 的构造。**全词表直接对完整 KL 求导；本文的采样方法则对固定权重的代理 loss 求导。**
 
