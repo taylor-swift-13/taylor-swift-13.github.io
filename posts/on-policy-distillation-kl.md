@@ -154,37 +154,24 @@ $$
 
 完整 loss 中的学生概率都正常参与求导；只在构造这个采样代理损失时，才把前面的对数比值固定。
 
-## 4. 为什么要固定权重：让自动求导得到正确的梯度
+## 4. 为什么要固定权重
 
-前面已经从完整的 reverse KL 推导出：抽到 token $a$ 后，需要计算的随机梯度是
+前面已经推导出，抽到 token $a$ 后，需要的随机梯度是
 
 $$
-\boxed{\log\frac{q_a}{p_a}\,\nabla(-\log p_a).}
+\log\frac{q_a}{p_a}\,\nabla(-\log p_a).
 $$
 
-也就是：**先算出权重 $\log(q_a/p_a)$，再用它乘以 SFT 梯度。** 接下来的问题是，给自动求导程序写什么 loss，才能得到这个结果？
-
-### 4.1 固定权重：正好得到需要的梯度
-
-写成下面的代理 loss：
+为了让自动求导得到它，使用代理 loss：
 
 $$
 \widehat L_{\mathrm R}(a)
 =\operatorname{sg}\!\left(\log\frac{q_a}{p_a}\right)(-\log p_a).
 $$
 
-$\operatorname{sg}$ 不改变权重的数值，只让它在本次反向传播中被当作常数。因此，自动求导只对后面的 $-\log p_a$ 求导，得到
+**$\operatorname{sg}$ 保留权重的数值，但不对权重求导。** 例如权重算出来是 $2$，本次就得到 $2\nabla(-\log p_a)$；下次再重新计算权重。
 
-$$
-\nabla\widehat L_{\mathrm R}(a)
-=\log\frac{q_a}{p_a}\,\nabla(-\log p_a).
-$$
-
-这正是需要的结果。例如，本次权重算出来是 $2$，就用 $2$ 乘以 SFT 梯度。下次计算 loss 时会重新计算权重，并不是永远把它固定为 $2$。
-
-### 4.2 不固定权重：会多出“对权重求导”的一项
-
-如果直接写 $\log(q_a/p_a)(-\log p_a)$，两个因子都含有学生概率 $p_a$。自动求导会使用乘积法则：
+如果不加 $\operatorname{sg}$，乘积求导会多出一项：
 
 $$
 \begin{aligned}
@@ -194,69 +181,26 @@ $$
 \end{aligned}
 $$
 
-老师的 $q_a$ 虽然固定，但权重里的 $p_a$ 仍然随学生参数变化，所以第二项一般不为零。**加上 $\operatorname{sg}$，就是为了去掉这项额外的导数。**
+老师的 $q_a$ 固定，权重里的学生概率 $p_a$ 却仍依赖参数，所以额外项一般不为零。原始 KL 已经在第 3 节完整求导；这里固定权重，是为了让代码准确实现推导出的梯度。
 
-这里并不是在求原始 KL 的导数时忽略学生概率的变化。原始 KL 已经在第 3 节完整求导；现在是在构造一个供代码反向传播的表达式，让它产生已经推导好的随机梯度。
-
-### 4.3 直接对抽中的对数比值求导：与正确梯度相差什么
-
-另一种写法是直接把 $\log(p_a/q_a)$ 当作 loss。对抽中的固定 token $a$ 求导时，老师的概率是常数，因此
-
-$$
-\nabla\log\frac{p_a}{q_a}=\nabla\log p_a.
-$$
-
-把它与第 3 节推导出的正确采样梯度放在一起：
+直接把 $\log(p_a/q_a)$ 当作 loss 也不行。对固定的采样 token 求导，结果与所需梯度分别是：
 
 $$
 \begin{aligned}
-\text{直接对对数比值求导：}\quad
-&\nabla\log p_a,\\
-\text{正确的采样梯度：}\quad
-&\log\frac{p_a}{q_a}\,\nabla\log p_a.
+\text{直接求导：}\quad &\nabla\log p_a,\\
+\text{所需梯度：}\quad &\log\frac{p_a}{q_a}\,\nabla\log p_a.
 \end{aligned}
 $$
 
-第二行也就是前面的 $\log(q_a/p_a)\nabla(-\log p_a)$：两个因子同时换符号，乘积不变。两种梯度相差的乘数是 **$\log(p_a/q_a)$**，它表达学生概率与老师概率的比较：
-
-- **$p_a>q_a$：** 乘数为正，沿这个样本的正确梯度做足够小的一步梯度下降，会压低该 token 的概率。
-- **$p_a<q_a$：** 乘数为负，会提高该 token 的概率。
-- **$p_a=q_a$：** 乘数为零，这个样本不需要调整。
-
-而直接求导得到的 $\nabla\log p_a$ 中，老师的 $q_a$ 已经消失，无法据此区分学生对该 token 是高估还是低估。它在学生采样下的期望还恰好为零：
+第二行与开头的形式等价，因为两个因子同时换了符号。相差的乘数 $\log(p_a/q_a)$ 用来比较学生与老师：学生高估时压低该 token 的概率，低估时提高，相等时不调整。直接求导则让 $q_a$ 消失，而且梯度期望为零：
 
 $$
-\begin{aligned}
 \mathbb E_{a\sim p}[\nabla\log p_a]
-&=\sum_i p_i\nabla\log p_i\\
-&=\sum_i p_i\frac{1}{p_i}\nabla p_i\\
-&=\sum_i\nabla p_i\\
-&=\nabla\left(\sum_i p_i\right)=\nabla 1=0.
-\end{aligned}
+=\sum_i p_i\frac{\nabla p_i}{p_i}
+=\nabla\sum_i p_i=0.
 $$
 
-所以，直接对这个单次对数比值反传，也不能得到一般非零的 reverse KL 梯度。
-
-### 4.4 代理 loss 用来训练，数值不必等于 KL
-
-以上三种写法可以概括为：
-
-| 写给自动求导的 loss | 得到的结果 |
-| --- | --- |
-| $\operatorname{sg}(\log(q_a/p_a))(-\log p_a)$ | 正好得到需要的随机梯度 |
-| $\log(q_a/p_a)(-\log p_a)$ | 多出对权重求导的一项 |
-| $\log(p_a/q_a)$ | 只得到 $\nabla\log p_a$；正确结果还要乘 $\log(p_a/q_a)$，直接求导的梯度期望为零 |
-
-代理 loss 的作用是产生正确的训练梯度，不是报告 KL 的大小。这里要保证的是
-
-$$
-\mathbb E_{a\sim p}[\nabla\widehat L_{\mathrm R}(a)]
-=\nabla L_{\mathrm R},
-$$
-
-而不是要求代理 loss 的平均数值等于 $L_{\mathrm R}$。
-
-Forward KL 同理：使用 $\operatorname{sg}(q_a/p_a)(-\log p_a)$，是为了让自动求导得到 $(q_a/p_a)\nabla(-\log p_a)$。两种方法都是先推导所需梯度，再用固定权重的代理 loss 实现它。
+**代理 loss 用来产生正确梯度，数值不必等于 KL。** 要求的是 $\mathbb E[\nabla\widehat L_{\mathrm R}]=\nabla L_{\mathrm R}$。Forward 同理：固定 $q_a/p_a$，只对后面的 $-\log p_a$ 求导。
 
 ## 5. Forward 权重减去 1 有什么意义
 
