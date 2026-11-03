@@ -75,7 +75,11 @@ void put_member(struct S *s, int i) {
 
 *原文封面。下文依次沿原文六章展开，相关附录与源码说明就近补入；保留全部六张原图的英文标注、三个视频与一个 GIF。黑色为原文、附录或公开源码中的内容，橙色为补充讨论、例子与评价。*
 
-原文以两组数据说明程序验证的需求与成本：Linux 近期披露漏洞超过 1,000 个；seL4 的实现与形式验证分别消耗约 2 和 20 人年。主实验二进制的规模中位数约为 18,000 条 RISC-V 指令。[原文背景与实验规模](https://www.anthropic.com/research/formal-verification)
+原文以两组数据说明程序验证的需求与成本：Linux 近期披露漏洞超过 1,000 个；seL4 的实现与形式验证分别消耗约 2 和 20 人年。[原文背景](https://www.anthropic.com/research/formal-verification)
+
+**主实验验证了多大的程序？** 完成证明的是 **123 个开源库中的 239 个 fuzz 入口**；每个目标是由入口、所调用的库代码及运行时链接成的 RISC-V 可执行程序，二进制长度的中位数约为 **18,000 条 RISC-V 指令**。附录另在 sanitizer 证明的统计中报告：程序机器代码大小中位数约为 **86 KB**，fuzz 驱动实际涉及其中约 **20%–50%** 的代码。[正文实验规模](https://www.anthropic.com/research/formal-verification)、[附录第 4 页](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=4)
+
+从源码看，典型入口只有几百行 C，编译后约 **2,000 条指令**，但证明还覆盖 C 启动过程、分配器、输出函数、ASan 运行时和驱动。具体例子包括 **cJSON 的 391 行解析入口**，以及链接进约 **51,000 行代码的 fftw3**。因此，入口源码、完整二进制和证明文本是三种不同的规模：主实验成功证明共约 **1.8 亿行 Rocq**，典型一份约 **60 万行、1,400 个文件**。[附录第 3–4 页](https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=3)
 
 ## 2. 把测试变成证明（Turning tests into proofs）
 

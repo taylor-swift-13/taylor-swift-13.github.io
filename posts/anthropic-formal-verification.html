@@ -78,7 +78,9 @@ void put_member(struct S *s, int i) {
 <p>2026 年 10 月 22 日，Anthropic 与 Theorem 发布了 <a href="https://www.anthropic.com/research/formal-verification"><em>LLMs are making formal software verification feasible at a much larger scale</em></a>。作者报告：在数周内，为 <strong>123 个开源库的 239 个 fuzz 入口</strong> 完成了特定条件下的 RISC-V 二进制证明，成功证明包含约 <strong>1.8 亿行 Rocq</strong>。</p>
 <p><a href="../assets/papers/anthropic-verification/cover.jpg"><img src="../assets/papers/anthropic-verification/cover.jpg" alt="Anthropic 原文封面"></a></p>
 <p><em>原文封面。下文依次沿原文六章展开，相关附录与源码说明就近补入；保留全部六张原图的英文标注、三个视频与一个 GIF。黑色为原文、附录或公开源码中的内容，橙色为补充讨论、例子与评价。</em></p>
-<p>原文以两组数据说明程序验证的需求与成本：Linux 近期披露漏洞超过 1,000 个；seL4 的实现与形式验证分别消耗约 2 和 20 人年。主实验二进制的规模中位数约为 18,000 条 RISC-V 指令。<a href="https://www.anthropic.com/research/formal-verification">原文背景与实验规模</a></p>
+<p>原文以两组数据说明程序验证的需求与成本：Linux 近期披露漏洞超过 1,000 个；seL4 的实现与形式验证分别消耗约 2 和 20 人年。<a href="https://www.anthropic.com/research/formal-verification">原文背景</a></p>
+<p><strong>主实验验证了多大的程序？</strong> 完成证明的是 <strong>123 个开源库中的 239 个 fuzz 入口</strong>；每个目标是由入口、所调用的库代码及运行时链接成的 RISC-V 可执行程序，二进制长度的中位数约为 <strong>18,000 条 RISC-V 指令</strong>。附录另在 sanitizer 证明的统计中报告：程序机器代码大小中位数约为 <strong>86 KB</strong>，fuzz 驱动实际涉及其中约 <strong>20%–50%</strong> 的代码。<a href="https://www.anthropic.com/research/formal-verification">正文实验规模</a>、<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=4">附录第 4 页</a></p>
+<p>从源码看，典型入口只有几百行 C，编译后约 <strong>2,000 条指令</strong>，但证明还覆盖 C 启动过程、分配器、输出函数、ASan 运行时和驱动。具体例子包括 <strong>cJSON 的 391 行解析入口</strong>，以及链接进约 <strong>51,000 行代码的 fftw3</strong>。因此，入口源码、完整二进制和证明文本是三种不同的规模：主实验成功证明共约 <strong>1.8 亿行 Rocq</strong>，典型一份约 <strong>60 万行、1,400 个文件</strong>。<a href="https://www-cdn.anthropic.com/files/4zrzovbb/website/6867eadf760258fa8b42a504600cd3c036d16358.pdf#page=3">附录第 3–4 页</a></p>
 <h2>2. 把测试变成证明（Turning tests into proofs）</h2>
 <p>原文从规约的困难切入：PNG 解码可以参照格式规范，编辑器和浏览器的完整要求却很难一次写清。这项工作的做法是把已有可编译测试转成“所有允许输入都通过”的命题，再让模型完成机器码层的证明。<a href="https://www.anthropic.com/research/formal-verification">原文的规约构造</a></p>
 <h3>2.1 图 1：测试找到反例，证明覆盖一个明确的输入范围</h3>
