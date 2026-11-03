@@ -15,7 +15,7 @@
 
 下文统一使用自然对数，并假设所有 $p_i,q_i>0$。这覆盖有限 logit、未截断的 softmax 分布，也使概率比值和对数都有定义。讨论的是**用当前学生分布采样后，在同一参数位置计算的一次更新梯度**；上下文本身视为固定。
 
-本文约定 forward KL 为 $D_{\mathrm{KL}}(q\|p)$，reverse KL 为 $D_{\mathrm{KL}}(p\|q)$。这里的 $p$ 始终表示学生，$q$ 始终表示老师；阅读不同资料时，需要先确认各自的符号约定。KL 的定义、非负性与参数顺序可参见[《交叉熵与 KL 散度》](cross-entropy-kl.html)。
+本文约定 forward KL 为 $D_{\mathrm{KL}}(q\|p)$，reverse KL 为 $D_{\mathrm{KL}}(p\|q)$。这里的 $p$ 始终表示学生，$q$ 始终表示老师；阅读不同资料时，需要先确认各自的符号约定。
 
 ## 2. Forward KL：把老师加权改写成学生采样
 
@@ -214,7 +214,7 @@ $$
 
 因此，forward 更强调补足学生遗漏的老师行为，reverse 更强调避开学生过度生成、老师却不认可的行为。对于“学生先写出自己的推理，再由老师对生成过程提供反馈”的流程，后者是一种自然的选择动机。
 
-当学生模型无法完全拟合老师时，这也对应常说的 mode covering 与 mode seeking：forward 倾向覆盖老师的多种输出，reverse 往往更愿意集中于其中一部分高概率输出。这是受限模型下的常见倾向，具体取舍依赖任务、模型与训练过程。GKD 论文讨论并实验比较了不同散度，指出合适的选择与任务有关。[GKD 第 3.1、4 节](https://arxiv.org/html/2306.13649v3#S3.SS1)
+当学生模型无法完全拟合老师时，这也对应常说的 mode covering 与 mode seeking：forward 倾向覆盖老师的多种输出，reverse 往往更愿意集中于其中一部分高概率输出。这是受限模型下的常见倾向，具体取舍依赖任务、模型与训练过程。GKD 论文讨论并实验比较了不同散度，指出合适的选择与任务有关。
 
 ### 6.3 对数概率差方便接入 RL 流程
 
@@ -226,13 +226,13 @@ $$
 
 它只需要老师和学生对实际生成 token 的对数概率。把这个量作为固定的 token 级奖励或 advantage，就能复用策略梯度形式的训练流程。
 
-Thinking Machines 的 OPD 实现正是先计算学生与老师的对数概率差，再将其相反数作为逐 token 的 advantage，接入已有的 RL importance-sampling loss。这个实现展示了 reverse KL 在工程上的便利，但不能由此推出它对所有蒸馏任务都更好。[Thinking Machines：实现与伪代码](https://thinkingmachines.ai/blog/on-policy-distillation/#implementation)
+Thinking Machines 的 OPD 实现正是先计算学生与老师的对数概率差，再将其相反数作为逐 token 的 advantage，接入已有的 RL importance-sampling loss。这个实现展示了 reverse KL 在工程上的便利，但不能由此推出它对所有蒸馏任务都更好。
 
 ## 7. On-policy 不限定 KL 的方向，也不限定只算一个 token
 
 “上下文由谁生成”“每个上下文下比较哪一种散度”“计算全词表还是只计算抽中的 token”，是三个可以分别选择的问题。
 
-GKD 就在学生生成的上下文上使用过 forward KL，也比较了 reverse KL 与广义 JSD。其论文中的 token 级分布损失按词表比较老师与学生，并在更新时固定采样得到的序列；不能把“学生生成训练序列”直接等同于本文的单 token 梯度估计。[GKD 第 3.1 节与算法 1](https://arxiv.org/html/2306.13649v3#S3.SS1)
+GKD 就在学生生成的上下文上使用过 forward KL，也比较了 reverse KL 与广义 JSD。其论文中的 token 级分布损失按词表比较老师与学生，并在更新时固定采样得到的序列；不能把“学生生成训练序列”直接等同于本文的单 token 梯度估计。
 
 若在每个上下文下计算全词表 KL，所有 token 都参与计算，就不再有本文所讨论的“当前这个罕见 token 偶尔被抽到，才贡献巨大权重”的估计问题。完整词表的代价，以及上下文、序列采样的随机性仍需另行考虑。
 
@@ -264,11 +264,3 @@ reverse_loss = (log_ratio * sft_loss).mean()
 - **采样分布必须匹配。** 若使用温度、top-k 或 top-p，实际抽样分布可能与公式中的 $p$ 不同。重要性修正的分母需要对应实际抽样分布；被截断为零的 token 无法靠这种抽样恢复其非零梯度贡献。
 - **参数位置必须匹配。** 本文推导针对当前参数处的新鲜样本。旧样本复用、多轮更新或 PPO 裁剪，需要按各自的训练目标分析重要性比率与偏差；不能直接沿用这里的无偏结论。
 - **上下文在推导中固定。** 本文证明的是给定上下文的 token 级 KL 梯度。若把学生生成前缀的分布也写成参数相关的完整序列目标，对它求导时还会涉及前缀采样分布的贡献；本文没有推导这一部分。
-
-## 9. 参考资料
-
-- [交叉熵与 KL 散度](cross-entropy-kl.html)：本站前文，介绍 KL 非负性、softmax 梯度与参数顺序。
-- [Agarwal 等：On-Policy Distillation of Language Models: Learning from Self-Generated Mistakes](https://arxiv.org/abs/2306.13649)：GKD 框架；第 3.1 节介绍学生生成序列、散度选择及固定采样序列的更新，第 4 节比较不同设置。
-- [Thinking Machines：On-Policy Distillation](https://thinkingmachines.ai/blog/on-policy-distillation/)：reverse KL、逐 token 对数概率反馈及复用 RL 流程的实现说明。
-
-本文的单 token 采样公式由第 2–5 节直接推导；对两种权重的数值比较是这些公式的结果。外部资料用于说明实际方法的选择与实现，资料核对日期为 2026 年 10 月 28 日。
