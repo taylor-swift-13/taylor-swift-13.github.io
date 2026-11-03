@@ -314,11 +314,7 @@ $$
 
 使用学生样本估计 forward KL 时，可能出现“多数时候没有抽到重要 token，偶尔抽到却带来很大梯度”的情况。对数权重缓和了 $q/p$ 直接增长带来的极端更新。
 
-@@opinion-begin@@
-
 Sampled-token Forward KL 对“教师概率高、学生概率低”的 token 可能产生较大的更新，因此在相同训练设置下可能带来更剧烈的策略变化。
-
-@@opinion-end@@
 
 ![Forward 与 Reverse 权重曲线](../assets/plots/opd-weight-comparison.svg)
 
@@ -328,11 +324,7 @@ Sampled-token Forward KL 对“教师概率高、学生概率低”的 token 可
 
 从上表可见，forward 的 $q/p-1$ 在学生严重低估老师概率时可以很大；当学生严重高估时，它的负值则以 $-1$ 为下界。Reverse 的 $\log(q/p)$ 对概率比值的高估、低估都给出对数尺度的信号，特别是在老师概率极低时，可以给出很强的负反馈。
 
-@@opinion-begin@@
-
 因此，forward 更强调补足学生遗漏的老师行为，reverse 更强调避开学生过度生成、老师却不认可的行为。对于“学生先写出自己的推理，再由老师对生成过程提供反馈”的流程，后者是一种自然的选择动机。
-
-@@opinion-end@@
 
 当学生模型无法完全拟合老师时，这也对应常说的 mode covering 与 mode seeking：forward 倾向覆盖老师的多种输出，reverse 往往更愿意集中于其中一部分高概率输出。这是受限模型下的常见倾向，具体取舍依赖任务、模型与训练过程。GKD 论文讨论并实验比较了不同散度，指出合适的选择与任务有关。
 
