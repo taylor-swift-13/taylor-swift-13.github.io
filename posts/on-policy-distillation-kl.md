@@ -365,6 +365,8 @@ $$
 
 使用学生样本估计 forward KL 时，可能出现“多数时候没有抽到重要 token，偶尔抽到却带来很大梯度”的情况。对数权重缓和了 $q/p$ 直接增长带来的极端更新。
 
+Sampled-token Forward KL 对“教师概率高、学生概率低”的 token 可能产生较大的更新，因此在相同训练设置下可能带来更剧烈的策略变化。
+
 @@opinion-end@@
 
 ![Forward 与 Reverse 权重曲线](../assets/plots/opd-weight-comparison.svg)
