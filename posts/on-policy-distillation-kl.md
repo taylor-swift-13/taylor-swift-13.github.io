@@ -368,30 +368,3 @@ GKD 就在学生生成的上下文上使用过 forward KL，也比较了 reverse
 若在每个上下文下计算全词表 KL，所有 token 都参与计算，就不再有本文所讨论的“当前这个罕见 token 偶尔被抽到，才贡献巨大权重”的估计问题。完整词表的代价，以及上下文、序列采样的随机性仍需另行考虑。
 
 当模型能够精确拟合老师时，两种 KL 都在 $p=q$ 取得最小值 $0$。它们的区别主要体现在采样估计、优化过程，以及学生无法完整拟合老师时的取舍。
-
-## 8. 实现：只让最后的负对数概率参与反传
-
-下面用 PyTorch 风格的代码对应前文公式。`student_logp` 和 `teacher_logp` 是**实际抽中 token** 的对数概率；学生一侧需要保留计算图，老师一侧固定。示例对有效 token 取平均，padding 等无效位置应在此前排除。
-
-```python
-# a 按当前学生分布采样；此处在同一参数位置计算梯度。
-# student_logp = log p_a，保留学生的计算图。
-# teacher_logp = log q_a，老师不参与训练。
-teacher_logp = teacher_logp.detach()
-log_ratio = teacher_logp - student_logp.detach()
-sft_loss = -student_logp
-
-forward_loss = (log_ratio.exp() * sft_loss).mean()
-forward_with_baseline = ((log_ratio.exp() - 1) * sft_loss).mean()
-reverse_loss = (log_ratio * sft_loss).mean()
-
-# 按训练目标选其中一个 loss 反传。
-```
-
-这里的 `detach()` 对应 $\operatorname{sg}$；最后的 `student_logp` 保留梯度。`forward_loss` 与 `forward_with_baseline` 的平均梯度相同，单次样本的梯度和 loss 数值可以不同。
-
-使用这些等式时，还要对应实际采样与更新设置：
-
-- **采样分布必须匹配。** 若使用温度、top-k 或 top-p，实际抽样分布可能与公式中的 $p$ 不同。重要性修正的分母需要对应实际抽样分布；被截断为零的 token 无法靠这种抽样恢复其非零梯度贡献。
-- **参数位置必须匹配。** 本文推导针对当前参数处的新鲜样本。旧样本复用、多轮更新或 PPO 裁剪，需要按各自的训练目标分析重要性比率与偏差；不能直接沿用这里的无偏结论。
-- **上下文在推导中固定。** 本文证明的是给定上下文的 token 级 KL 梯度。若把学生生成前缀的分布也写成参数相关的完整序列目标，对它求导时还会涉及前缀采样分布的贡献；本文没有推导这一部分。
