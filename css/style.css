@@ -100,3 +100,5 @@ nav a:hover,.footer-inner a:hover{color:var(--accent)}
 
 .article-category time{display:block;margin-top:7px;font-size:12px;font-variant-numeric:tabular-nums}
 .article-date{margin:14px 0 0;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+
+.article-page:not(.source-aware) .prose .author-opinion{color:#bf5700}
