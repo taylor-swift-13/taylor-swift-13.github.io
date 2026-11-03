@@ -391,15 +391,70 @@ Sampled-token Forward KL 对“教师概率高、学生概率低”的 token 可
 
 ### 6.3 对数概率差方便接入 RL 流程
 
-Reverse 权重可以直接写成
+先固定一个前缀，把下一 token 看成动作 $a$，学生分布 $p_\theta(a)$ 看成策略。对不依赖学生参数的奖励 $R(a)$，最大化期望奖励的目标是
 
 $$
-\log\frac{q_a}{p_a}=\log q_a-\log p_a.
+J(\theta)=\sum_a p_\theta(a)R(a).
 $$
 
-它只需要老师和学生对实际生成 token 的对数概率。把这个量作为固定的 token 级奖励或 advantage，就能复用策略梯度形式的训练流程。
+利用 $\nabla p_\theta(a)=p_\theta(a)\nabla\log p_\theta(a)$，得到策略梯度：
 
-Thinking Machines 的 OPD 实现正是先计算学生与老师的对数概率差，再将其相反数作为逐 token 的 advantage，接入已有的 RL importance-sampling loss。这个实现展示了 reverse KL 在工程上的便利，但不能由此推出它对所有蒸馏任务都更好。
+$$
+\begin{aligned}
+\nabla J(\theta)
+&=\sum_a R(a)\nabla p_\theta(a)\\
+&=\sum_a p_\theta(a)R(a)\nabla\log p_\theta(a)\\
+&=\mathbb E_{a\sim p_\theta}[R(a)\nabla\log p_\theta(a)].
+\end{aligned}
+$$
+
+RL 中也常用 advantage $A(a)$ 代替奖励，表示动作相对基线的好坏。要用梯度下降实现这个上升方向，可以最小化采样代理 loss：
+
+$$
+\widehat L_{\mathrm{PG}}(a)
+=-\operatorname{sg}(A(a))\log p_\theta(a),
+\qquad
+\nabla\widehat L_{\mathrm{PG}}(a)
+=-A(a)\nabla\log p_\theta(a).
+$$
+
+现在把教师与学生的对数概率差作为本次固定的 token 级 advantage：
+
+$$
+A(a)=\log q_a-\log p_a=\log\frac{q_a}{p_a}.
+$$
+
+代入同一个策略梯度代理 loss，就得到
+
+$$
+\begin{aligned}
+\widehat L_{\mathrm{PG}}(a)
+&=-\operatorname{sg}\!\left(\log\frac{q_a}{p_a}\right)\log p_a\\
+&=\operatorname{sg}\!\left(\log\frac{q_a}{p_a}\right)(-\log p_a)\\
+&=\widehat L_{\mathrm R}(a).
+\end{aligned}
+$$
+
+这与第 3 节的 reverse KL 采样代理 loss 完全相同。这里的 $A(a)$ 由当前学生概率计算，但本次反向传播必须固定；它的正确性由 reverse KL 的梯度推导保证，不能把它当作参数无关的奖励直接对整个期望求导。
+
+@@opinion-begin@@
+
+因此，接入 RL 流程的关键很直接：保留“学生采样、计算 advantage、执行策略梯度更新”的结构，把 advantage 换成教师与学生的对数概率差。老师更认可的 token 得到正 advantage，学生过度生成的 token 得到负 advantage。
+
+@@opinion-end@@
+
+Thinking Machines 的 OPD 实现先记录学生生成 token 时的 log probability，再查询教师对相同 token 的 log probability，用“教师减学生”的差作为逐 token advantage，接入 RL 的 importance-sampling loss。
+
+如果数据由旧学生 $p_{\mathrm{old}}$ 采样，RL 代理 loss 可以写成
+
+$$
+\rho_\theta(a)=\frac{p_\theta(a)}{p_{\mathrm{old}}(a)},
+\qquad
+\widehat L_{\mathrm{IS}}(a)
+=-\rho_\theta(a)\operatorname{sg}(A(a)).
+$$
+
+分母固定。在 $\theta=\theta_{\mathrm{old}}$ 时，$\rho_\theta(a)=1$，且 $\nabla\rho_\theta(a)=\nabla\log p_\theta(a)$，因此它的梯度也是 $-A(a)\nabla\log p_\theta(a)$。这里的新旧学生比值用于修正采样策略；它与 Forward KL 中的教师／学生比值 $q_a/p_a$ 是两个不同的比值。以上对应固定前缀下的单 token 更新；复用旧数据多步训练时，还要区分当前 advantage 与固定的旧 advantage。
 
 ## 7. On-policy 不限定 KL 的方向，也不限定只算一个 token
 
