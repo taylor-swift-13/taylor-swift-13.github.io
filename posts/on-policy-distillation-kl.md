@@ -50,8 +50,8 @@ $$
 概率 $p_i$ 越大，$-\log p_i$ 越小。因此，沿负梯度做足够小的一步更新，会降低这个损失、提高指定 token 的概率。加上本次求导时固定的权重 $w$ 后，更新变成
 
 $$
-\theta_{\mathrm{新}}
-=\theta_{\mathrm{旧}}-\eta w\nabla_\theta(-\log p_i),
+\theta_{\text{新}}
+=\theta_{\text{旧}}-\eta w\nabla_\theta(-\log p_i),
 \qquad \eta>0.
 $$
 
