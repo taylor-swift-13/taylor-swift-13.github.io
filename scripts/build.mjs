@@ -18,12 +18,14 @@ const markdown = new MarkdownIt({ html: false, linkify: true, typographer: false
 const articles = [
   {
     slug: 'on-policy-distillation-kl',
+    date: '2026-10-28',
     title: '从全词表到采样梯度：理解 OPD 中的 Forward KL 与 Reverse KL',
     description: '推导学生采样下的两种 KL 梯度，解释固定权重、重要性采样与 reverse KL 的选择动机。',
     category: '模型蒸馏',
   },
   {
     slug: 'anthropic-formal-verification',
+    date: '2026-10-26',
     title: 'Anthropic 的程序验证：功能性检查编码到 fuzz crash，不写 spec 只写证明',
     description: '从二进制操作语义与 fuzz 规约出发，讨论找 bug、功能正确性与大模型时代的信任取舍。',
     category: '形式化验证',
@@ -31,18 +33,21 @@ const articles = [
   },
   {
     slug: 'qcip-dll-storea',
+    date: '2026-10-19',
     title: '内嵌双链表为什么要设计 storeA',
     description: '从地址级规范的边界出发，解释 storeA 如何连接业务对象与通用链表证明。',
     category: '形式化验证',
   },
   {
     slug: 'cross-entropy-kl',
+    date: '2026-10-08',
     title: '交叉熵与 KL 散度',
     description: '交叉熵的最小性、softmax 梯度与 KL 散度的参数顺序。',
     category: '信息论',
   },
   {
     slug: 'vero-coco-prover',
+    date: '2026-10-12',
     title: 'Compiler in the Loop 任务的消亡：方法增益会被模型迭代吞噬吗？从 Vero 到 CoCo-Prover 再到 Prove2Me',
     description: '从仓库级证明、成本调度到多代理协作，分析模型能力与证明基础设施各自解决的问题。',
     category: '形式化验证',
@@ -182,6 +187,7 @@ function articleHtml(article) {
     <header class="article-header">
       <p class="eyebrow">${category}</p>
       <h1>${title}</h1>
+      <p class="article-date">发布于 <time datetime="${article.date}">${article.date}</time></p>
       <p class="article-deck">${description}</p>
     </header>
     <article class="prose">
@@ -192,6 +198,26 @@ ${body}    </article>
 </body>
 </html>
 `;
+}
+
+// Keep home-page dates aligned with the article metadata.
+const indexPath = path.join(root, 'index.html');
+const oldIndex = readFileSync(indexPath, 'utf8');
+let indexHtml = oldIndex;
+for (const article of articles) {
+  const marker = `<a class="article-row" href="posts/${article.slug}.html">`;
+  const start = indexHtml.indexOf(marker);
+  if (start < 0) throw new Error(`Missing home-page entry: ${article.slug}`);
+  const end = indexHtml.indexOf('</a>', start);
+  const row = indexHtml.slice(start, end);
+  const dated = row.replace(/<span class="article-category">[\s\S]*?<\/span>/,
+    `<span class="article-category">${escapeHtml(article.category)}<time datetime="${article.date}">${article.date}</time></span>`);
+  indexHtml = indexHtml.slice(0, start) + dated + indexHtml.slice(end);
+}
+if (check) {
+  if (oldIndex !== indexHtml) throw new Error('Home-page article dates are stale');
+} else {
+  writeFileSync(indexPath, indexHtml);
 }
 
 for (const article of articles) {

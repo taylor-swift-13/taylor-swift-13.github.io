@@ -97,3 +97,6 @@ nav a:hover,.footer-inner a:hover{color:var(--accent)}
 .source-figures .prose table{display:table;width:100%;table-layout:fixed}
 .source-figures .prose th,.source-figures .prose td{white-space:normal;overflow-wrap:anywhere;vertical-align:top}
 @media(max-width:700px){.source-figures .prose th,.source-figures .prose td{padding:9px 8px}}
+
+.article-category time{display:block;margin-top:7px;font-size:12px;font-variant-numeric:tabular-nums}
+.article-date{margin:14px 0 0;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
