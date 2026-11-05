@@ -85,7 +85,7 @@ nav a:hover,.footer-inner a:hover{color:var(--accent)}
 .source-aware .prose{color:#242424}
 .source-aware .prose h2,.source-aware .prose h3,.source-aware .prose a{color:inherit}
 @font-face{font-family:"Article Commentary Serif";src:url("../assets/fonts/noto-serif-sc-article.woff2") format("woff2");font-style:normal;font-weight:400;font-display:swap}
-.source-aware .prose .author-opinion{color:#a34f35;font-family:"Article Commentary Serif","SimSun",serif}
+.source-aware .prose .author-opinion{color:var(--accent);font-family:"Article Commentary Serif","SimSun",serif}
 .source-aware .prose .author-opinion a{color:inherit;border-bottom-color:currentColor}
 .source-aware .prose .reading-key{font-size:13px;margin-bottom:28px}
 .prose .source-figure{margin:28px 0 12px}

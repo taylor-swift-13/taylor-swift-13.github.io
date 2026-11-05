@@ -1,5 +1,5 @@
 .source-figures .prose{color:#111}
-.source-figures .prose .author-opinion,.source-figures .commentary-key{color:#bf5700}
+.source-figures .prose .author-opinion,.source-figures .commentary-key{color:var(--accent)}
 .source-figures .external-commentary{color:#1d4ed8}
 .source-figures .external-commentary blockquote{color:inherit;border-left-color:currentColor}
 .source-figures .source-figure+p,.source-figures .prose p:has(> img)+p,.source-figures .prose p:has(> a > img)+p{color:#111}
