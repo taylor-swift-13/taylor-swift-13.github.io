@@ -30,8 +30,8 @@
       <p class="article-deck">从前驱替换的地址变化，到 Search 调用点的字段所有权，记录 AVL 顶层规约的选择与代价。</p>
     </header>
     <article class="prose">
-<p>在验证 CRTOS 的 AVL 实现时，我最初把顶层状态写成 <code>data2addr</code> 映射，类型是 <code>Z -&gt; option addr</code>。<code>m k = Some p</code> 表示树中存在键 <code>k</code>，而且这个键当前存放在节点地址 <code>p</code>。它同时回答了两个问题，键是否存在，以及键存在哪里。</p>
-<p>后来，我把四个对外 API 的顶层状态统一成了键集合 <code>Z -&gt; Prop</code>。这个决定来自 Delete 的具体实现，也改变了 Search 向调用者交还内存资源的方式。底层仍然使用带地址的树图来证明指针操作，集合承担的是公开接口中的键语义。</p>
+<p>CRTOS 的 AVL 验证最初使用 <code>data2addr</code> 映射表示顶层状态，类型是 <code>Z -&gt; option addr</code>。<code>m k = Some p</code> 表示树中存在键 <code>k</code>，而且这个键当前存放在节点地址 <code>p</code>。它同时回答了两个问题，键是否存在，以及键存在哪里。</p>
+<p>随后，四个对外 API 的顶层状态统一为键集合 <code>Z -&gt; Prop</code>。这个决定来自 Delete 的具体实现，也改变了 Search 向调用者交还内存资源的方式。底层仍然使用带地址的树图来证明指针操作，集合承担的是公开接口中的键语义。</p>
 <p>这里的 <code>data</code> 就是排序键。节点还有 <code>height</code>、<code>left</code> 和 <code>right</code>，没有另一个独立的业务 value 字段。讨论 <code>data2addr</code> 时，映射的值是节点地址。</p>
 <p>最初的 Rocq 关系如下。</p>
 <pre><code class="language-coq">Definition avl_mapping : Type := Z -&gt; option addr.
@@ -88,7 +88,7 @@ avl_node-&gt;left = AvlTreeDeleteNode(avl_node-&gt;left, pred-&gt;data);
 </code></pre>
 <p>这只能保证该键在删除前后都存在，<code>old_ptr</code> 和 <code>new_ptr</code> 可以不同。调用者即使知道整个旧 map，也无法通过这条条件确定新地址，更无法据此证明一个保存下来的旧指针仍然有效。结果 map 在实际结果树上有确定含义，但接口没有把具体的新旧绑定关系交给调用者。</p>
 <p>要把这种关系写得精确，就需要告诉调用者哪些情况下发生前驱替换，以及前驱是哪一个键。键的大小关系足以定义有序前驱，但 map 没有记录左右孩子，无法单独判断目标节点是否进入双孩子替换分支。随着这些结构事实进入接口，顶层规约会越来越接近底层树图。</p>
-<p>我的选择是让这组 API 公开键集合，底层图继续负责地址、拓扑和高度。插入和删除的集合变化可以直接由输入集合定义，调用者也不必在每次更新后接收一张地址绑定关系较弱的新 map。当前集合及其内存表示使用下面这些 Rocq 定义。</p>
+<p>调整后的 API 公开键集合，底层图继续描述地址、拓扑和高度。插入和删除的集合变化可以直接由输入集合定义，调用者也不必在每次更新后接收一张地址绑定关系较弱的新 map。当前集合及其内存表示使用下面这些 Rocq 定义。</p>
 <pre><code class="language-coq">Definition avl_key_set := Z -&gt; Prop.
 
 Definition avl_set_refines_graph (keys : avl_key_set) (g : avl_model) : Prop :=
@@ -151,8 +151,8 @@ Definition avl_balanced_set_root_rep (keys : avl_key_set) (root : addr) : Assert
 </code></pre>
 <p>空树的集合没有任何成员，所以输入为空树时自然落在未命中分支，返回原来的 <code>NULL</code> 根。如果删除唯一的键，目标在输入集合中，结果集合为空，返回的结果根为 <code>NULL</code>，仍然属于命中分支。<code>avl_balanced_set_root_rep</code> 支持空树，因此这两种情况都能由相同的表示谓词处理。</p>
 <p>Search 接口还需要处理字段所有权。原来的 map 等式也不能单独支持解引用，地址关系和字段资源都需要由规约提供。仅写“键存在并且返回值非空”，只能证明 Search 返回了某个非空地址。调用者如果接着执行 <code>p-&gt;data</code>，还需要知道这个字段属于可访问的节点，并且字段里的值等于查找键。</p>
-<p>我先把这些事实放进 <code>avl_balanced_set_hit_rep</code>。它在内部隐藏同一张图 <code>g</code>，保证结果节点有效、键匹配，并持有整树内存。但在 QCP 调用点中，直接写 <code>Given g</code> 会报错，因为符号执行状态里还没有显式的这个存在见证。可以先用 <code>Assert exists g, ...</code> 暴露图和字段，再用 Rocq 证明展开谓词、拆分节点资源，之后 <code>Given g</code> 才能使用它。</p>
-<p>这个调用点能够验证通过，不过每个需要读取返回节点的调用者都要重复这一步。最终我把展开资源的工作移到 Search 的接口证明里，在命中后条件中直接写出 <code>exists g</code> 和字段断言。当前规约如下。</p>
+<p>最初，这些事实封装在 <code>avl_balanced_set_hit_rep</code> 中。它在内部隐藏同一张图 <code>g</code>，保证结果节点有效、键匹配，并持有整树内存。但在 QCP 调用点中，直接写 <code>Given g</code> 会报错，因为符号执行状态里还没有显式的这个存在见证。可以先用 <code>Assert exists g, ...</code> 暴露图和字段，再用 Rocq 证明展开谓词、拆分节点资源，之后 <code>Given g</code> 才能使用它。</p>
+<p>这个调用点能够验证通过，不过每个需要读取返回节点的调用者都要重复这一步。最终，Search 的接口证明承担资源展开，在命中后条件中直接写出 <code>exists g</code> 和字段断言。当前规约如下。</p>
 <pre><code class="language-c">AvlNodeType AvlNodeSearchNode(AvlNodeType avl_node, int32 data)
   /*@ high_level_spec &lt;= low_level_spec
       With keys
@@ -195,7 +195,7 @@ Definition avl_balanced_set_root_rep (keys : avl_key_set) (root : addr) : Assert
 <p>这个过程也说明了存在量词的作用。<code>g</code> 是用于证明的逻辑见证，返回地址 <code>p</code> 来自 C 函数的执行。打开 <code>exists g</code> 可以取得关于 <code>p</code> 的事实，集合本身并没有计算出一个地址。保留同一张图上的字段所有权，才让“找到键”能够接续到“读取返回节点”的证明。</p>
 <p>迁移主要改动了公开表示和 low-to-high 蕴含。函数体仍在图级规约下验证，已有的子树分解、旋转、高度更新和堆资源重组证明继续复用。Search 的命中分支多做了一次节点字段分解，调用者则省去了原先的展开断言。Height 保持 low-level 接口，供内部调用直接复用。</p>
 <p>这次最终检查覆盖了 17 个证明入口和 194 项手写义务。分配和释放使用外部服务契约。这个范围说明了本次结果依赖的模块边界，集合接口也没有额外承诺更新后旧指针的稳定性。</p>
-<p>对这组 AVL API，我希望调用者能直接表达插入、删除和修改后的键集合，同时让 Search 交付一个可验证地读取的节点。set 让集合变化明确，图模型和字段断言让地址操作继续有据可证。若业务以后需要跨删除保留节点身份，就需要重新设计地址稳定性的承诺，并检查现有实现能否满足它。</p>
+<p>这组 AVL API 的设计目标是让调用者能够直接表达插入、删除和修改后的键集合，同时让 Search 交付一个可验证地读取的节点。set 让集合变化明确，图模型和字段断言让地址操作继续有据可证。若业务以后需要跨删除保留节点身份，就需要重新设计地址稳定性的承诺，并检查现有实现能否满足它。</p>
     </article>
     <div class="article-end"><a class="back-link" href="../index.html#writing">← 返回文章列表</a></div>
   </main>
