@@ -58,6 +58,51 @@ Definition avl_mapping_refines_graph
 </code></pre>
 <p>未命中时，<code>m(data) = None</code>，返回 <code>NULL</code>；命中时，返回值就是 <code>m(data)</code> 记录的地址。调用前若已知 <code>m(data) = Some p</code>，调用后便能直接推出 <code>__return = p</code>。这是 map 相比纯键集合提供的额外信息：调用者可以预先指定目标节点的身份，而不只是知道会返回某个保存该键的节点。继续读取 <code>p-&gt;data</code> 时，需要从树表示中取得字段的内存资源。</p>
 <h2>二、返回子树根与稳定的地址绑定</h2>
+<h3>返回插入位置：直接关联键与地址</h3>
+<p>树的插入接口也可以把具体的插入位置交给调用者。例如，<code>std::set::insert</code> 返回迭代器和插入标志：新键插入成功时，迭代器定位新元素；键已存在时，迭代器定位已有元素，插入标志为 <code>false</code>。调用者可以通过迭代器取得元素地址。参见 <a href="https://eel.is/c++draft/associative.reqmts#general-64">C++ 关联容器的 insert 返回值规约</a>。</p>
+<pre><code class="language-cpp">std::set&lt;int&gt; tree{10, 30};
+auto [it, inserted] = tree.insert(20);
+const int* p = &amp;*it;  // 键 20 所在元素的地址
+</code></pre>
+<p>对于直接返回节点指针 <code>p</code> 的插入接口，data2addr 可以把返回值、插入键和结果映射连在一起。新键插入成功时，后条件可以写成：</p>
+<pre><code class="language-text">ret = p
+m_after = put(data, p, m)
+</code></pre>
+<p>这里 <code>put(data, p, m)</code> 把 <code>data</code> 绑定到 <code>p</code>，保留其余键的地址绑定。若键已经存在，接口返回已有节点 <code>p</code>，则对应 <code>m(data) = Some p</code>、<code>m_after = m</code>。调用者拿到返回值，就同时拿到了目标键所在的位置。Search 也有同样的优势，命中后可以直接写出 <code>m(data) = Some ret</code>。</p>
+<p>CRTOS 的 <code>AvlTreeInsertNode</code> 返回插入并平衡后的树根。根可能保存另一个键；调用者取得插入键所在节点的地址时，需要在结果根上调用 <code>AvlNodeSearchNode</code>。<code>AvlTreeDeleteNode</code> 同样返回删除并平衡后的树根，删空时返回 <code>NULL</code>。</p>
+<table>
+<thead>
+<tr>
+<th>接口</th>
+<th>返回值的含义</th>
+<th>调用者如何取得目标键的位置</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>返回插入位置的接口</td>
+<td>定位新插入或已有元素的迭代器，或节点指针</td>
+<td>直接使用返回的位置</td>
+</tr>
+<tr>
+<td>CRTOS Insert</td>
+<td>插入后的树根；分配失败返回 <code>NULL</code></td>
+<td>成功后在结果根上调用 Search</td>
+</tr>
+<tr>
+<td>CRTOS Delete</td>
+<td>删除后的树根；删空返回 <code>NULL</code></td>
+<td>对保留键在结果根上调用 Search</td>
+</tr>
+<tr>
+<td>CRTOS Search</td>
+<td>命中节点的地址；未命中返回 <code>NULL</code></td>
+<td>直接使用命中地址</td>
+</tr>
+</tbody>
+</table>
+<p>例如，原树根为 <code>30@A</code>，左孩子为 <code>10@B</code>，插入 <code>20</code> 并完成平衡后，<code>20</code> 成为新根，此时根地址恰好也是插入节点的地址。若在根 <code>20@A</code>、左孩子 <code>10@B</code> 的树中插入 <code>30@C</code>，树根保持 <code>A</code>，CRTOS Insert 返回 <code>A</code>，返回插入位置的接口则交付 <code>C</code>。两种接口分别把“更新整棵树的入口”和“访问目标元素的位置”交给调用者。</p>
+<h3>返回子树根：接回更新后的结构</h3>
 <p>一些 C++ 二叉搜索树实现让插入、删除的递归辅助函数返回修改后的子树根，父节点再把返回地址接回相应的孩子字段。删除节点没有右孩子时，可以直接删除当前节点并返回左子树根。</p>
 <pre><code class="language-cpp">if (node-&gt;right == nullptr) {
     Node* left = node-&gt;left;
