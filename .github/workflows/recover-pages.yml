@@ -1,56 +1,32 @@
-name: Inspect stalled Pages deployment
+name: Restart original Pages deployment
 
 on:
   push:
     branches: [main]
-    paths:
-      - .github/workflows/recover-pages.yml
+    paths: [.github/workflows/recover-pages.yml]
 
 permissions:
-  pages: write
+  actions: write
+  pages: read
 
 jobs:
-  inspect-and-cancel:
+  restart:
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 2
     steps:
-      - name: Inspect and await Pages cancellation
+      - name: Inspect backend and rerun original deployment
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           python3 - << "PYTHON"
-          import json
-          import os
-          import time
-          import urllib.error
-          import urllib.request
-          url = "https://api.github.com/repos/" + os.environ["GITHUB_REPOSITORY"] + "/pages/deployments/a86baad677450949f32710b6d2e9afbad3f31138"
-          headers = {
-              "Accept": "application/vnd.github+json",
-              "Authorization": "Bearer " + os.environ["GH_TOKEN"],
-              "X-GitHub-Api-Version": "2022-11-28",
-          }
-          def notice(value):
-              print("::notice::" + json.dumps(value).replace("%", "%25"), flush=True)
-          def request(method, target):
-              req = urllib.request.Request(target, headers=headers, method=method)
-              try:
-                  with urllib.request.urlopen(req, timeout=30) as response:
-                      raw = response.read().decode()
-                      data = json.loads(raw) if raw else {}
-                      notice({"method": method, "http": response.status, "result": data})
-                      return data
-              except urllib.error.HTTPError as error:
-                  notice({"method": method, "http": error.code, "result": error.read().decode()})
-                  raise
-          request("GET", url)
-          request("POST", url + "/cancel")
-          for attempt in range(13):
-              data = request("GET", url)
-              if data.get("status") in {"deployment_cancelled", "deployment_failed", "deployment_lost", "succeed"}:
-                  notice({"terminal": data["status"]})
-                  break
-              if attempt == 12:
-                  raise RuntimeError("Pages cancellation has not reached terminal state")
-              time.sleep(10)
+          import json, os, urllib.request
+          base = "https://api.github.com/repos/" + os.environ["GITHUB_REPOSITORY"]
+          headers = {"Accept": "application/vnd.github+json", "Authorization": "Bearer " + os.environ["GH_TOKEN"], "X-GitHub-Api-Version": "2022-11-28"}
+          req = urllib.request.Request(base + "/pages/deployments/a86baad677450949f32710b6d2e9afbad3f31138", headers=headers)
+          with urllib.request.urlopen(req, timeout=30) as r:
+              print("::notice::Backend state: " + r.read().decode())
+          req = urllib.request.Request(base + "/actions/runs/42051368961/rerun-failed-jobs", headers=headers, method="POST")
+          with urllib.request.urlopen(req, timeout=30) as r:
+              assert r.status == 201
+              print("::notice::Original Pages deployment restarted")
           PYTHON
