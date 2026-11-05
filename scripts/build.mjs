@@ -17,6 +17,13 @@ const markdown = new MarkdownIt({ html: false, linkify: true, typographer: false
 
 const articles = [
   {
+    slug: 'qcip-avl-map-to-set',
+    date: '2026-11-05',
+    title: 'AVL 树形式化验证中的集合抽象与接口规约',
+    description: '从前驱替换的地址变化，到 Search 调用点的字段所有权，记录 AVL 顶层规约的选择与代价。',
+    category: '形式化验证',
+  },
+  {
     slug: 'on-policy-distillation-kl',
     date: '2026-10-28',
     title: '从全词表到采样梯度：理解 OPD 中的 Forward KL 与 Reverse KL',

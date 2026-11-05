@@ -1,0 +1,169 @@
+在验证 CRTOS 的 AVL 实现时，我最初把顶层状态写成 `data2addr` 映射，类型是 `Z -> option addr`。`m k = Some p` 表示树中存在键 `k`，而且这个键当前存放在节点地址 `p`。它同时回答了两个问题，键是否存在，以及键存在哪里。
+
+后来，我把四个对外 API 的顶层状态统一成了键集合 `Z -> Prop`。这个决定来自 Delete 的具体实现，也改变了 Search 向调用者交还内存资源的方式。底层仍然使用带地址的树图来证明指针操作，集合承担的是公开接口中的键语义。
+
+这里的 `data` 就是排序键。节点还有 `height`、`left` 和 `right`，没有另一个独立的业务 value 字段。讨论 `data2addr` 时，映射的值是节点地址。
+
+最初的 Rocq 关系如下。
+
+```coq
+Definition avl_mapping : Type := Z -> option addr.
+
+Definition avl_mapping_refines_graph
+    (m : avl_mapping) (g : avl_model) : Prop :=
+  forall key x,
+    m key = Some x <->
+      avl_vvalid g x /\ avl_key_of g x = key.
+```
+
+`None` 表示键不存在，`Some p` 表示对应地址为 `p`。根指针和整棵树的堆资源由另一层表示谓词管理。对于 Search，这个接口很直接，查找成功后的返回值就是 `m(data)` 中记录的地址。
+
+Delete 让地址这一层信息变得复杂。待删除节点有两个孩子时，代码在左子树中找到最右节点，也就是前驱，然后执行下面的操作。这是函数中的双孩子分支，省略了周围的高度更新、平衡和其他分支。
+
+```c
+pred = avl_node->left;
+while (pred->right) {
+    pred = pred->right;
+}
+
+avl_node->data = pred->data;
+avl_node->left = AvlTreeDeleteNode(avl_node->left, pred->data);
+```
+
+设树根的键是 `20`、地址是 `A`，左孩子的键是 `10`、地址是 `B`，右孩子的键是 `30`、地址是 `C`。删除 `20` 时，代码把前驱键 `10` 写进 `A->data`，随后在左子树里递归删除 `10`。这个例子里，递归删除最终释放的是 `B`。
+
+| 键 | 删除前 | 删除后 |
+| --- | --- | --- |
+| `20` | `Some A` | `None` |
+| `10` | `Some B` | `Some A` |
+| `30` | `Some C` | `Some C` |
+
+如果把删除的后条件写成 `m_after = remove(20, m)`，它会保留 `10 ↦ B` 这条旧绑定，但 `B` 已经被释放。对于这个双孩子分支，精确的 map 更新还必须把前驱键改绑到原目标节点的地址。目标节点至多有一个孩子时，直接移除目标绑定就足够。
+
+旋转带来的影响要另外看。旋转会改变根和左右边，但每个节点仍然保存自己的键。某个节点成为新根，并不会因此改变 `data2addr` 的绑定。前面的地址变化来自复制前驱键和释放原前驱节点。
+
+**map 本身仍然能够描述这次删除。** 可以为结果树建立新的 `m_after`，把 `10` 的值写成 `Some A`。实际问题在于顶层规约给调用者提供了多强的关系。此前验证通过的 Delete 规约并没有承诺简单的 map remove。它对保留键使用了这样的条件。
+
+```text
+exists old_ptr new_ptr,
+  m(key) = Some(old_ptr) /\
+  m_after(key) = Some(new_ptr)
+```
+
+这只能保证该键在删除前后都存在，`old_ptr` 和 `new_ptr` 可以不同。调用者即使知道整个旧 map，也无法通过这条条件确定新地址，更无法据此证明一个保存下来的旧指针仍然有效。结果 map 在实际结果树上有确定含义，但接口没有把具体的新旧绑定关系交给调用者。
+
+要把这种关系写得精确，就需要告诉调用者哪些情况下发生前驱替换，以及前驱是哪一个键。键的大小关系足以定义有序前驱，但 map 没有记录左右孩子，无法单独判断目标节点是否进入双孩子替换分支。随着这些结构事实进入接口，顶层规约会越来越接近底层树图。
+
+我的选择是让这组 API 公开键集合，底层图继续负责地址、拓扑和高度。插入和删除的集合变化可以直接由输入集合定义，调用者也不必在每次更新后接收一张地址绑定关系较弱的新 map。当前集合及其内存表示使用下面这些 Rocq 定义。
+
+```coq
+Definition avl_key_set := Z -> Prop.
+
+Definition avl_set_refines_graph (keys : avl_key_set) (g : avl_model) : Prop :=
+  forall key, keys key <-> In key (avl_keys g).
+
+Definition avl_set_member (keys : avl_key_set) (key : Z) : Prop := keys key.
+
+Definition avl_set_insert (keys : avl_key_set) (key : Z) : avl_key_set :=
+  fun x => x = key \/ keys x.
+
+Definition avl_set_remove (keys : avl_key_set) (key : Z) : avl_key_set :=
+  fun x => keys x /\ x <> key.
+
+Definition avl_balanced_set_root_rep (keys : avl_key_set) (root : addr) : Assertion :=
+  EX g, “ avl_gvalid g /\ root = avl_ptr_of (avl_root g) /\
+          avl_set_refines_graph keys g ” && avl_tree_store g.
+```
+
+`keys k` 表示键 `k` 属于集合。集合本身是纯逻辑对象，不提供任何字段的内存所有权。`avl_set_refines_graph` 要求集合成员与图中的键完全一致，`avl_balanced_set_root_rep` 则在内部存在量化一张图 `g`，同时持有 `avl_tree_store g`。
+
+这张图仍记录根地址、每个有效节点、左右孩子、键和高度缓存。`avl_tree_store` 把每个节点对应到 C 的 `data`、`height`、`left` 和 `right` 四个字段，并用分离合取组合所有节点的资源。结构合法、键顺序、高度缓存一致和 AVL 平衡也由图级条件约束。顶层改成 set 后，证明指针读写、旋转和释放所需的地址信息仍保存在这一层。
+
+四个 API 的公开效果也因此可以用同一种状态描述。
+
+| API | 返回值与集合变化 |
+| --- | --- |
+| Search | 未命中返回 `NULL`，命中返回保存该键的节点地址，集合保持 |
+| Insert | 重复键时返回原根；新键插入成功后返回结果根，集合为 `keys ∪ {data}`；分配失败返回 `NULL`，交还原根上的树 |
+| Delete | 未命中返回原根；命中后返回结果根，集合为 `keys \ {data}`，删空时结果根为 `NULL` |
+| Modify | 非空输入修改成功后返回结果根，集合为 `(keys \ {source}) ∪ {target}`；空输入或分配失败返回 `NULL`，交还原树 |
+
+Insert、Delete 和 Modify 的成功返回值表示结果树根。Insert 和 Modify 分配失败时返回 NULL，原树仍由旧根持有。Search 命中时返回目标节点的地址。调用者需要某个键的节点地址时，可以在当前根上调用 Search。集合不会在调用前给出这个地址，也不会提供跨更新操作保持旧地址的承诺。
+
+Delete 的当前 high-level spec 只保留两条分支，直接按目标键是否存在区分。
+
+```c
+AvlNodeType AvlTreeDeleteNode(AvlNodeType avl_node, int32 data)
+  /*@ high_level_spec <= low_level_spec
+      With keys
+      Require avl_balanced_set_root_rep(keys, avl_node)
+      Ensure
+        (!avl_set_member(keys, data) && __return == avl_node &&
+         avl_balanced_set_root_rep(keys, __return)) ||
+        (avl_set_member(keys, data) &&
+         avl_balanced_set_root_rep(avl_set_remove(keys, data), __return))
+  */
+;
+```
+
+空树的集合没有任何成员，所以输入为空树时自然落在未命中分支，返回原来的 `NULL` 根。如果删除唯一的键，目标在输入集合中，结果集合为空，返回的结果根为 `NULL`，仍然属于命中分支。`avl_balanced_set_root_rep` 支持空树，因此这两种情况都能由相同的表示谓词处理。
+
+Search 接口还需要处理字段所有权。原来的 map 等式也不能单独支持解引用，地址关系和字段资源都需要由规约提供。仅写“键存在并且返回值非空”，只能证明 Search 返回了某个非空地址。调用者如果接着执行 `p->data`，还需要知道这个字段属于可访问的节点，并且字段里的值等于查找键。
+
+我先把这些事实放进 `avl_balanced_set_hit_rep`。它在内部隐藏同一张图 `g`，保证结果节点有效、键匹配，并持有整树内存。但在 QCP 调用点中，直接写 `Given g` 会报错，因为符号执行状态里还没有显式的这个存在见证。可以先用 `Assert exists g, ...` 暴露图和字段，再用 Rocq 证明展开谓词、拆分节点资源，之后 `Given g` 才能使用它。
+
+这个调用点能够验证通过，不过每个需要读取返回节点的调用者都要重复这一步。最终我把展开资源的工作移到 Search 的接口证明里，在命中后条件中直接写出 `exists g` 和字段断言。当前规约如下。
+
+```c
+AvlNodeType AvlNodeSearchNode(AvlNodeType avl_node, int32 data)
+  /*@ high_level_spec <= low_level_spec
+      With keys
+      Require avl_balanced_set_root_rep(keys, avl_node)
+      Ensure
+        ((!avl_set_member(keys, data) && __return == 0) &&
+         avl_balanced_set_root_rep(keys, avl_node)) ||
+        (exists g,
+          avl_set_member(keys, data) && __return != 0 &&
+          avl_gvalid(g) &&
+          avl_node == avl_ptr_of(avl_root(g)) &&
+          avl_set_refines_graph(keys, g) &&
+          avl_vvalid(g, __return) &&
+          avl_key_of(g, __return) == data &&
+          store(&(__return->data), data) *
+          store(&(__return->height), avl_height_of(g, __return)) *
+          store(&(__return->left), avl_ptr_of(avl_left(g, __return))) *
+          store(&(__return->right), avl_ptr_of(avl_right(g, __return))) *
+          avl_graph_nodes_store(g, avl_nodes_without(g, __return)))
+   */
+;
+```
+
+`store(&(__return->data), data)` 同时提供读取这个字段的资源和读出的值。其余三个字段及剩余节点资源也一并交还，调用者可以在需要时恢复整树表示。这里选择分别写出四个字段，是为了复用现成的节点拆分和重组证明。
+
+现在，一个已知查找键存在的调用点可以写成下面这样。示例省略了类型、外部声明和共享谓词声明，Search 的声明采用上面同一份 high spec。
+
+```c
+int32 SearchReadKey(AvlNodeType root, int32 key)
+  /*@ With keys
+      Require avl_set_member(keys, key) &&
+              avl_balanced_set_root_rep(keys, root)
+      Ensure __return == key@pre &&
+             avl_balanced_set_root_rep(keys, root@pre)
+  */
+{
+    AvlNodeType p = AvlNodeSearchNode(root, key)
+        /*@ where(high_level_spec) keys = keys */;
+    /*@ Given g */
+    return p->data;
+}
+```
+
+前条件中的成员关系排除了未命中分支。QCP 从命中后条件取得显式存在见证和字段资源，`Given g` 让注解可以引用这张图，`return p->data` 读出的值就是 `key`。返回时的 Rocq 义务把四个字段和剩余节点重新组合，得到后条件里的原树表示。
+
+这个过程也说明了存在量词的作用。`g` 是用于证明的逻辑见证，返回地址 `p` 来自 C 函数的执行。打开 `exists g` 可以取得关于 `p` 的事实，集合本身并没有计算出一个地址。保留同一张图上的字段所有权，才让“找到键”能够接续到“读取返回节点”的证明。
+
+迁移主要改动了公开表示和 low-to-high 蕴含。函数体仍在图级规约下验证，已有的子树分解、旋转、高度更新和堆资源重组证明继续复用。Search 的命中分支多做了一次节点字段分解，调用者则省去了原先的展开断言。Height 保持 low-level 接口，供内部调用直接复用。
+
+这次最终检查覆盖了 17 个证明入口和 194 项手写义务。分配和释放使用外部服务契约。这个范围说明了本次结果依赖的模块边界，集合接口也没有额外承诺更新后旧指针的稳定性。
+
+对这组 AVL API，我希望调用者能直接表达插入、删除和修改后的键集合，同时让 Search 交付一个可验证地读取的节点。set 让集合变化明确，图模型和字段断言让地址操作继续有据可证。若业务以后需要跨删除保留节点身份，就需要重新设计地址稳定性的承诺，并检查现有实现能否满足它。
