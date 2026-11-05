@@ -92,7 +92,8 @@ BstNode* p = tree.insert(30);
 </code></pre>
 <p>执行后，树的结构为：</p>
 <pre><code class="language-text">       20 @ a       tree.root == a
-       /      10 @ b    30 @ p  第三次 insert 返回 p
+       /    \
+  10 @ b    30 @ p  第三次 insert 返回 p
 </code></pre>
 <p><code>slot</code> 指向待访问的根或孩子指针字段。找到空位置后，<code>*slot = new ...</code> 把新节点接入树，<code>return *slot</code> 返回这个新节点的地址；遇到重复键时，直接返回已有节点。第三次调用后，<code>tree.root</code> 仍是 <code>a</code>，返回值 <code>p</code> 则指向右孩子，调用者可以直接读取 <code>p-&gt;data</code>，得到 <code>30</code>。</p>
 <p>对于直接返回节点指针 <code>p</code> 的插入接口，data2addr 可以把返回值、插入键和结果映射连在一起。新键插入成功时，后条件可以写成：</p>

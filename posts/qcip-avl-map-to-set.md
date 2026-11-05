@@ -79,7 +79,8 @@ BstNode* p = tree.insert(30);
 
 ```text
        20 @ a       tree.root == a
-       /      10 @ b    30 @ p  第三次 insert 返回 p
+       /    \
+  10 @ b    30 @ p  第三次 insert 返回 p
 ```
 
 `slot` 指向待访问的根或孩子指针字段。找到空位置后，`*slot = new ...` 把新节点接入树，`return *slot` 返回这个新节点的地址；遇到重复键时，直接返回已有节点。第三次调用后，`tree.root` 仍是 `a`，返回值 `p` 则指向右孩子，调用者可以直接读取 `p->data`，得到 `30`。
