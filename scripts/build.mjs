@@ -171,7 +171,7 @@ function articleHtml(article) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#faf9f6">
+  <meta name="theme-color" content="#f2f2f7">
   <meta name="description" content="${description}">
   <title>${title} — Notes</title>
   <link rel="stylesheet" href="../css/style.css${styleVersion}">${articleStyle}
