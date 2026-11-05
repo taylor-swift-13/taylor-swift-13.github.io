@@ -41,64 +41,35 @@ AvlNodeType AvlNodeSearchNode(AvlNodeType avl_node, int32 data)
 
 ### 返回插入位置：直接关联键与地址
 
-树的插入接口也可以直接返回插入节点的地址。下面这棵 C++ 二叉搜索树用 `BstNode` 保存键和左右孩子，用 `BstTree::root` 保存树根；`insert` 返回保存目标键的节点指针。
+Boost.Intrusive 的官方 AVL 实现提供了直接返回插入节点的算法。Boost 1.85.0 的 `avltree_algorithms.hpp` 中，`insert_equal_upper_bound` 先把 `new_node` 接入二叉搜索树，再进行 AVL 再平衡，最后返回 `new_node`。下面是官方源码中的完整函数：[Boost 官方仓库，348—355 行](https://github.com/boostorg/intrusive/blob/boost-1.85.0/include/boost/intrusive/avltree_algorithms.hpp#L348-L355)。
 
 ```cpp
-struct BstNode {
-    int data;
-    BstNode* left;
-    BstNode* right;
-};
-
-struct BstTree {
-    BstNode* root = nullptr;
-
-    BstNode* insert(int data) {
-        BstNode** slot = &root;
-        while (*slot != nullptr) {
-            BstNode* node = *slot;
-            if (data == node->data) {
-                return node;
-            }
-            slot = data < node->data
-                ? &node->left
-                : &node->right;
-        }
-        *slot = new BstNode{data, nullptr, nullptr};
-        return *slot;
-    }
-};
-
-BstTree tree;
-BstNode* a = tree.insert(20);
-BstNode* b = tree.insert(10);
-BstNode* p = tree.insert(30);
+   template<class NodePtrCompare>
+   static node_ptr insert_equal_upper_bound
+      (node_ptr h, node_ptr new_node, NodePtrCompare comp)
+   {
+      bstree_algo::insert_equal_upper_bound(h, new_node, comp);
+      rebalance_after_insertion(h, new_node);
+      return new_node;
+   }
 ```
 
-执行后，树的结构为：
+参数 `h` 是树的头节点，`new_node` 是调用者提供的待插入节点，`comp` 是节点比较器。树的根通过头节点维护；完成再平衡后，函数把刚插入的节点地址交还给调用者。即使旋转改变了树根，返回值依然是 `new_node`。
 
-```text
-       20 @ a       tree.root == a
-       /    \
-  10 @ b    30 @ p  第三次 insert 返回 p
-```
-
-`slot` 指向待访问的根或孩子指针字段。找到空位置后，`*slot = new ...` 把新节点接入树，`return *slot` 返回这个新节点的地址；遇到重复键时，直接返回已有节点。第三次调用后，`tree.root` 仍是 `a`，返回值 `p` 则指向右孩子，调用者可以直接读取 `p->data`，得到 `30`。
-
-对于直接返回节点指针 `p` 的插入接口，data2addr 可以把返回值、插入键和结果映射连在一起。新键插入成功时，后条件可以写成：
+以插入一个原先不存在的键 `data` 为例，设 `new_node = p`，data2addr 可以直接把输入节点、返回值和结果映射联系起来：
 
 ```text
 ret = p
 m_after = put(data, p, m)
 ```
 
-这里 `put(data, p, m)` 把 `data` 绑定到 `p`，保留其余键的地址绑定。若键已经存在，接口返回已有节点 `p`，则对应 `m(data) = Some p`、`m_after = m`。调用者拿到返回值，就同时拿到了目标键所在的位置。Search 也有同样的优势，命中后可以直接写出 `m(data) = Some ret`。
+这里 `put(data, p, m)` 把 `data` 绑定到 `p`，保留其余键的地址绑定。Boost 的这个算法接收已有节点并将其链接入树，调用者在调用前就持有 `p`；返回值继续标识这个节点。Search 也有同样的表达优势，命中后可以直接写出 `m(data) = Some ret`。
 
 CRTOS 的 `AvlTreeInsertNode` 返回插入并平衡后的树根。根可能保存另一个键；调用者取得插入键所在节点的地址时，需要在结果根上调用 `AvlNodeSearchNode`。`AvlTreeDeleteNode` 同样返回删除并平衡后的树根，删空时返回 `NULL`。
 
 | 接口 | 返回值的含义 | 调用者如何取得目标键的位置 |
 | --- | --- | --- |
-| 上面的 BstTree::insert | 保存插入键或已有键的节点指针 | 直接使用返回的节点 |
+| Boost AVL 的 insert_equal_upper_bound | 传入的插入节点 new_node | 直接使用返回的节点 |
 | CRTOS Insert | 插入后的树根；分配失败返回 `NULL` | 成功后在结果根上调用 Search |
 | CRTOS Delete | 删除后的树根；删空返回 `NULL` | 对保留键在结果根上调用 Search |
 | CRTOS Search | 命中节点的地址；未命中返回 `NULL` | 直接使用命中地址 |
