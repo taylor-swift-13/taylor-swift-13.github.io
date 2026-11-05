@@ -41,13 +41,48 @@ AvlNodeType AvlNodeSearchNode(AvlNodeType avl_node, int32 data)
 
 ### 返回插入位置：直接关联键与地址
 
-树的插入接口也可以把具体的插入位置交给调用者。例如，`std::set::insert` 返回迭代器和插入标志：新键插入成功时，迭代器定位新元素；键已存在时，迭代器定位已有元素，插入标志为 `false`。调用者可以通过迭代器取得元素地址。参见 [C++ 关联容器的 insert 返回值规约](https://eel.is/c++draft/associative.reqmts#general-64)。
+树的插入接口也可以直接返回插入节点的地址。下面这棵 C++ 二叉搜索树用 `BstNode` 保存键和左右孩子，用 `BstTree::root` 保存树根；`insert` 返回保存目标键的节点指针。
 
 ```cpp
-std::set<int> tree{10, 30};
-auto [it, inserted] = tree.insert(20);
-const int* p = &*it;  // 键 20 所在元素的地址
+struct BstNode {
+    int data;
+    BstNode* left;
+    BstNode* right;
+};
+
+struct BstTree {
+    BstNode* root = nullptr;
+
+    BstNode* insert(int data) {
+        BstNode** slot = &root;
+        while (*slot != nullptr) {
+            BstNode* node = *slot;
+            if (data == node->data) {
+                return node;
+            }
+            slot = data < node->data
+                ? &node->left
+                : &node->right;
+        }
+        *slot = new BstNode{data, nullptr, nullptr};
+        return *slot;
+    }
+};
+
+BstTree tree;
+BstNode* a = tree.insert(20);
+BstNode* b = tree.insert(10);
+BstNode* p = tree.insert(30);
 ```
+
+执行后，树的结构为：
+
+```text
+       20 @ a       tree.root == a
+       /      10 @ b    30 @ p  第三次 insert 返回 p
+```
+
+`slot` 指向待访问的根或孩子指针字段。找到空位置后，`*slot = new ...` 把新节点接入树，`return *slot` 返回这个新节点的地址；遇到重复键时，直接返回已有节点。第三次调用后，`tree.root` 仍是 `a`，返回值 `p` 则指向右孩子，调用者可以直接读取 `p->data`，得到 `30`。
 
 对于直接返回节点指针 `p` 的插入接口，data2addr 可以把返回值、插入键和结果映射连在一起。新键插入成功时，后条件可以写成：
 
@@ -62,12 +97,12 @@ CRTOS 的 `AvlTreeInsertNode` 返回插入并平衡后的树根。根可能保�
 
 | 接口 | 返回值的含义 | 调用者如何取得目标键的位置 |
 | --- | --- | --- |
-| 返回插入位置的接口 | 定位新插入或已有元素的迭代器，或节点指针 | 直接使用返回的位置 |
+| 上面的 BstTree::insert | 保存插入键或已有键的节点指针 | 直接使用返回的节点 |
 | CRTOS Insert | 插入后的树根；分配失败返回 `NULL` | 成功后在结果根上调用 Search |
 | CRTOS Delete | 删除后的树根；删空返回 `NULL` | 对保留键在结果根上调用 Search |
 | CRTOS Search | 命中节点的地址；未命中返回 `NULL` | 直接使用命中地址 |
 
-例如，原树根为 `30@A`，左孩子为 `10@B`，插入 `20` 并完成平衡后，`20` 成为新根，此时根地址恰好也是插入节点的地址。若在根 `20@A`、左孩子 `10@B` 的树中插入 `30@C`，树根保持 `A`，CRTOS Insert 返回 `A`，返回插入位置的接口则交付 `C`。两种接口分别把“更新整棵树的入口”和“访问目标元素的位置”交给调用者。
+对 CRTOS 的 AVL 树，例如原树根为 `30@A`，左孩子为 `10@B`，插入 `20` 并完成平衡后，`20` 成为新根，此时根地址恰好也是插入节点的地址。若在根 `20@A`、左孩子 `10@B` 的树中插入 `30@C`，树根保持 `A`，CRTOS Insert 返回 `A`，返回插入位置的接口则交付 `C`。两种接口分别把“更新整棵树的入口”和“访问目标元素的位置”交给调用者。
 
 ### 返回子树根：接回更新后的结构
 

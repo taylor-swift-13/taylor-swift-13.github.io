@@ -59,11 +59,42 @@ Definition avl_mapping_refines_graph
 <p>未命中时，<code>m(data) = None</code>，返回 <code>NULL</code>；命中时，返回值就是 <code>m(data)</code> 记录的地址。调用前若已知 <code>m(data) = Some p</code>，调用后便能直接推出 <code>__return = p</code>。这是 map 相比纯键集合提供的额外信息：调用者可以预先指定目标节点的身份，而不只是知道会返回某个保存该键的节点。继续读取 <code>p-&gt;data</code> 时，需要从树表示中取得字段的内存资源。</p>
 <h2>二、返回子树根与稳定的地址绑定</h2>
 <h3>返回插入位置：直接关联键与地址</h3>
-<p>树的插入接口也可以把具体的插入位置交给调用者。例如，<code>std::set::insert</code> 返回迭代器和插入标志：新键插入成功时，迭代器定位新元素；键已存在时，迭代器定位已有元素，插入标志为 <code>false</code>。调用者可以通过迭代器取得元素地址。参见 <a href="https://eel.is/c++draft/associative.reqmts#general-64">C++ 关联容器的 insert 返回值规约</a>。</p>
-<pre><code class="language-cpp">std::set&lt;int&gt; tree{10, 30};
-auto [it, inserted] = tree.insert(20);
-const int* p = &amp;*it;  // 键 20 所在元素的地址
+<p>树的插入接口也可以直接返回插入节点的地址。下面这棵 C++ 二叉搜索树用 <code>BstNode</code> 保存键和左右孩子，用 <code>BstTree::root</code> 保存树根；<code>insert</code> 返回保存目标键的节点指针。</p>
+<pre><code class="language-cpp">struct BstNode {
+    int data;
+    BstNode* left;
+    BstNode* right;
+};
+
+struct BstTree {
+    BstNode* root = nullptr;
+
+    BstNode* insert(int data) {
+        BstNode** slot = &amp;root;
+        while (*slot != nullptr) {
+            BstNode* node = *slot;
+            if (data == node-&gt;data) {
+                return node;
+            }
+            slot = data &lt; node-&gt;data
+                ? &amp;node-&gt;left
+                : &amp;node-&gt;right;
+        }
+        *slot = new BstNode{data, nullptr, nullptr};
+        return *slot;
+    }
+};
+
+BstTree tree;
+BstNode* a = tree.insert(20);
+BstNode* b = tree.insert(10);
+BstNode* p = tree.insert(30);
 </code></pre>
+<p>执行后，树的结构为：</p>
+<pre><code class="language-text">       20 @ a       tree.root == a
+       /      10 @ b    30 @ p  第三次 insert 返回 p
+</code></pre>
+<p><code>slot</code> 指向待访问的根或孩子指针字段。找到空位置后，<code>*slot = new ...</code> 把新节点接入树，<code>return *slot</code> 返回这个新节点的地址；遇到重复键时，直接返回已有节点。第三次调用后，<code>tree.root</code> 仍是 <code>a</code>，返回值 <code>p</code> 则指向右孩子，调用者可以直接读取 <code>p-&gt;data</code>，得到 <code>30</code>。</p>
 <p>对于直接返回节点指针 <code>p</code> 的插入接口，data2addr 可以把返回值、插入键和结果映射连在一起。新键插入成功时，后条件可以写成：</p>
 <pre><code class="language-text">ret = p
 m_after = put(data, p, m)
@@ -80,9 +111,9 @@ m_after = put(data, p, m)
 </thead>
 <tbody>
 <tr>
-<td>返回插入位置的接口</td>
-<td>定位新插入或已有元素的迭代器，或节点指针</td>
-<td>直接使用返回的位置</td>
+<td>上面的 BstTree::insert</td>
+<td>保存插入键或已有键的节点指针</td>
+<td>直接使用返回的节点</td>
 </tr>
 <tr>
 <td>CRTOS Insert</td>
@@ -101,7 +132,7 @@ m_after = put(data, p, m)
 </tr>
 </tbody>
 </table>
-<p>例如，原树根为 <code>30@A</code>，左孩子为 <code>10@B</code>，插入 <code>20</code> 并完成平衡后，<code>20</code> 成为新根，此时根地址恰好也是插入节点的地址。若在根 <code>20@A</code>、左孩子 <code>10@B</code> 的树中插入 <code>30@C</code>，树根保持 <code>A</code>，CRTOS Insert 返回 <code>A</code>，返回插入位置的接口则交付 <code>C</code>。两种接口分别把“更新整棵树的入口”和“访问目标元素的位置”交给调用者。</p>
+<p>对 CRTOS 的 AVL 树，例如原树根为 <code>30@A</code>，左孩子为 <code>10@B</code>，插入 <code>20</code> 并完成平衡后，<code>20</code> 成为新根，此时根地址恰好也是插入节点的地址。若在根 <code>20@A</code>、左孩子 <code>10@B</code> 的树中插入 <code>30@C</code>，树根保持 <code>A</code>，CRTOS Insert 返回 <code>A</code>，返回插入位置的接口则交付 <code>C</code>。两种接口分别把“更新整棵树的入口”和“访问目标元素的位置”交给调用者。</p>
 <h3>返回子树根：接回更新后的结构</h3>
 <p>一些 C++ 二叉搜索树实现让插入、删除的递归辅助函数返回修改后的子树根，父节点再把返回地址接回相应的孩子字段。删除节点没有右孩子时，可以直接删除当前节点并返回左子树根。</p>
 <pre><code class="language-cpp">if (node-&gt;right == nullptr) {
