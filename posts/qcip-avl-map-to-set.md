@@ -79,66 +79,9 @@ exists old_ptr new_ptr,
 
 Search 的 map 规约交还保存目标键的具体节点地址。Delete 若要允许调用者继续使用未删除键的旧指针，就必须满足 `m_after = remove(deleted_key, m_before)`。上面的源码反例说明，这个等式无法成立的原因在实现里：删除 `20` 会释放此前 Search 对 `10` 返回的节点。若调用者保存了 `p = Search(root, 10)`，删除 `20` 后访问 `p->data` 就可能访问已释放内存。验证中 map 规约无法统一的现象，因而揭示了对可复用 Search 指针不合理的 Delete 行为。
 
-## 三、保留地址绑定的实现方式
+## 三、set 规约能证明什么、遗漏什么
 
-### 返回插入位置：直接关联键与地址
-
-Boost.Intrusive 的官方 AVL 实现提供了直接返回插入节点的算法。Boost 1.85.0 的 `avltree_algorithms.hpp` 中，`insert_equal_upper_bound` 先把 `new_node` 接入二叉搜索树，再进行 AVL 再平衡，最后返回 `new_node`。下面是官方源码中的完整函数：[Boost 官方仓库，348—355 行](https://github.com/boostorg/intrusive/blob/boost-1.85.0/include/boost/intrusive/avltree_algorithms.hpp#L348-L355)。
-
-```cpp
-   template<class NodePtrCompare>
-   static node_ptr insert_equal_upper_bound
-      (node_ptr h, node_ptr new_node, NodePtrCompare comp)
-   {
-      bstree_algo::insert_equal_upper_bound(h, new_node, comp);
-      rebalance_after_insertion(h, new_node);
-      return new_node;
-   }
-```
-
-参数 `h` 是树的头节点，`new_node` 是调用者提供的待插入节点，`comp` 是节点比较器。树的根通过头节点维护；完成再平衡后，函数把刚插入的节点地址交还给调用者。即使旋转改变了树根，返回值依然是 `new_node`。
-
-以插入一个原先不存在的键 `data` 为例，设 `new_node = p`，data2addr 可以直接把输入节点、返回值和结果映射联系起来：
-
-```text
-ret = p
-m_after = put(data, p, m)
-```
-
-这里 `put(data, p, m)` 把 `data` 绑定到 `p`，保留其余键的地址绑定。Boost 的这个算法接收已有节点并将其链接入树，调用者在调用前就持有 `p`；返回值继续标识这个节点。Search 也有同样的表达优势，命中后可以直接写出 `m(data) = Some ret`。
-
-CRTOS 的 `AvlTreeInsertNode` 返回插入并平衡后的树根。根可能保存另一个键；调用者取得插入键所在节点的地址时，需要在结果根上调用 `AvlNodeSearchNode`。`AvlTreeDeleteNode` 同样返回删除并平衡后的树根，删空时返回 `NULL`。
-
-| 接口 | 返回值的含义 | 调用者如何取得目标键的位置 |
-| --- | --- | --- |
-| Boost AVL 的 insert_equal_upper_bound | 传入的插入节点 new_node | 直接使用返回的节点 |
-| CRTOS Insert | 插入后的树根；分配失败返回 `NULL` | 成功后在结果根上调用 Search |
-| CRTOS Delete | 删除后的树根；删空返回 `NULL` | 对保留键在结果根上调用 Search |
-| CRTOS Search | 命中节点的地址；未命中返回 `NULL` | 直接使用命中地址 |
-
-对 CRTOS 的 AVL 树，例如原树根为 `30@A`，左孩子为 `10@B`，插入 `20` 并完成平衡后，`20` 成为新根，此时根地址恰好也是插入节点的地址。若在根 `20@A`、左孩子 `10@B` 的树中插入 `30@C`，树根保持 `A`，CRTOS Insert 返回 `A`，返回插入位置的接口则交付 `C`。两种接口分别把“更新整棵树的入口”和“访问目标元素的位置”交给调用者。
-
-### 返回子树根：接回更新后的结构
-
-一些 C++ 二叉搜索树实现让插入、删除的递归辅助函数返回修改后的子树根，父节点再把返回地址接回相应的孩子字段。删除节点没有右孩子时，可以直接删除当前节点并返回左子树根。
-
-```cpp
-if (node->right == nullptr) {
-    Node* left = node->left;
-    delete node;
-    return left;
-}
-```
-
-这里返回的是原左子树的根地址，左子树为空时就是 `nullptr`。若被删键 `20` 位于 `A`，左孩子键 `10` 位于 `B`，删除后返回 `B`，但 `10` 仍保存在 `B`。父节点需要接回的根变了，其余键的地址绑定没有改变。这个分支的映射变化就能精确写成 `m_after = remove(20, m)`。
-
-在保留已有节点身份的实现中，新键插入成功后，已有键仍对应原节点，新键绑定到新分配的节点，结果映射可以写成 `m_after = put(data, new_addr, m)`。其中 `put` 只更新指定键的绑定，`remove` 只移除指定键。即使平衡操作把原左孩子或右孩子旋转为新根，递归函数返回了另一个地址，只要节点继续保存各自的键，旧键的 map 绑定就保持不变。根指针由树表示谓词单独记录。
-
-要让整个删除操作都满足简单的 `remove`，双孩子分支也必须保持其余键所在节点的身份。例如，把前驱或后继节点本身摘出并移接到目标位置，而不是把它的键复制到另一个节点。libstdc++ 的红黑树实现就明确采用重新链接后继节点的方式处理双孩子删除，以保留未删除元素的迭代器有效性。这个例子体现了适合 data2addr 抽象的实现选择。参见 [GCC 的 stl_tree.h 源码说明](https://gnu.googlesource.com/gcc/+/refs/heads/master/libstdc%2B%2B-v3/include/bits/stl_tree.h)。
-
-## 四、set 规约能证明什么、遗漏什么
-
-为了验证当前尚未修复的实现，API 顶层规约暂时退到只描述键是否存在的集合；底层图继续描述地址、拓扑和高度。插入和删除的集合变化可以直接由输入集合定义，因而能证明现有代码的键集合行为，但这不是最终要交给调用者的接口。当前过渡版本的集合及其内存表示使用下面这些 Rocq 定义。
+为了验证当前尚未修复的实现，API 顶层规约暂时退到只描述键是否存在的集合；底层图继续描述地址、拓扑和高度。它能证明删除后某个键是否仍存在，却不能约束这个键对应的节点地址。删除前 `Search(root, 10) = B`，删除另一个键后，即使 set 仍包含 `10`，再次搜索也可能返回 `A`，而 `B` 已被释放。调用者保存的旧指针因此可能失效。这正是 set 作为最终公开抽象的局限，不只是少了一个可供查询的地址。当前过渡版本的集合及其内存表示使用下面这些 Rocq 定义。
 
 ```coq
 Definition avl_key_set := Z -> Prop.
@@ -161,9 +104,9 @@ Definition avl_balanced_set_root_rep (keys : avl_key_set) (root : addr) : Assert
 
 `keys k` 表示键 `k` 属于集合。集合本身是纯逻辑对象，不提供任何字段的内存所有权。`avl_set_refines_graph` 要求集合成员与图中的键完全一致，`avl_balanced_set_root_rep` 则在内部存在量化一张图 `g`，同时持有 `avl_tree_store g`。
 
-这张图仍记录根地址、每个有效节点、左右孩子、键和高度缓存。`avl_tree_store` 把每个节点对应到 C 的 `data`、`height`、`left` 和 `right` 四个字段，并用分离合取组合所有节点的资源。结构合法、键顺序、高度缓存一致和 AVL 平衡也由图级条件约束。顶层改成 set 后，证明指针读写、旋转和释放所需的地址信息仍保存在这一层。
+这张图仍记录根地址、每个有效节点、左右孩子、键和高度缓存。`avl_tree_store` 把每个节点对应到 C 的 `data`、`height`、`left` 和 `right` 四个字段，并用分离合取组合所有节点的资源。结构合法、键顺序、高度缓存一致和 AVL 平衡也由图级条件约束。顶层改成 set 后，证明单次调用内的指针读写、旋转和释放所需的地址信息仍保存在这一层；但各次调用的顶层 set 不连接同一个键在调用前后的地址，因此不能推出旧 Search 结果仍有效。
 
-## 五、现有四个 API 的集合语义
+## 四、现有四个 API 的集合语义
 
 四个 API 的公开效果也因此可以用同一种状态描述。
 
@@ -194,7 +137,7 @@ AvlNodeType AvlTreeDeleteNode(AvlNodeType avl_node, int32 data)
 
 空树的集合没有任何成员，所以输入为空树时自然落在未命中分支，返回原来的 `NULL` 根。如果删除唯一的键，目标在输入集合中，结果集合为空，返回的结果根为 `NULL`，仍然属于命中分支。`avl_balanced_set_root_rep` 支持空树，因此这两种情况都能由相同的表示谓词处理。
 
-## 六、set 下的 Search 如何交还字段所有权
+## 五、set 下的 Search 如何交还字段所有权
 
 Search 返回节点地址后，调用者可以继续读取 `p->data`。为了验证这次读取，后条件需要同时提供字段的内存所有权，以及字段值等于查找键的事实。
 
@@ -228,7 +171,7 @@ AvlNodeType AvlNodeSearchNode(AvlNodeType avl_node, int32 data)
 
 `store(&(__return->data), data)` 同时提供读取这个字段的资源和读出的值。其余三个字段及剩余节点资源也一并交还，调用者可以在需要时恢复整树表示。这里选择分别写出四个字段，是为了复用现成的节点拆分和重组证明。
 
-## 七、调用点如何读取返回节点
+## 六、调用点如何读取返回节点
 
 已知查找键存在时，调用点直接使用上面的 high spec 读取节点。
 
@@ -252,7 +195,7 @@ int32 SearchReadKey(AvlNodeType root, int32 key)
 
 这个过程也说明了存在量词的作用。`g` 是用于证明的逻辑见证，返回地址 `p` 来自 C 函数的执行。打开 `exists g` 可以取得关于 `p` 的事实，集合本身并没有计算出一个地址。保留同一张图上的字段所有权，才让“找到键”能够接续到“读取返回节点”的证明。
 
-## 八、修复 Delete，并回到 map 顶层规约
+## 七、修复 Delete，并回到 map 顶层规约
 
 最终方案是修改 CRTOS 的 Delete，并继续使用 data2addr map 表示顶层状态。这样 Search 可以直接给出查询键对应的地址，Delete 则承诺删除其他键时保留这条地址绑定。其目标规约可以明确写成：
 
