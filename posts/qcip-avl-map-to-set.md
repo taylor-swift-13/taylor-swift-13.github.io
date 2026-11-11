@@ -104,7 +104,7 @@ Definition avl_balanced_set_root_rep (keys : avl_key_set) (root : addr) : Assert
 
 `keys k` 表示键 `k` 属于集合。集合本身是纯逻辑对象，不提供任何字段的内存所有权。`avl_set_refines_graph` 要求集合成员与图中的键完全一致，`avl_balanced_set_root_rep` 则在内部存在量化一张图 `g`，同时持有 `avl_tree_store g`。
 
-这张图仍记录根地址、每个有效节点、左右孩子、键和高度缓存。`avl_tree_store` 把每个节点对应到 C 的 `data`、`height`、`left` 和 `right` 四个字段，并用分离合取组合所有节点的资源。结构合法、键顺序、高度缓存一致和 AVL 平衡也由图级条件约束。顶层改成 set 后，证明单次调用内的指针读写、旋转和释放所需的地址信息仍保存在这一层；但各次调用的顶层 set 不连接同一个键在调用前后的地址，因此不能推出旧 Search 结果仍有效。
+这张图仍记录根地址、每个有效节点、左右孩子、键和高度缓存。`avl_tree_store` 把每个节点对应到 C 的 `data`、`height`、`left` 和 `right` 四个字段，并用分离合取组合所有节点的资源。结构合法、键顺序、高度缓存一致和 AVL 平衡也由图级条件约束。顶层改成 set 后，证明单次调用内的指针读写、旋转和释放所需的地址信息仍保存在这一层；但各次调用的顶层 set 不连接同一个键在调用前后的地址，因此不能推出旧 Search 结果仍有效。当前 Search 的 high spec 为了让调用者读取返回节点的字段，还显式交出了底层图 `g` 和节点字段资源。这把实现细节带到了公开规约里，也违背了希望在顶层隐藏底层图的抽象目标。最终 map 规约应直接给出键与返回地址的关系；需要读字段时，再通过合适的公开节点资源接口提供读取权限。
 
 ## 四、现有四个 API 的集合语义
 
@@ -137,65 +137,7 @@ AvlNodeType AvlTreeDeleteNode(AvlNodeType avl_node, int32 data)
 
 空树的集合没有任何成员，所以输入为空树时自然落在未命中分支，返回原来的 `NULL` 根。如果删除唯一的键，目标在输入集合中，结果集合为空，返回的结果根为 `NULL`，仍然属于命中分支。`avl_balanced_set_root_rep` 支持空树，因此这两种情况都能由相同的表示谓词处理。
 
-## 五、set 下的 Search 如何交还字段所有权
-
-Search 返回节点地址后，调用者可以继续读取 `p->data`。为了验证这次读取，后条件需要同时提供字段的内存所有权，以及字段值等于查找键的事实。
-
-最初，这些事实封装在 `avl_balanced_set_hit_rep` 中。它在内部隐藏同一张图 `g`，保证结果节点有效、键匹配，并持有整树内存。但在 QCP 调用点中，直接写 `Given g` 会报错，因为符号执行状态里还没有显式的这个存在见证。可以先用 `Assert exists g, ...` 暴露图和字段，再用 Rocq 证明展开谓词、拆分节点资源，之后 `Given g` 才能使用它。
-
-这个调用点能够验证通过，不过每个需要读取返回节点的调用者都要重复这一步。最终，Search 的接口证明承担资源展开，在命中后条件中直接写出 `exists g` 和字段断言。当前规约如下。
-
-```c
-AvlNodeType AvlNodeSearchNode(AvlNodeType avl_node, int32 data)
-  /*@ high_level_spec <= low_level_spec
-      With keys
-      Require avl_balanced_set_root_rep(keys, avl_node)
-      Ensure
-        ((!avl_set_member(keys, data) && __return == 0) &&
-         avl_balanced_set_root_rep(keys, avl_node)) ||
-        (exists g,
-          avl_set_member(keys, data) && __return != 0 &&
-          avl_gvalid(g) &&
-          avl_node == avl_ptr_of(avl_root(g)) &&
-          avl_set_refines_graph(keys, g) &&
-          avl_vvalid(g, __return) &&
-          avl_key_of(g, __return) == data &&
-          store(&(__return->data), data) *
-          store(&(__return->height), avl_height_of(g, __return)) *
-          store(&(__return->left), avl_ptr_of(avl_left(g, __return))) *
-          store(&(__return->right), avl_ptr_of(avl_right(g, __return))) *
-          avl_graph_nodes_store(g, avl_nodes_without(g, __return)))
-   */
-;
-```
-
-`store(&(__return->data), data)` 同时提供读取这个字段的资源和读出的值。其余三个字段及剩余节点资源也一并交还，调用者可以在需要时恢复整树表示。这里选择分别写出四个字段，是为了复用现成的节点拆分和重组证明。
-
-## 六、调用点如何读取返回节点
-
-已知查找键存在时，调用点直接使用上面的 high spec 读取节点。
-
-```c
-int32 SearchReadKey(AvlNodeType root, int32 key)
-  /*@ With keys
-      Require avl_set_member(keys, key) &&
-              avl_balanced_set_root_rep(keys, root)
-      Ensure __return == key@pre &&
-             avl_balanced_set_root_rep(keys, root@pre)
-  */
-{
-    AvlNodeType p = AvlNodeSearchNode(root, key)
-        /*@ where(high_level_spec) keys = keys */;
-    /*@ Given g */
-    return p->data;
-}
-```
-
-前条件中的成员关系排除了未命中分支。QCP 从命中后条件取得显式存在见证和字段资源，`Given g` 让注解可以引用这张图，`return p->data` 读出的值就是 `key`。返回时的 Rocq 义务把四个字段和剩余节点重新组合，得到后条件里的原树表示。
-
-这个过程也说明了存在量词的作用。`g` 是用于证明的逻辑见证，返回地址 `p` 来自 C 函数的执行。打开 `exists g` 可以取得关于 `p` 的事实，集合本身并没有计算出一个地址。保留同一张图上的字段所有权，才让“找到键”能够接续到“读取返回节点”的证明。
-
-## 七、修复 Delete，并回到 map 顶层规约
+## 五、修复 Delete，并回到 map 顶层规约
 
 最终方案是修改 CRTOS 的 Delete，并继续使用 data2addr map 表示顶层状态。这样 Search 可以直接给出查询键对应的地址，Delete 则承诺删除其他键时保留这条地址绑定。其目标规约可以明确写成：
 
