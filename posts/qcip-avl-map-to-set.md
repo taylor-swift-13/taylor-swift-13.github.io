@@ -106,38 +106,7 @@ Definition avl_balanced_set_root_rep (keys : avl_key_set) (root : addr) : Assert
 
 这张图仍记录根地址、每个有效节点、左右孩子、键和高度缓存。`avl_tree_store` 把每个节点对应到 C 的 `data`、`height`、`left` 和 `right` 四个字段，并用分离合取组合所有节点的资源。结构合法、键顺序、高度缓存一致和 AVL 平衡也由图级条件约束。底层证明能处理指针读写，却不改变顶层 set 缺少地址关系的事实：要在 Search 的后条件中交还命中节点的地址及字段，当前写法必须展开存在量化的图 `g`，把底层节点信息带进 high spec。相反，map 可以直接写出 Search 的返回地址，却必须为现有 Delete 的前驱换址描述树结构。map 的 Delete 与 set 的 Search 分别在不同位置迫使顶层接口暴露底层细节，因而无法用其中一种简单抽象同时表达两个 API 所需的行为。这个冲突促使检查源码，并发现删除其他键会使已取得的 Search 指针失效。
 
-## 四、现有四个 API 的集合语义
-
-四个 API 的公开效果也因此可以用同一种状态描述。
-
-| API | 返回值与集合变化 |
-| --- | --- |
-| Search | 未命中返回 `NULL`，命中返回保存该键的节点地址，集合保持 |
-| Insert | 重复键时返回原根；新键插入成功后返回结果根，集合为 `keys ∪ {data}`；分配失败返回 `NULL`，交还原根上的树 |
-| Delete | 未命中返回原根；命中后返回结果根，集合为 `keys \ {data}`，删空时结果根为 `NULL` |
-| Modify | 非空输入修改成功后返回结果根，集合为 `(keys \ {source}) ∪ {target}`；空输入或分配失败返回 `NULL`，交还原树 |
-
-Insert、Delete 和 Modify 的成功返回值表示结果树根。Insert 和 Modify 分配失败时返回 NULL，原树仍由旧根持有。Search 命中时返回目标节点的地址。调用者需要某个键的节点地址时，可以在当前根上调用 Search。
-
-Delete 的当前 high-level spec 只保留两条分支，直接按目标键是否存在区分。
-
-```c
-AvlNodeType AvlTreeDeleteNode(AvlNodeType avl_node, int32 data)
-  /*@ high_level_spec <= low_level_spec
-      With keys
-      Require avl_balanced_set_root_rep(keys, avl_node)
-      Ensure
-        (!avl_set_member(keys, data) && __return == avl_node &&
-         avl_balanced_set_root_rep(keys, __return)) ||
-        (avl_set_member(keys, data) &&
-         avl_balanced_set_root_rep(avl_set_remove(keys, data), __return))
-  */
-;
-```
-
-空树的集合没有任何成员，所以输入为空树时自然落在未命中分支，返回原来的 `NULL` 根。如果删除唯一的键，目标在输入集合中，结果集合为空，返回的结果根为 `NULL`，仍然属于命中分支。`avl_balanced_set_root_rep` 支持空树，因此这两种情况都能由相同的表示谓词处理。
-
-## 五、修复 Delete，并回到 map 顶层规约
+## 四、修复 Delete，并回到 map 顶层规约
 
 最终方案是修改 CRTOS 的 Delete，并继续使用 data2addr map 表示顶层状态。这样 Search 可以直接给出查询键对应的地址，Delete 则承诺删除其他键时保留这条地址绑定。其目标规约可以明确写成：
 
