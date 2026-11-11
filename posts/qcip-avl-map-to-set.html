@@ -165,6 +165,14 @@ avl_node-&gt;left = AvlTreeDeleteNode(avl_node-&gt;left, pred-&gt;data);
 </code></pre>
 <p>这只能保证该键在删除前后都存在，<code>old_ptr</code> 和 <code>new_ptr</code> 可以不同。调用者即使知道整个旧 map，也无法通过这条条件确定新地址，更无法据此证明一个保存下来的旧指针仍然有效。结果 map 在实际结果树上有确定含义，但接口没有把具体的新旧绑定关系交给调用者。</p>
 <p>要把这种关系写得精确，就需要告诉调用者哪些情况下发生前驱替换，以及前驱是哪一个键。键的大小关系足以定义有序前驱，但 map 没有记录左右孩子，无法单独判断目标节点是否进入双孩子替换分支。随着这些结构事实进入接口，顶层规约会越来越接近底层树图。</p>
+<h3>规约抽象暴露了 Delete 与 Search 的冲突</h3>
+<p>验证一开始用 <code>data2addr</code> map 描述键与节点地址。Search 的顶层规约因此很直接：若 <code>m(key) = Some p</code>，函数返回 <code>p</code>。调用者可以保存这个地址，之后读取 <code>p-&gt;data</code>。但为 Delete 写同一层次的规约时，预期的更新 <code>m_after = remove(key, m_before)</code> 证明不出来。原因不是证明技巧不足，而是源码在双孩子分支复制前驱键，随后释放原前驱节点；一个未删除的键换了地址。</p>
+<p>例如，<code>20@A</code> 的左右孩子分别是 <code>15@B</code>、<code>30@C</code>。先保存 <code>p = Search(root, 15)</code>，得到 <code>B</code>；再删除 <code>20</code>，源码把 <code>15</code> 写入 <code>A</code> 并释放 <code>B</code>。随后 <code>15</code> 仍在树中，先前成功的 Search 结果 <code>p</code> 却已失效。Delete 的形参是 <code>20</code>，调用者未要求删除 <code>15</code>。对于允许保存并复用 Search 返回指针的接口，这种实现不合理。验证过程发现的正是两个 API 的规约抽象程度对不齐：Search 要给出可用的具体地址，Delete 的 set 规约却只保证键还在，无法承诺那个地址仍有效。</p>
+<p>把顶层状态从 map 降为 set，能够为现有 Delete 证明“删除目标键、保留其他键的存在性”，但不能消除这个接口问题。若要保证删除另一个键后此前 Search 返回的指针仍有效，实现需要移动前驱节点本身，只释放保存待删键的节点。这样才可以给出稳定的地址关系：</p>
+<pre><code class="language-text">forall k, m_after(k) =
+  if k == deleted_key then None else m_before(k)
+</code></pre>
+<p>旋转可以改变树根与孩子链接，不改变存活键所在的节点。当前 CRTOS <code>517cca2e9</code> 仍采用复制前驱键的 Delete；本文展示的 set 规约与 QCP 证明对应这个现有实现。节点移动方案是待修复、待验证的目标。修复后应重新证明 Delete 的地址稳定性，并检查调用 Delete 的 Modify。</p>
 <h2>四、集合抽象与底层内存表示</h2>
 <p>调整后的 API 公开键集合，底层图继续描述地址、拓扑和高度。插入和删除的集合变化可以直接由输入集合定义，调用者也不必在每次更新后接收一张地址绑定关系较弱的新 map。当前集合及其内存表示使用下面这些 Rocq 定义。</p>
 <pre><code class="language-coq">Definition avl_key_set := Z -&gt; Prop.
