@@ -19,7 +19,7 @@ const articles = [
   {
     slug: 'qcip-avl-map-to-set',
     date: '2026-11-05',
-    title: '通过形式化验证的抽象失败发现 CRTOS AVL 删除的功能错误',
+    title: '通过形式化验证的抽象失败发现 AVL 删除的功能错误',
     description: 'Search 与 Delete 的规约冲突暴露旧指针失效；分析 set 过渡方案，以及修复 Delete 后恢复 map 的最终方案。',
     category: '形式化验证',
   },
