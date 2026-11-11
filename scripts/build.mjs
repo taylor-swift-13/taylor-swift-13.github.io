@@ -19,8 +19,8 @@ const articles = [
   {
     slug: 'qcip-avl-map-to-set',
     date: '2026-11-05',
-    title: 'AVL 树形式化验证中的集合抽象与接口规约',
-    description: '从前驱替换的地址变化，到 Search 调用点的字段所有权，记录 AVL 顶层规约的选择与代价。',
+    title: '通过形式化验证的抽象失败发现源代码的功能错误',
+    description: 'Search 与 Delete 的规约冲突暴露旧指针失效；分析 set 过渡方案，以及修复 Delete 后恢复 map 的最终方案。',
     category: '形式化验证',
   },
   {

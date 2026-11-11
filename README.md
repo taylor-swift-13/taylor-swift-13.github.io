@@ -4,7 +4,7 @@
 
 ## 文章
 
-- [AVL 树形式化验证中的集合抽象与接口规约](https://taylor-swift-13.github.io/posts/qcip-avl-map-to-set.html)：从前驱替换的地址变化，到 Search 调用点的字段所有权，记录 AVL 顶层规约的选择与代价。
+- [通过形式化验证的抽象失败发现源代码的功能错误](https://taylor-swift-13.github.io/posts/qcip-avl-map-to-set.html)：Search 与 Delete 的规约冲突暴露旧指针失效；分析 set 过渡方案，以及修复 Delete 后恢复 map 的最终方案。
 - [从全词表到采样梯度：理解 OPD 中的 Forward KL 与 Reverse KL](https://taylor-swift-13.github.io/posts/on-policy-distillation-kl.html)：从完整 KL 推导学生采样下的无偏梯度，比较两种采样权重与目标取舍。
 - [Anthropic 的程序验证：测试 formalization 而不是实现，功能性检查编码到 crash，不写 spec 只写证明](https://taylor-swift-13.github.io/posts/anthropic-formal-verification.html)：按顺序解读六张原图，讨论操作语义、可执行规约、找 bug 与功能正确性。
 - [内嵌双链表为什么要设计 storeA](https://taylor-swift-13.github.io/posts/qcip-dll-storea.html)：从地址级规范的边界出发，解释 storeA 如何连接业务对象与通用链表证明。
