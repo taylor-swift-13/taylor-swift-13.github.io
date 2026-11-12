@@ -20,7 +20,7 @@ const articles = [
     slug: 'exact-invariants-well-founded',
     date: '2026-11-12',
     title: '如何证明循环不变式是精确的：定义与良基前驱覆盖',
-    description: '从整数状态与循环语义出发，统一定义不变式及其精确性，给出良基前驱覆盖定理、完整证明与符号输入例子。',
+    description: '从整数状态与循环语义出发，统一定义不变式和 exact，给出良基前驱覆盖定理、完整证明与符号输入例子。',
     category: '形式化验证',
   },
   {
