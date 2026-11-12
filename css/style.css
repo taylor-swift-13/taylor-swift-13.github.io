@@ -1,4 +1,4 @@
-:root{color-scheme:light;--paper:#f2f2f7;--ink:#1c1c1e;--muted:#636366;--line:#d1d1d6;--accent:#c8102e}
+:root{color-scheme:light;--paper:#fffdf8;--surface:#f6f3ec;--ink:#1c1c1e;--muted:#636366;--line:#e5e0d6;--accent:#c8102e}
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
 body{margin:0;background:var(--paper);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased}
@@ -41,8 +41,8 @@ nav a:hover,.footer-inner a:hover{color:var(--accent)}
 .prose li{margin:8px 0}
 .prose a{color:var(--accent);border-bottom:1px solid #d8939f}
 .prose a:hover{border-color:currentColor}
-.prose code{font:14px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#e5e5ea;border-radius:4px;padding:2px 5px}
-.prose pre{background:#e5e5ea;padding:20px 22px;overflow-x:auto;border-radius:6px;line-height:1.7}
+.prose code{font:14px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--surface);border-radius:4px;padding:2px 5px}
+.prose pre{background:var(--surface);padding:20px 22px;overflow-x:auto;border-radius:6px;line-height:1.7}
 .prose pre code{background:none;padding:0}
 .prose blockquote{border-left:2px solid var(--accent);padding:4px 0 4px 20px;color:#5c5851}
 .prose blockquote p:last-child{margin-bottom:0}
@@ -89,7 +89,7 @@ nav a:hover,.footer-inner a:hover{color:var(--accent)}
 .source-aware .prose .author-opinion a{color:inherit;border-bottom-color:currentColor}
 .source-aware .prose .reading-key{font-size:13px;margin-bottom:28px}
 .prose .source-figure{margin:28px 0 12px}
-.source-figure video{display:block;width:100%;height:auto;background:#f2f2f7;border-radius:6px;margin-top:14px}
+.source-figure video{display:block;width:100%;height:auto;background:var(--paper);border-radius:6px;margin-top:14px}
 .source-figure figcaption{margin-top:10px;font-size:12px;line-height:1.7;color:var(--muted)}
 .source-figure+p{font-size:13px;line-height:1.7;color:var(--muted)}
 .source-animation{margin-top:12px;font-size:13px;color:var(--muted)}

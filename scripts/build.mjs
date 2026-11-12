@@ -8,6 +8,7 @@ import katex from 'katex';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const check = process.argv.includes('--check');
+const styleVersion = `?v=${createHash('sha256').update(readFileSync(path.join(root, 'css/style.css'))).digest('hex').slice(0, 12)}`;
 const markdown = new MarkdownIt({ html: false, linkify: true, typographer: false })
   .use(texmath, {
     engine: katex,
@@ -167,9 +168,6 @@ function articleHtml(article) {
   const description = escapeHtml(article.description);
   const category = escapeHtml(article.category);
   const sourceAware = article.sourceAware || article.slug === 'vero-coco-prover';
-  const styleVersion = sourceAware
-    ? `?v=${createHash('sha256').update(readFileSync(path.join(root, 'css/style.css'))).digest('hex').slice(0, 12)}`
-    : '';
   const articleStyle = article.slug === 'anthropic-formal-verification'
     ? `\n  <link rel="stylesheet" href="../css/anthropic-verification.css?v=${createHash('sha256').update(readFileSync(path.join(root, 'css/anthropic-verification.css'))).digest('hex').slice(0, 12)}">`
     : '';
@@ -178,7 +176,7 @@ function articleHtml(article) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f2f2f7">
+  <meta name="theme-color" content="#fffdf8">
   <meta name="description" content="${description}">
   <title>${title} — Notes</title>
   <link rel="stylesheet" href="../css/style.css${styleVersion}">${articleStyle}
@@ -217,7 +215,8 @@ ${body}    </article>
 // Keep home-page dates aligned with the article metadata.
 const indexPath = path.join(root, 'index.html');
 const oldIndex = readFileSync(indexPath, 'utf8');
-let indexHtml = oldIndex;
+let indexHtml = oldIndex.replace(/href="css\/style\.css(?:\?v=[^"\s]*)?"/,
+  `href="css/style.css${styleVersion}"`);
 for (const article of articles) {
   const marker = `<a class="article-row" href="posts/${article.slug}.html">`;
   const start = indexHtml.indexOf(marker);
