@@ -17,6 +17,13 @@ const markdown = new MarkdownIt({ html: false, linkify: true, typographer: false
 
 const articles = [
   {
+    slug: 'exact-invariants-well-founded',
+    date: '2026-11-12',
+    title: '如何证明循环不变式是 Exact：定义与良基前驱覆盖',
+    description: '从整数状态与循环语义出发，统一定义不变式和 exact，给出良基前驱覆盖定理、完整证明与符号输入例子。',
+    category: '形式化验证',
+  },
+  {
     slug: 'qcip-avl-map-to-set',
     date: '2026-11-05',
     title: '通过形式化验证的抽象失败发现 AVL 删除的功能错误',
