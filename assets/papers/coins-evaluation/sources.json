@@ -1,0 +1,142 @@
+{
+  "extraction": "Figures originate from the original papers; the COINS entry records the user-requested numeric erratum separately. Other figures are unchanged.",
+  "retrieved": "2026-11-20",
+  "figures": [
+    {
+      "file": "coins-figure-1.png",
+      "paper": "How Powerful are LLMs in Generating Formal Program Specifications?",
+      "version": "ICML 2026 accepted source supplied locally, with the requested Figure 1 correction",
+      "figure": 1,
+      "page_1_based": 3,
+      "source": "paper/coins/main1.pdf",
+      "image_size": [
+        2000,
+        1258
+      ],
+      "pdf_sha256": "4c9b9517d2cbf54ed63f376dd7161c1436449587912a138c85a13de1e030529c",
+      "image_sha256": "45ceaad99798fe09ef02939e8996db0701b2e1be173ab8ef4863d011fbdf1781",
+      "original_publication_source": "https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf",
+      "original_pdf_sha256": "552e4b9df511e8d6347e40be4591d4b204c602b60b1bcf8e0fa92550c2cf82ad",
+      "correction": {
+        "date": "2026-11-24",
+        "from": "43/164",
+        "to": "46/164",
+        "source_image": "paper/coins/images/flow.png",
+        "source_image_sha256": "8b2ebf42fe9c68a86e86f9c3cdcca6c9a22632aeb129f9f1d8523f65119da6a6",
+        "corrected_figure": "paper/coins/images/flow-corrected.pdf",
+        "method": "Original PNG retained unchanged; a PDF layer replaces only the final digit 3 with 6. The corresponding caption count is updated to 46."
+      }
+    },
+    {
+      "file": "clever-figure-1.png",
+      "paper": "CLEVER: A Curated Benchmark for Formally Verified Code Generation",
+      "version": "arXiv:2505.13938v4",
+      "figure": 1,
+      "page_1_based": 2,
+      "source": "https://arxiv.org/pdf/2505.13938v4",
+      "crop_points": [
+        106,
+        76,
+        500,
+        260
+      ],
+      "resolution_dpi": 300,
+      "image_size": [
+        1643,
+        768
+      ],
+      "pdf_sha256": "ea937bfa5ae311163c7f237b7be6beef9dd1ca579ad15b1567d2feb69e83c224",
+      "image_sha256": "ade60061874f2cd1c0ce3ab6559f5fbba83c45b11d53799315d88c8e753bdad0"
+    },
+    {
+      "file": "spec-harness-figure-1.png",
+      "paper": "Spec-Harness: Assessing and Guiding LLM-Synthesized Formal Specifications Beyond Verifiability",
+      "version": "arXiv:2604.00280v3",
+      "figure": 1,
+      "page_1_based": 4,
+      "source": "https://arxiv.org/pdf/2604.00280v3",
+      "crop_points": [
+        214,
+        190,
+        441,
+        349
+      ],
+      "resolution_dpi": 300,
+      "image_size": [
+        947,
+        664
+      ],
+      "pdf_sha256": "6e3fa56dd9b3237a818da5253ab4cafd9e1e63356263f22b15c5c95bb32e999f",
+      "image_sha256": "33d7b8141dc67e40c7bf6b116c8e2ee5240db961832e1869fd84c0cddab8c574"
+    },
+    {
+      "file": "contrapuntal-figure-1.png",
+      "paper": "Validating Autoformalized Specifications via Contrapuntal Languages",
+      "version": "arXiv:2610.30059v1",
+      "figure": 1,
+      "page_1_based": 3,
+      "source": "https://arxiv.org/pdf/2610.30059v1",
+      "crop_points": [
+        44,
+        84,
+        441,
+        307
+      ],
+      "resolution_dpi": 300,
+      "image_size": [
+        1655,
+        930
+      ],
+      "pdf_sha256": "3809a31e860d8f95eb70f6c7a8b118e8dd89e7d7d326684bcd359dd13f7ba196",
+      "image_sha256": "6c5b10c23953973ba43890d8cca52d0c9f65dffec3d1e345ff963ad70b38ed97"
+    },
+    {
+      "file": "coins-figure-2.png",
+      "paper": "How Powerful Are LLMs in Generating Formal Program Specifications?",
+      "version": "Published PDF on author website",
+      "figure": 2,
+      "page_1_based": 6,
+      "source": "https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf",
+      "extraction": "Unmodified image XObject extracted from the original PDF with pypdf",
+      "pdf_image_name": "Im2.png",
+      "image_size": [
+        1330,
+        884
+      ],
+      "pdf_sha256": "552e4b9df511e8d6347e40be4591d4b204c602b60b1bcf8e0fa92550c2cf82ad",
+      "image_sha256": "f2522d450758f23f8e38e0f24268c5592c2ffcc8a840012a1c0ea7a160ee4962"
+    },
+    {
+      "file": "coins-figure-3.png",
+      "paper": "How Powerful Are LLMs in Generating Formal Program Specifications?",
+      "version": "Published PDF on author website",
+      "figure": 3,
+      "page_1_based": 7,
+      "source": "https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf",
+      "extraction": "Unmodified image XObject extracted from the original PDF with pypdf",
+      "pdf_image_name": "Im3.png",
+      "image_size": [
+        1543,
+        770
+      ],
+      "pdf_sha256": "552e4b9df511e8d6347e40be4591d4b204c602b60b1bcf8e0fa92550c2cf82ad",
+      "image_sha256": "38e438bcc816d9c626b67683578072293d805b4e4f7b5570fc8854e049aee9f3"
+    },
+    {
+      "file": "coins-figure-4.png",
+      "paper": "How Powerful Are LLMs in Generating Formal Program Specifications?",
+      "version": "Published PDF on author website",
+      "figure": 4,
+      "page_1_based": 8,
+      "source": "https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf",
+      "extraction": "Unmodified image XObject extracted from the original PDF with pypdf",
+      "pdf_image_name": "Im4.png",
+      "image_size": [
+        1184,
+        885
+      ],
+      "pdf_sha256": "552e4b9df511e8d6347e40be4591d4b204c602b60b1bcf8e0fa92550c2cf82ad",
+      "image_sha256": "ccc67ee51f7ca3cd806f59582fd97eee6e4a3a6c01cfb1fb84976526e759eb0d"
+    }
+  ]
+}

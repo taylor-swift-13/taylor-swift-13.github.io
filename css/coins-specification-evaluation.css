@@ -1,0 +1,2 @@
+.source-aware .prose .author-opinion{color:#c8102e}
+.source-aware .prose p:has(>a>img)+p{color:#242424}

@@ -18,6 +18,15 @@ const markdown = new MarkdownIt({ html: false, linkify: true, typographer: false
 
 const articles = [
   {
+    slug: 'coins-specification-evaluation',
+    date: '2026-11-25',
+    title: '怎样评估形式规约：从 COINS 到行为覆盖与需求忠实性',
+    description: '从 CLEVER 的评估协议出发，介绍 COINS 的实例化检查、主实验与发现，并整理后续工作的规约评估方式。',
+    category: '形式化验证',
+    sourceAware: true,
+    sourceFigures: true,
+  },
+  {
     slug: 'exact-invariants-well-founded',
     date: '2026-11-12',
     title: '如何证明循环不变式是精确的：定义与良基前驱覆盖',
@@ -170,6 +179,8 @@ function articleHtml(article) {
   const sourceAware = article.sourceAware || article.slug === 'vero-coco-prover';
   const articleStyle = article.slug === 'anthropic-formal-verification'
     ? `\n  <link rel="stylesheet" href="../css/anthropic-verification.css?v=${createHash('sha256').update(readFileSync(path.join(root, 'css/anthropic-verification.css'))).digest('hex').slice(0, 12)}">`
+    : article.slug === 'coins-specification-evaluation'
+    ? `\n  <link rel="stylesheet" href="../css/coins-specification-evaluation.css?v=${createHash('sha256').update(readFileSync(path.join(root, 'css/coins-specification-evaluation.css'))).digest('hex').slice(0, 12)}">`
     : '';
   return `<!doctype html>
 <html lang="zh-CN">
@@ -184,7 +195,7 @@ function articleHtml(article) {
   <script src="../js/blog.js" defer></script>
   <script src="../js/visualizations.js" defer></script>
 </head>
-<body class="article-page${sourceAware ? ' source-aware' : ''}${article.slug === 'anthropic-formal-verification' ? ' source-figures' : ''}" id="top">
+<body class="article-page${sourceAware ? ' source-aware' : ''}${article.sourceFigures || article.slug === 'anthropic-formal-verification' ? ' source-figures' : ''}" id="top">
   <header class="site-header">
     <div class="shell header-inner">
       <a class="brand" href="../index.html" aria-label="Notes 首页">Notes</a>

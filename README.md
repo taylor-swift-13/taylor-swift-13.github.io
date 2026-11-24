@@ -4,6 +4,7 @@
 
 ## 文章
 
+- [怎样评估形式规约：从 COINS 到行为覆盖与需求忠实性](https://taylor-swift-13.github.io/posts/coins-specification-evaluation.html)：从 CLEVER 的评估协议出发，介绍 COINS 的实例化检查、主实验与发现，并整理后续工作的规约评估方式。
 - [如何证明循环不变式是精确的：定义与良基前驱覆盖](https://taylor-swift-13.github.io/posts/exact-invariants-well-founded.html)：从整数状态与循环语义出发，统一定义不变式和 exact，给出良基前驱覆盖定理、完整证明与符号输入例子。
 - [通过形式化验证的抽象失败发现 AVL 删除的功能错误](https://taylor-swift-13.github.io/posts/qcip-avl-map-to-set.html)：Search 与 Delete 的规约冲突暴露旧指针失效；分析 set 过渡方案，以及修复 Delete 后恢复 map 的最终方案。
 - [从全词表到采样梯度：理解 OPD 中的 Forward KL 与 Reverse KL](https://taylor-swift-13.github.io/posts/on-policy-distillation-kl.html)：从完整 KL 推导学生采样下的无偏梯度，比较两种采样权重与目标取舍。
