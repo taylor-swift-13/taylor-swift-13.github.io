@@ -4,6 +4,16 @@
 
 [CLEVER](https://arxiv.org/abs/2505.13938v4) 是一个面向端到端验证代码生成的 Lean 4 基准，将 HumanEval 中的 161 个编程任务改写为形式验证任务。每题包含自然语言需求、函数签名、人工编写的参考规约，以及规约等价性和实现正确性的待证命题。[论文 §1—2](https://arxiv.org/html/2505.13938v4#S2)
 
+以原论文图 7 的“两整数相加”（任务 53）为例，人工参考规约如下：[原文图 7](https://arxiv.org/html/2505.13938v4#S3)
+
+```lean
+def problem_spec (impl : Int → Int → Int) (x y : Int) :=
+  let spec (res : Int) := res - x - y = 0
+  ∃ result, impl x y = result ∧ spec result
+```
+
+`impl` 是待验证的函数，`x`、`y` 是程序输入。规约要求存在一个结果 `result`，既等于 `impl x y`，又满足 `result - x - y = 0`。认证某个实现 `f` 时，需要证明 `∀ x y, problem_spec f x y`，即它对所有整数输入都满足上述关系。
+
 模型需要完成下面四个步骤。前两步组成**规约认证**，后两步组成**实现认证**。[官方任务说明](https://github.com/trishullab/clever#benchmark-focus)
 
 | 步骤 | 模型需要生成的内容 | 检查目标 |
