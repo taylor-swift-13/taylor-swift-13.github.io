@@ -1,31 +1,23 @@
 {
-  "extraction": "Figures and tables originate from the original papers; the COINS Figure 1 entry records the user-requested numeric erratum separately. Other figures and all tables are unchanged.",
-  "retrieved": "2026-11-20",
+  "extraction": "All figures and tables are extracted from the cited paper PDFs without redrawing or data changes. COINS assets use the user-designated latest GitHub paper.",
   "figures": [
     {
+      "paper": "How Powerful Are LLMs in Generating Formal Program Specifications?",
+      "version": "User-designated GitHub main at 2987d7883cf315bb82d4102b1e69c9a8ec53ed7a",
+      "source": "https://github.com/taylor-swift-13/Coins_ICML_2026/blob/2987d7883cf315bb82d4102b1e69c9a8ec53ed7a/paper/main.pdf",
+      "source_commit": "2987d7883cf315bb82d4102b1e69c9a8ec53ed7a",
+      "retrieved": "2026-11-25",
+      "pdf_sha256": "f0d7387c104753da927a0d555d4595e4708f72bccee7c3f46662c45f463d6900",
       "file": "coins-figure-1.png",
-      "paper": "How Powerful are LLMs in Generating Formal Program Specifications?",
-      "version": "ICML 2026 accepted source supplied locally, with the requested Figure 1 correction",
       "figure": 1,
       "page_1_based": 3,
-      "source": "paper/coins/main1.pdf",
+      "extraction": "Unmodified image XObject extracted from the user-designated PDF with pypdf.",
+      "pdf_image_name": "FormXob.137d2bfb550be47ba37dfb6726adaec3.png",
       "image_size": [
-        2000,
-        1258
+        4551,
+        2861
       ],
-      "pdf_sha256": "4c9b9517d2cbf54ed63f376dd7161c1436449587912a138c85a13de1e030529c",
-      "image_sha256": "45ceaad99798fe09ef02939e8996db0701b2e1be173ab8ef4863d011fbdf1781",
-      "original_publication_source": "https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf",
-      "original_pdf_sha256": "552e4b9df511e8d6347e40be4591d4b204c602b60b1bcf8e0fa92550c2cf82ad",
-      "correction": {
-        "date": "2026-11-24",
-        "from": "43/164",
-        "to": "46/164",
-        "source_image": "paper/coins/images/flow.png",
-        "source_image_sha256": "8b2ebf42fe9c68a86e86f9c3cdcca6c9a22632aeb129f9f1d8523f65119da6a6",
-        "corrected_figure": "paper/coins/images/flow-corrected.pdf",
-        "method": "Original PNG retained unchanged; a PDF layer replaces only the final digit 3 with 6. The corresponding caption count is updated to 46."
-      }
+      "image_sha256": "6e4cf48aefbebf7211ffd3236fce0c84445512419de360b3f5bc892b9a79e03a"
     },
     {
       "file": "clever-figure-1.png",
@@ -46,7 +38,8 @@
         768
       ],
       "pdf_sha256": "ea937bfa5ae311163c7f237b7be6beef9dd1ca579ad15b1567d2feb69e83c224",
-      "image_sha256": "ade60061874f2cd1c0ce3ab6559f5fbba83c45b11d53799315d88c8e753bdad0"
+      "image_sha256": "ade60061874f2cd1c0ce3ab6559f5fbba83c45b11d53799315d88c8e753bdad0",
+      "retrieved": "2026-11-20"
     },
     {
       "file": "spec-harness-figure-1.png",
@@ -67,7 +60,8 @@
         664
       ],
       "pdf_sha256": "6e3fa56dd9b3237a818da5253ab4cafd9e1e63356263f22b15c5c95bb32e999f",
-      "image_sha256": "33d7b8141dc67e40c7bf6b116c8e2ee5240db961832e1869fd84c0cddab8c574"
+      "image_sha256": "33d7b8141dc67e40c7bf6b116c8e2ee5240db961832e1869fd84c0cddab8c574",
+      "retrieved": "2026-11-20"
     },
     {
       "file": "contrapuntal-figure-1.png",
@@ -88,59 +82,73 @@
         930
       ],
       "pdf_sha256": "3809a31e860d8f95eb70f6c7a8b118e8dd89e7d7d326684bcd359dd13f7ba196",
-      "image_sha256": "6c5b10c23953973ba43890d8cca52d0c9f65dffec3d1e345ff963ad70b38ed97"
+      "image_sha256": "6c5b10c23953973ba43890d8cca52d0c9f65dffec3d1e345ff963ad70b38ed97",
+      "retrieved": "2026-11-20"
     },
     {
-      "file": "coins-figure-2.png",
       "paper": "How Powerful Are LLMs in Generating Formal Program Specifications?",
-      "version": "Published PDF on author website",
+      "version": "User-designated GitHub main at 2987d7883cf315bb82d4102b1e69c9a8ec53ed7a",
+      "source": "https://github.com/taylor-swift-13/Coins_ICML_2026/blob/2987d7883cf315bb82d4102b1e69c9a8ec53ed7a/paper/main.pdf",
+      "source_commit": "2987d7883cf315bb82d4102b1e69c9a8ec53ed7a",
+      "retrieved": "2026-11-25",
+      "pdf_sha256": "f0d7387c104753da927a0d555d4595e4708f72bccee7c3f46662c45f463d6900",
+      "file": "coins-figure-2.png",
       "figure": 2,
       "page_1_based": 6,
-      "source": "https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf",
-      "extraction": "Unmodified image XObject extracted from the original PDF with pypdf",
+      "extraction": "Unmodified image XObject extracted from the user-designated PDF with pypdf.",
       "pdf_image_name": "Im2.png",
       "image_size": [
         1330,
         884
       ],
-      "pdf_sha256": "552e4b9df511e8d6347e40be4591d4b204c602b60b1bcf8e0fa92550c2cf82ad",
       "image_sha256": "f2522d450758f23f8e38e0f24268c5592c2ffcc8a840012a1c0ea7a160ee4962"
     },
     {
-      "file": "coins-figure-3.png",
       "paper": "How Powerful Are LLMs in Generating Formal Program Specifications?",
-      "version": "Published PDF on author website",
+      "version": "User-designated GitHub main at 2987d7883cf315bb82d4102b1e69c9a8ec53ed7a",
+      "source": "https://github.com/taylor-swift-13/Coins_ICML_2026/blob/2987d7883cf315bb82d4102b1e69c9a8ec53ed7a/paper/main.pdf",
+      "source_commit": "2987d7883cf315bb82d4102b1e69c9a8ec53ed7a",
+      "retrieved": "2026-11-25",
+      "pdf_sha256": "f0d7387c104753da927a0d555d4595e4708f72bccee7c3f46662c45f463d6900",
+      "file": "coins-figure-3.png",
       "figure": 3,
       "page_1_based": 7,
-      "source": "https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf",
-      "extraction": "Unmodified image XObject extracted from the original PDF with pypdf",
+      "extraction": "Unmodified image XObject extracted from the user-designated PDF with pypdf.",
       "pdf_image_name": "Im3.png",
       "image_size": [
         1543,
         770
       ],
-      "pdf_sha256": "552e4b9df511e8d6347e40be4591d4b204c602b60b1bcf8e0fa92550c2cf82ad",
-      "image_sha256": "38e438bcc816d9c626b67683578072293d805b4e4f7b5570fc8854e049aee9f3"
+      "image_sha256": "6e3f0774d556ab5684da04dafb28d37ef36c5ab9957c824390a4a813cbb931a9"
     },
     {
-      "file": "coins-figure-4.png",
       "paper": "How Powerful Are LLMs in Generating Formal Program Specifications?",
-      "version": "Published PDF on author website",
+      "version": "User-designated GitHub main at 2987d7883cf315bb82d4102b1e69c9a8ec53ed7a",
+      "source": "https://github.com/taylor-swift-13/Coins_ICML_2026/blob/2987d7883cf315bb82d4102b1e69c9a8ec53ed7a/paper/main.pdf",
+      "source_commit": "2987d7883cf315bb82d4102b1e69c9a8ec53ed7a",
+      "retrieved": "2026-11-25",
+      "pdf_sha256": "f0d7387c104753da927a0d555d4595e4708f72bccee7c3f46662c45f463d6900",
+      "file": "coins-figure-4.png",
       "figure": 4,
       "page_1_based": 8,
-      "source": "https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf",
-      "extraction": "Unmodified image XObject extracted from the original PDF with pypdf",
+      "extraction": "Unmodified image XObject extracted from the user-designated PDF with pypdf.",
       "pdf_image_name": "Im4.png",
       "image_size": [
         1184,
         885
       ],
-      "pdf_sha256": "552e4b9df511e8d6347e40be4591d4b204c602b60b1bcf8e0fa92550c2cf82ad",
       "image_sha256": "ccc67ee51f7ca3cd806f59582fd97eee6e4a3a6c01cfb1fb84976526e759eb0d"
     }
   ],
   "tables": [
     {
+      "paper": "How Powerful Are LLMs in Generating Formal Program Specifications?",
+      "version": "User-designated GitHub main at 2987d7883cf315bb82d4102b1e69c9a8ec53ed7a",
+      "source": "https://github.com/taylor-swift-13/Coins_ICML_2026/blob/2987d7883cf315bb82d4102b1e69c9a8ec53ed7a/paper/main.pdf",
+      "source_commit": "2987d7883cf315bb82d4102b1e69c9a8ec53ed7a",
+      "retrieved": "2026-11-25",
+      "pdf_sha256": "f0d7387c104753da927a0d555d4595e4708f72bccee7c3f46662c45f463d6900",
+      "file": "coins-table-1.png",
       "table": 1,
       "page_1_based": 5,
       "crop_points": [
@@ -149,21 +157,22 @@
         545,
         226
       ],
-      "paper": "How Powerful Are LLMs in Generating Formal Program Specifications?",
-      "source": "https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf",
-      "version": "Published PDF on author website",
-      "file": "coins-table-1.png",
-      "retrieved": "2026-11-25",
-      "extraction": "Complete original PDF table and caption, cropped and rendered by Poppler; no retypesetting or data changes.",
       "resolution_dpi": 300,
       "image_size": [
         1001,
         676
       ],
-      "pdf_sha256": "552e4b9df511e8d6347e40be4591d4b204c602b60b1bcf8e0fa92550c2cf82ad",
-      "image_sha256": "ce7ef34f68a30b9b37f87c6d19839a3d25a1d85e9569245b4d985cd549ed21cf"
+      "extraction": "Complete original PDF table and caption, cropped and rendered by Poppler; no retypesetting or data changes.",
+      "image_sha256": "76a922663a5876f3b02357ff546f4b4656d256a0607a7eb69fbb9bf2a8186fc4"
     },
     {
+      "paper": "How Powerful Are LLMs in Generating Formal Program Specifications?",
+      "version": "User-designated GitHub main at 2987d7883cf315bb82d4102b1e69c9a8ec53ed7a",
+      "source": "https://github.com/taylor-swift-13/Coins_ICML_2026/blob/2987d7883cf315bb82d4102b1e69c9a8ec53ed7a/paper/main.pdf",
+      "source_commit": "2987d7883cf315bb82d4102b1e69c9a8ec53ed7a",
+      "retrieved": "2026-11-25",
+      "pdf_sha256": "f0d7387c104753da927a0d555d4595e4708f72bccee7c3f46662c45f463d6900",
+      "file": "coins-table-2.png",
       "table": 2,
       "page_1_based": 7,
       "crop_points": [
@@ -172,19 +181,13 @@
         544,
         270
       ],
-      "paper": "How Powerful Are LLMs in Generating Formal Program Specifications?",
-      "source": "https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf",
-      "version": "Published PDF on author website",
-      "file": "coins-table-2.png",
-      "retrieved": "2026-11-25",
-      "extraction": "Complete original PDF table and caption, cropped and rendered by Poppler; no retypesetting or data changes.",
       "resolution_dpi": 300,
       "image_size": [
         2047,
         859
       ],
-      "pdf_sha256": "552e4b9df511e8d6347e40be4591d4b204c602b60b1bcf8e0fa92550c2cf82ad",
-      "image_sha256": "641b5c6dc4bad6491dbc341d308783d4cbc827c78fc9a61ff0680756edf57b38"
+      "extraction": "Complete original PDF table and caption, cropped and rendered by Poppler; no retypesetting or data changes.",
+      "image_sha256": "d76a5b923ddc43aaabcca0c286abac84a0f52bf85d9a3a212bf0c2b6ae0dd62f"
     },
     {
       "table": 1,
@@ -209,5 +212,14 @@
       "pdf_sha256": "e2ba1e3ad0efa1f99d2cbb1f559b74fb93957050cd492530bb2730c34e1d4e26",
       "image_sha256": "30e468f0560149e84158ebb04b099dc9d981bd4ea9dc114b535cc0fa2875bce6"
     }
-  ]
+  ],
+  "updated": "2026-11-25",
+  "coins_source_of_truth": {
+    "repository": "https://github.com/taylor-swift-13/Coins_ICML_2026",
+    "commit": "2987d7883cf315bb82d4102b1e69c9a8ec53ed7a",
+    "path": "paper/main.pdf",
+    "source": "https://github.com/taylor-swift-13/Coins_ICML_2026/blob/2987d7883cf315bb82d4102b1e69c9a8ec53ed7a/paper/main.pdf",
+    "pdf_sha256": "f0d7387c104753da927a0d555d4595e4708f72bccee7c3f46662c45f463d6900",
+    "checked": "2026-11-25"
+  }
 }
