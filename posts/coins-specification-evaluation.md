@@ -172,6 +172,13 @@ Gemini 3 Pro Preview 的 `PASSall` 最高，为 **50/164（30.49%）**，因此�
 
 对照人工 GT，评价前后置条件的 soundness 与 completeness。先尝试证明关系，再通过 `decide` 和 `plausible` 检查正负案例；未决结果单独报告。[评估方法](https://arxiv.org/html/2505.23135v3#S4.SS1)
 
+记参考前后置条件为 $P,Q$，生成条件为 $\widehat P,\widehat Q$，四项全称关系为：
+
+- 前置条件 soundness：$P(i)\Rightarrow\widehat P(i)$。
+- 前置条件 completeness：$\widehat P(i)\Rightarrow P(i)$。
+- 后置条件 soundness：$P(i)\land\widehat Q(i,o)\Rightarrow Q(i,o)$。
+- 后置条件 completeness：$P(i)\land Q(i,o)\Rightarrow\widehat Q(i,o)$。
+
 @@opinion-begin@@
 
 **不足**：仍依赖 GT 和等价性目标。`decide` 需要可计算的判定过程，靠枚举处理量词时需要有限或有界的量词域；无界量词可能导致 unknown。Lean 的评估流程迁移至 Rocq 还需另行实现。
@@ -182,7 +189,7 @@ Gemini 3 Pro Preview 的 `PASSall` 最高，为 **50/164（30.49%）**，因此�
 
 **公开版本**：[arXiv 预印本，2026](https://arxiv.org/abs/2605.22368v1)。
 
-扩充合法输入输出、无效输入和错误输出，尤其利用对抗实现寻找规约漏掉的错误行为，再用 VERINA 的评估脚本计分。VerinaLite 保留关键测试，缩减评估成本。[评估方法](https://arxiv.org/html/2605.22368v1#S3)
+扩充合法输入输出、无效输入和错误输出，尤其利用对抗实现寻找规约漏掉的错误行为，再用 VERINA 的评估脚本计分。VerinaLite 则选用较少的测试，保留边界输入和能暴露已知错误实现的案例，以减少评估耗时。[评估方法](https://arxiv.org/html/2605.22368v1#S3)
 
 [![VeriScale 原论文表 1：三套测试集的数量](../assets/papers/coins-evaluation/veriscale-table-1.png)](../assets/papers/coins-evaluation/veriscale-table-1.png)
 
