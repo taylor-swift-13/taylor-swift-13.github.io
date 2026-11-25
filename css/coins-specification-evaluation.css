@@ -1,2 +1,4 @@
 .source-aware .prose .author-opinion{color:#c8102e}
 .source-aware .prose p:has(>a>img)+p{color:#242424}
+.source-aware .prose .evaluation-matrix{overflow-x:auto;margin:24px 0;overscroll-behavior-x:contain}
+.source-figures .prose .evaluation-matrix table{min-width:760px;margin:0;font-size:13px}

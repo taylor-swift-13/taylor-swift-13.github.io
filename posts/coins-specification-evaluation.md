@@ -179,12 +179,6 @@ Gemini 3 Pro Preview 的 `PASSall` 最高，为 **50/164（30.49%）**，因此�
 - 后置条件 soundness：$P(i)\land\widehat Q(i,o)\Rightarrow Q(i,o)$。
 - 后置条件 completeness：$P(i)\land Q(i,o)\Rightarrow\widehat Q(i,o)$。
 
-@@opinion-begin@@
-
-**不足**：仍依赖 GT 和等价性目标。`decide` 需要可计算的判定过程，靠枚举处理量词时需要有限或有界的量词域；无界量词可能导致 unknown。Lean 的评估流程迁移至 Rocq 还需另行实现。
-
-@@opinion-end@@
-
 ### 4.2 VerinaPlus / VeriScale
 
 **公开版本**：[arXiv 预印本，2026](https://arxiv.org/abs/2605.22368v1)。
@@ -195,116 +189,72 @@ Gemini 3 Pro Preview 的 `PASSall` 最高，为 **50/164（30.49%）**，因此�
 
 *VeriScale 原论文表 1。[原论文 PDF，第 6 页](https://arxiv.org/pdf/2605.22368v1#page=6)*
 
-@@opinion-begin@@
-
-**不足**：测试标签仍依赖参考前置条件与参考实现；对抗案例只能暴露已触及的错误类型，增加测试数量不能保证规约已完整表达需求。
-
-@@opinion-end@@
-
 ### 4.3 AuXSpec
 
 **公开版本**：[arXiv 预印本，2026](https://arxiv.org/abs/2611.21421v1)。
 
-为声明式后置条件配对可执行检查器，以**编译检查、冻结测试和 LLM judges**评价候选。Judges 检查需求忠实性、非平凡性等；声明式与执行形式的等价证明另行审计。[评估方法](https://arxiv.org/html/2611.21421v1#S2)
+AuXSpec 保留声明式后置条件 $Q(i,o)$，再配对一个返回布尔值的检查器 $b(i,o)$。检查器用于执行正负测试，两者在合法输入上的对应关系为：
 
-@@opinion-begin@@
+$$
+\forall i,o,\quad P(i)\Rightarrow\bigl(Q(i,o)\Leftrightarrow b(i,o)=\mathrm{true}\bigr).
+$$
 
-**不足**：新候选的接纳不要求先完成桥接证明；测试和 LLM judge 仍可能漏掉语义错误。两种表示即使一致，也可能共同遗漏需求。
+检查器有两条构造路径。[论文 §3.1、附录 G.2](https://arxiv.org/html/2611.21421v1#S3.SS1)
 
-@@opinion-end@@
+1. **通过 `decide` 构造**：已有可计算的 `Decidable` 实例时直接使用，否则尝试合成实例；检查器与原后置条件构造一致。合成数据中 35.5% 采用这条路径。
+2. **单独生成布尔检查器**：实例合成失败时，另写可执行定义，并声明上述等价定理，之后单独尝试证明。例如，特殊子序列计数的检查器枚举索引子集，参考实现则用三个计数器线性扫描。[原文示例](https://arxiv.org/html/2611.21421v1#A7.SS2.SSS1)
+
+候选接纳要求**编译检查、冻结测试和 LLM judges**通过。Judges 检查需求忠实性、非平凡性和执行检查器的完整性；代码任务还检查终止性与开销。桥接等价和实现正确性定理的证明在生成、训练和评分时可保留为 `sorry`，随后另行审计。因此，执行测试、judge 接纳和已完成的桥接证明是论文分别报告的环节。[论文 §2、附录 H.4](https://arxiv.org/html/2611.21421v1#S2)
 
 ### 4.4 LeetProof
 
 **发表**：[ASE 2026](https://doi.org/10.1145/3832783.3837559)。
 
-在代码合成前，用输入输出例子和随机性质测试检查规约能否接纳正确行为、排除错误输出。实验另以参考规约等价证明和人工复核评价生成质量。[评估方法](https://arxiv.org/html/2604.16584v1#S4)
-
-@@opinion-begin@@
-
-**不足**：随机测试与输出变异的覆盖有限；输出唯一性检查需要确定性需求作为前提。参考等价评价也仍受 GT 质量和证明能力限制。
-
-@@opinion-end@@
+在代码合成前，先进行类型检查和 LLM judge 审核，再用输入输出例子与 Plausible 性质测试，检查规约能否接纳正确行为、排除错误输出。实验另以参考规约等价证明和人工复核评价生成质量；SMT 用于后续 Velvet 实现验证。[评估方法](https://vexoben.github.io/files/leetproof-ase2026.pdf#page=4)
 
 ### 4.5 Fulminate
 
 **发表**：[POPL 2025 / PACMPL 9，Article 43](https://doi.org/10.1145/3704879)。
 
-把 CN 分离逻辑规约编译成 C 运行时检查，检查具体执行中的前后置条件、内存所有权及其转移，并通过注入缺陷和测试执行观察能否发现错误。[评估方法](https://www.cs.ox.ac.uk/people/christopher.pulte/2024-cn-testing-paper.pdf)
-
-@@opinion-begin@@
-
-**不足**：需要可执行的规约片段和外部测试，结论仅覆盖执行到的路径与堆状态；检查失败后，仍需区分问题来自规约还是实现。
-
-@@opinion-end@@
+把具有计算解释的 CN 分离逻辑规约编译成 C 运行时检查，检查具体执行中的前后置条件、内存所有权及其转移，并通过注入缺陷和测试执行观察能否发现错误。[评估方法](https://www.cs.ox.ac.uk/people/christopher.pulte/2024-cn-testing-paper.pdf)
 
 ### 4.6 Spec-Harness
 
 **公开版本**：[arXiv 预印本，2026](https://arxiv.org/abs/2604.00280v3)。
 
-固定具体输入输出，结合 OpenJML 符号验证与输入输出变异，分别评价前后置条件的正确性和完整性。反馈测试与最终评估测试分开使用。[评估方法](https://arxiv.org/html/2604.00280v3#S5)
+固定具体输入输出，结合 OpenJML 的 SMT 符号验证与输入输出变异，分别评价前后置条件的正确性和完整性。反馈测试与最终评估测试分开使用。[评估方法](https://arxiv.org/html/2604.00280v3#S5)
 
 [![Spec-Harness 原论文图 1：changeCase 的 JML 规约](../assets/papers/coins-evaluation/spec-harness-figure-1.png)](../assets/papers/coins-evaluation/spec-harness-figure-1.png)
 
 *Spec-Harness 原论文图 1。[原论文 PDF，第 4 页](https://arxiv.org/pdf/2604.00280v3#page=4)*
 
-@@opinion-begin@@
-
-**不足**：分数依赖测试覆盖、变异方式和合法性标签；未被案例触及的遗漏约束仍可能保留，验证器的未决结果也限制了可评估范围。
-
-@@opinion-end@@
-
-### 4.7 Contrapuntal Languages
-
-**公开版本**：[arXiv 预印本，2026](https://arxiv.org/abs/2610.30059v1)。
-
-在两种不同的任务专用语言中独立形式化需求，用求解器检查两份规约是否等价；实验再用正例和变异负例评价正确行为覆盖与错误行为排除。[评估方法](https://arxiv.org/html/2610.30059v1#S6)
-
-[![Contrapuntal Languages 原论文图 1：错误候选也可能形成最大等价类](../assets/papers/coins-evaluation/contrapuntal-figure-1.png)](../assets/papers/coins-evaluation/contrapuntal-figure-1.png)
-
-*Contrapuntal Languages 原论文图 1。[原论文 PDF，第 3 页](https://arxiv.org/pdf/2610.30059v1#page=3)*
-
-@@opinion-begin@@
-
-**不足**：两种表示仍可能共享同一个需求误解；相互等价无法独立排除这种错误，行为层面的结论也受测试范围限制。
-
-@@opinion-end@@
-
-### 4.8 需求忠实性研究
-
-**公开版本**：[*Are LLM-Generated Formal Specifications Faithful to Their Requirements?*，arXiv 预印本，2026](https://arxiv.org/abs/2610.32053v1)。
-
-在 1,403 个 C 程序上，同时提供需求和正确性未知的实现，结合 Frama-C 验证与 E-ACSL 运行检查，观察规约是否错误接纳错误行为，或拒绝正确行为。[评估方法](https://arxiv.org/html/2610.32053v1#S3)
-
-@@opinion-begin@@
-
-**不足**：忠实性判定仍受测试覆盖、分类标准和工具能力影响；无法完成验证或执行检查时，难以直接判断规约是否符合需求。
-
-@@opinion-end@@
-
-### 4.9 Isomorphism Is Not Enough
+### 4.7 Isomorphism Is Not Enough
 
 **公开版本**：[arXiv 预印本，2026](https://arxiv.org/abs/2605.23772v2)。
 
-审计 CLEVER 全部 161 项任务，区分参考错误、合理解释差异和证明失败。论文报告 80 项参考规约问题，另有 13 项合理解释不匹配，并经人工复核及 CLEVER 作者确认。[审计方法与结果](https://arxiv.org/html/2605.23772v2#S3.SS1)
+用 Claude、Codex 和 OpenHands 三套 agentic 系统审计 CLEVER 的全部 161 项任务，分别记录生成规约是否为需求的合理解释（valid），以及是否已证明与固定参考规约等价（accepted）。等价失败时，继续区分证明未完成、规约错误（issue）和双方都合理但解释不同（mismatch），并检查单向蕴含关系。作者复核 Lean 证明、评估器结果和 agent 轨迹，再请 CLEVER 作者确认逐项判定。[审计方法](https://arxiv.org/html/2605.23772v2#S2.SS2)
 
-@@opinion-begin@@
+论文报告 **80 项参考规约问题**，其中 **48 项涉及 Lean 编码陷阱**，例如把蕴含写成合取、误用运算符优先级；另有 **1 项辅助定义错误**和 **13 项合理解释差异**。这几类结果分别计数。[论文 §3.1、§4.2](https://arxiv.org/html/2605.23772v2#S3.SS1)
 
-**不足**：主要贡献是诊断参考规约与评分失效，尚未形成独立、通用的规约评估器；合理解释与语义错误的区分仍需要人工判断。
+论文还展示了整体等价命题的空洞成功：两份不可满足的契约也可能被判为等价。因此，作者建议增加逐点检查，或给出满足双方规约的见证实现，并结合其他语义评价，而不只使用参考等价分数。[论文 §4.4](https://arxiv.org/html/2605.23772v2#S4.SS4)
 
-@@opinion-end@@
+**评估机制对照**
 
-### 4.10 评估方法小结
+规约本身能在实例上求值，记为“可执行”；另有可执行对应物，记为“可检查”。下面分列原规约的执行要求和检查器，并标明 SMT、LLM judge 与大模型写证明的使用环节。检查器指对行为求值的程序，证明内核的证书核验不计入这一列。
 
-将前述工作按使用的评估环节归纳如下。同一工作可以采用多种方式；各项分数的检查对象和计数单位仍需分别阅读。
+| 工作 | 原规约须可执行 | 可执行检查器 | SMT 检查 | LLM judge | 大模型写证明 |
+| --- | --- | --- | --- | --- | --- |
+| [CLEVER](https://arxiv.org/html/2505.13938v4#S2) | 不要求 | 不要求 | — | — | 参考等价与实现证明 |
+| [COINS](https://github.com/taylor-swift-13/Coins_ICML_2026/blob/main/paper/main.pdf#page=4) | 不要求 | 不要求 | — | 负例拒绝预判断 | 实例证明 |
+| [VERINA](https://arxiv.org/html/2505.23135v3#A3.SS5) | 非硬性要求 | 测试分支用 `decide` / PBT | — | — | 先尝试关系证明，未决时回退测试 |
+| [VerinaPlus / VeriScale](https://arxiv.org/html/2605.22368v1#S4.SS2) | 沿用 VERINA | 沿用 VERINA 测试评估器 | — | — | 未新增逐题证明要求 |
+| [AuXSpec](https://arxiv.org/html/2611.21421v1#S2) | 不强制；`decide` 路径可执行 | 独立布尔检查器路径要求可检查 | — | 候选接纳条件 | 可判定实例构造、事后等价审计 |
+| [LeetProof](https://vexoben.github.io/files/leetproof-ase2026.pdf) | 测试涉及的部分需可计算或可采样 | Plausible 性质测试 | 实现验证用；规约筛查主用 PBT | 规约与例子审核 | 实验中的参考等价审计；实现证明 |
+| [Fulminate](https://doi.org/10.1145/3704879) | 是：CN 的计算片段 | 直接编译为 C 运行时检查 | 该运行检查不依赖 | — | — |
+| [Spec-Harness](https://arxiv.org/html/2604.00280v3#S5) | 不要求 | 不要求，使用符号验证 | 是：OpenJML | — | — |
+| [Isomorphism Is Not Enough](https://arxiv.org/html/2605.23772v2#S2.SS2) | 不要求 | 不要求 | — | agent 语义判读，人工复核 | Lean 等价与实现证明 |
 
-| 评估方式 | 使用该方式的工作 |
-| --- | --- |
-| 实现或系统级验证、程序变异 | [SpecGen](https://doi.org/10.1109/ICSE55347.2025.00129)、[FormalBench](https://aclanthology.org/2025.acl-long.1068/)、[OSVBench](https://arxiv.org/html/2504.20964v2#S3)、[CLEVER 的实现认证](https://arxiv.org/html/2505.13938v4#S2)、[Spec-Harness 的验证与变异分析](https://arxiv.org/html/2604.00280v3#S2.SS2)、[需求忠实性研究](https://arxiv.org/html/2610.32053v1#S3) |
-| 与人工参考规约的关系证明或复核 | [CLEVER](https://arxiv.org/html/2505.13938v4#S2)、[VERINA](https://arxiv.org/html/2505.23135v3#S4.SS1)、[VerinaPlus 沿用的评估器](https://arxiv.org/html/2605.22368v1#S4.SS2)、[LeetProof](https://arxiv.org/html/2604.16584v1#S5.SS1)、[Isomorphism Is Not Enough](https://arxiv.org/html/2605.23772v2#S2) |
-| 行为实例证明、执行或性质测试 | [COINS](https://github.com/taylor-swift-13/Coins_ICML_2026/blob/main/paper/main.pdf)、[Spec-Harness](https://arxiv.org/html/2604.00280v3#S5)、[VERINA](https://arxiv.org/html/2505.23135v3#S4.SS1)、[VerinaPlus](https://arxiv.org/html/2605.22368v1#S4.SS2)、[AuXSpec](https://arxiv.org/html/2611.21421v1#S2)、[LeetProof](https://arxiv.org/html/2604.16584v1#S4)、[Contrapuntal Languages](https://arxiv.org/html/2610.30059v1#S6)、[Fulminate 的堆状态与所有权检查](https://doi.org/10.1145/3704879) |
-| 不同表示之间的一致性检查 | [Contrapuntal Languages 的候选等价检查](https://arxiv.org/html/2610.30059v1#S2)、[AuXSpec 的声明式与执行形式对应](https://arxiv.org/html/2611.21421v1#S2) |
-| 需求定向与对抗测试构造 | [VeriScale / VerinaPlus](https://arxiv.org/html/2605.22368v1#S3) |
-| 需求与参考规约的人工审核 | [SpecGen](https://liyiweb.com/files/Ma2025SAG.pdf)、[COINS](https://github.com/taylor-swift-13/Coins_ICML_2026/blob/main/paper/main.pdf)、[CLEVER](https://arxiv.org/html/2505.13938v4#S2)、[Spec-Harness](https://arxiv.org/html/2604.00280v3#S5.SS6)、[需求忠实性研究](https://arxiv.org/html/2610.32053v1#S3)、[AuXSpec](https://arxiv.org/html/2611.21421v1)、[VERINA](https://arxiv.org/html/2505.23135v3#S3.SS2)、[LeetProof](https://arxiv.org/html/2604.16584v1#S5.SS1)、[Isomorphism Is Not Enough](https://arxiv.org/html/2605.23772v2#S2.SS2) |
+`decide` 执行可计算的 `Decidable` 实例，不等同于 SMT 求解。表中“—”表示该评估环节未使用；实现验证、证明尝试和事后审计已在对应单元格注明。[Lean 官方说明](https://lean-lang.org/doc/reference/latest/Tactic-Proofs/Tactic-Reference/#decision-procedures)
 
 ## 5. 规约评估的困难
 

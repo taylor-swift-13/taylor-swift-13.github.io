@@ -20,7 +20,7 @@ const articles = [
   {
     slug: 'coins-specification-evaluation',
     date: '2026-11-25',
-    title: '怎样评估形式规约：从 COINS 到行为覆盖与需求忠实性',
+    title: '怎样评估形式规约：测试用例是形式化的需求',
     description: '从 CLEVER 的评估协议出发，介绍 COINS 的实例化检查、主实验与发现，并整理后续工作的规约评估方式。',
     category: '形式化验证',
     sourceAware: true,
@@ -86,6 +86,10 @@ function escapeHtml(value) {
 function articleHtml(article) {
   const source = readFileSync(path.join(root, 'posts', `${article.slug}.md`), 'utf8');
   let body = markdown.render(source);
+  if (article.slug === 'coins-specification-evaluation') {
+    body = body.replace(/<table>\s*<thead>\s*<tr>\s*<th>工作<\/th>\s*<th>原规约须可执行<\/th>[\s\S]*?<\/table>/,
+      table => `<div class="evaluation-matrix" tabindex="0" aria-label="规约评估机制对照表">${table}</div>`);
+  }
   let opinionDepth = 0;
   body = body.replace(/<p>@@opinion-(begin|end)@@<\/p>/g, (_, boundary) => {
     if (boundary === 'begin') {
