@@ -100,7 +100,7 @@ COINS 依次执行 `SYNTAX`、`PASSfirst`、`PASSall` 和 `REJECTall`，逐步�
 
 Gemini 3 Pro Preview 的 `PASSall` 最高，为 **50/164（30.49%）**，因此被选为后续实验的主要证明模型。论文同时指出，即使使用人工规约，完成全部实例证明仍然困难。[论文 §4.1](https://github.com/taylor-swift-13/Coins_ICML_2026/blob/main/paper/main.pdf#page=5)
 
-**评估对偶性。** 规约未能通过验证时，错误可能来自规约，也可能来自证明器；更强的证明器有助于识别规约质量，更可靠的规约也有助于评价证明能力。人工规约在这里作为相对可靠的参照，原文没有将其宣称为绝对正确的真值。[论文 §4.1](https://github.com/taylor-swift-13/Coins_ICML_2026/blob/main/paper/main.pdf#page=5)
+**评估对偶性。** 规约未能通过验证时，错误可能来自规约，也可能来自证明器；更强的证明器有助于识别规约质量，更可靠的规约也有助于评价证明能力。人工规约在这里作为相对可靠的参照，但并不是绝对正确的真值。[论文 §4.1](https://github.com/taylor-swift-13/Coins_ICML_2026/blob/main/paper/main.pdf#page=5)
 
 @@opinion-begin@@
 
@@ -126,8 +126,8 @@ Gemini 3 Pro Preview 的 `PASSall` 最高，为 **50/164（30.49%）**，因此�
 
 论文还报告了三项观察：
 
-- **单个正例不足以支持完整评价。** Gemini 3 Pro Preview 的 `PASSfirst` 为 100/164，而 `PASSall` 为 46/164。原文据此强调，多个测试共同约束规约语义，单例成功不能代表整套案例都能通过。
-- **模型差异能够被区分。** 最终筛选率从 DeepSeek-V3.1 的 1.22% 到 Gemini 3 Pro Preview 的 28.05%，并非所有模型都停留在接近零的认证成功率。
+- **单个正例不足以支持完整评价。** Gemini 3 Pro Preview 的 `PASSfirst` 为 100/164，而 `PASSall` 为 46/164。多个测试共同约束规约语义，单例成功不能代表整套案例都能通过。
+- **模型差异能够被区分。** COINS 的最终筛选率从 DeepSeek-V3.1 的 1.22% 到 Gemini 3 Pro Preview 的 28.05%。作为对照，CLEVER 在每题 600 秒预算下，各方案的端到端成功率仅为 0—0.621%（最多 1/161），单独的规约认证率也仅为 0—1.863%。两项实验使用的模型、证明语言和成功条件不同。[CLEVER 表 1](https://arxiv.org/html/2505.13938v4#S3)
 - **结果不只来自自验证。** 原文同时比较模型证明自身规约的表现。例如 Claude 4.5 Opus 自验证的 `PASSall` 为 18/164，改用 Gemini 后为 24/164；GPT-5 则从 12/164 变为 25/164。作者据此认为，Gemini 的整体优势不能仅归因于验证自身产物。[论文 §4.2、表 2](https://github.com/taylor-swift-13/Coins_ICML_2026/blob/main/paper/main.pdf#page=7)
 
 此外，本表六组统一证明模型的结果中，`PASSall` 与 `REJECTall` 计数均相同。原文将二者接近归因于测试覆盖对过度近似空间的约束，以及 HumanEval 任务相对简单；这是作者对该实验结果的解释。[论文 §4.2](https://github.com/taylor-swift-13/Coins_ICML_2026/blob/main/paper/main.pdf#page=6)

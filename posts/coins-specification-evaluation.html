@@ -160,7 +160,7 @@
 <p><a href="../assets/papers/coins-evaluation/coins-table-1.png?v=2987d78"><img src="../assets/papers/coins-evaluation/coins-table-1.png?v=2987d78" alt="COINS 原论文表 1：不同模型在人工规约上的证明表现"></a></p>
 <p><em>COINS 原论文表 1。比较各证明模型的 <code>PASSfirst</code> 与 <code>PASSall</code>，括号中为通过任务数。<a href="https://github.com/taylor-swift-13/Coins_ICML_2026/blob/main/paper/main.pdf#page=5">原论文 PDF，第 5 页</a></em></p>
 <p>Gemini 3 Pro Preview 的 <code>PASSall</code> 最高，为 <strong>50/164（30.49%）</strong>，因此被选为后续实验的主要证明模型。论文同时指出，即使使用人工规约，完成全部实例证明仍然困难。<a href="https://github.com/taylor-swift-13/Coins_ICML_2026/blob/main/paper/main.pdf#page=5">论文 §4.1</a></p>
-<p><strong>评估对偶性。</strong> 规约未能通过验证时，错误可能来自规约，也可能来自证明器；更强的证明器有助于识别规约质量，更可靠的规约也有助于评价证明能力。人工规约在这里作为相对可靠的参照，原文没有将其宣称为绝对正确的真值。<a href="https://github.com/taylor-swift-13/Coins_ICML_2026/blob/main/paper/main.pdf#page=5">论文 §4.1</a></p>
+<p><strong>评估对偶性。</strong> 规约未能通过验证时，错误可能来自规约，也可能来自证明器；更强的证明器有助于识别规约质量，更可靠的规约也有助于评价证明能力。人工规约在这里作为相对可靠的参照，但并不是绝对正确的真值。<a href="https://github.com/taylor-swift-13/Coins_ICML_2026/blob/main/paper/main.pdf#page=5">论文 §4.1</a></p>
 <div class="author-opinion">
 <p>人工编写规约的表现已经说明，这套评估方法在当时仍会受到证明能力的限制，从而低估规约质量。但随着模型证明能力提升，加上测试用例并不稀缺，这类方法能够通过不断扩充输入输出案例，持续积累细粒度的行为证据，为规约质量提供更连续的评估信号。</p>
 </div>
@@ -174,8 +174,8 @@
 </div>
 <p>论文还报告了三项观察：</p>
 <ul>
-<li><strong>单个正例不足以支持完整评价。</strong> Gemini 3 Pro Preview 的 <code>PASSfirst</code> 为 100/164，而 <code>PASSall</code> 为 46/164。原文据此强调，多个测试共同约束规约语义，单例成功不能代表整套案例都能通过。</li>
-<li><strong>模型差异能够被区分。</strong> 最终筛选率从 DeepSeek-V3.1 的 1.22% 到 Gemini 3 Pro Preview 的 28.05%，并非所有模型都停留在接近零的认证成功率。</li>
+<li><strong>单个正例不足以支持完整评价。</strong> Gemini 3 Pro Preview 的 <code>PASSfirst</code> 为 100/164，而 <code>PASSall</code> 为 46/164。多个测试共同约束规约语义，单例成功不能代表整套案例都能通过。</li>
+<li><strong>模型差异能够被区分。</strong> COINS 的最终筛选率从 DeepSeek-V3.1 的 1.22% 到 Gemini 3 Pro Preview 的 28.05%。作为对照，CLEVER 在每题 600 秒预算下，各方案的端到端成功率仅为 0—0.621%（最多 1/161），单独的规约认证率也仅为 0—1.863%。两项实验使用的模型、证明语言和成功条件不同。<a href="https://arxiv.org/html/2505.13938v4#S3">CLEVER 表 1</a></li>
 <li><strong>结果不只来自自验证。</strong> 原文同时比较模型证明自身规约的表现。例如 Claude 4.5 Opus 自验证的 <code>PASSall</code> 为 18/164，改用 Gemini 后为 24/164；GPT-5 则从 12/164 变为 25/164。作者据此认为，Gemini 的整体优势不能仅归因于验证自身产物。<a href="https://github.com/taylor-swift-13/Coins_ICML_2026/blob/main/paper/main.pdf#page=7">论文 §4.2、表 2</a></li>
 </ul>
 <p>此外，本表六组统一证明模型的结果中，<code>PASSall</code> 与 <code>REJECTall</code> 计数均相同。原文将二者接近归因于测试覆盖对过度近似空间的约束，以及 HumanEval 任务相对简单；这是作者对该实验结果的解释。<a href="https://github.com/taylor-swift-13/Coins_ICML_2026/blob/main/paper/main.pdf#page=6">论文 §4.2</a></p>
