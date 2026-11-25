@@ -177,11 +177,17 @@ Gemini 3 Pro Preview 的 `PASSall` 最高，为 **49/164（29.88%）**，因此�
 | 后置条件 soundness | $P(i)\land\widehat Q(i,o)\Rightarrow Q(i,o)$ |
 | 后置条件 completeness | $P(i)\land Q(i,o)\Rightarrow\widehat Q(i,o)$ |
 
-评估器先尝试证明关系；未完成时，在正例、无效输入和错误输出上实例化检查，必要时用 Lean 的 `plausible` 对剩余量词作性质测试。它区分证明成立、反例否定、仅测试通过和 unknown，并检查关系及其否定。最终分别报告各分项和整体 sound-and-complete 的 pass@$k$，对 unknown 给出上下界。[论文 §4.1、附录 C.5](https://arxiv.org/html/2505.23135v3#S4.SS1)
+评估器先尝试证明关系；未完成时，在正例、无效输入和错误输出上实例化检查，先用 Lean 的 `decide` 求值，不能直接判定时再用 `plausible` 对剩余量词作性质测试。它区分证明成立、反例否定、仅测试通过和 unknown，并检查关系及其否定。最终分别报告各分项和整体 sound-and-complete 的 pass@$k$，对 unknown 给出上下界。[论文 §4.1、附录 C.5](https://arxiv.org/html/2505.23135v3#S4.SS1)
+
+原文也给出了无法完成实例检查的例子：最长递增子序列的后置条件包含 `∀ s : List Int`，量化范围覆盖所有整数列表，评估器无法处理该无界量词，最终返回 unknown。[论文附录 E、图 24](https://arxiv.org/html/2505.23135v3#A5)
 
 @@opinion-begin@@
 
-这里前置条件的蕴含方向容易读反。评价的是满足契约的程序集合：允许更多输入，会让实现承担更多义务；因此前置条件与后置条件的强弱方向不同。读分数时，还应保留“关系已经证明”和“测试未找到反例”的区别，避免把混合评估结果全部当成全称认证。
+这套评估仍有三个限制：
+
+1. **实例化并不保证 `decide` 可用**。`decide` 需要可计算的 `Decidable` 实例；依靠穷举处理量词时，量词域需要有限或显式有界。即使固定程序的输入输出，规约内部仍可能保留无限域量词，使计算检查无法直接完成；转向性质测试，也只能提供测试范围内的证据。[Lean 的可判定命题机制](https://lean-lang.org/theorem_proving_in_lean4/Type-Classes/#decidable-propositions)
+2. **Lean 的评估流程不能直接迁移到 Rocq**。VERINA 使用 Lean 的 `decide` 与 `plausible`，迁移到 Rocq 需要另行实现相应的判定、测试和结果分类。Rocq 支持布尔反射及 `vm_compute` 等计算机制，但任意声明式规约仍需要适用的决策过程或证明，不能直接套用这一 Lean 评估流程。[Rocq 的计算与反射机制](https://rocq-prover.org/doc/V9.1.0/refman/proofs/writing-proofs/equality.html)
+3. **仍依赖 GT 规约和等价性目标**。soundness 与 completeness 的参照仍是人工 GT，二者共同要求生成条件与参考条件相匹配。证明未完成时退回测试，降低了检查门槛，却没有改变对 GT 的依赖；GT 的构造成本、正确性，以及全称关系的证明难度，仍会影响评价。[VERINA 的指标定义与评估流程](https://arxiv.org/html/2505.23135v3#S4.SS1)
 
 @@opinion-end@@
 
@@ -193,7 +199,7 @@ Gemini 3 Pro Preview 的 `PASSall` 最高，为 **49/164（29.88%）**，因此�
 
 *VeriScale 原论文表 1。保留三个测试集的均值、最小值至最大值，以及相对 VERINA 的增长倍数。[原论文 PDF，第 6 页](https://arxiv.org/pdf/2605.22368v1#page=6)*
 
-评估沿用 VERINA 官方 harness，报告 SpecGen 和 CodeGen pass@1，以及规约 unknown 的上下界。VerinaLite 则通过保留边界类型和基于对抗实现杀死集合的约简，减少测试成本。[论文 §3.2、§4.2](https://arxiv.org/html/2605.22368v1#S3.SS2)
+评估继续使用 VERINA 的官方脚本，分别统计规约生成（SpecGen）和代码生成（CodeGen）单次尝试的成功率（pass@1）。对无法判定（unknown）的规约，计算分数下界时按失败计，上界时按成功计。VerinaLite 则从扩充后的测试集中选出较小的子集，保留重要边界情况和能揭露错误实现的测试，以减少评估耗时。[论文 §3.2、§4.2](https://arxiv.org/html/2605.22368v1#S3.SS2)
 
 @@opinion-begin@@
 
@@ -201,25 +207,7 @@ Gemini 3 Pro Preview 的 `PASSall` 最高，为 **49/164（29.88%）**，因此�
 
 @@opinion-end@@
 
-### 4.3 VeriSpecGen：把测试结果追溯到需求条款
-
-[VeriSpecGen](https://arxiv.org/abs/2604.10392v1)先分解自然语言需求，再生成正例、负输入和负输出，并用映射记录每个测试针对哪些需求。参考实现只用于标注具体输出。候选规约被实例化为三类 Lean 检查目标。[论文 §3.1—3.2](https://arxiv.org/html/2604.10392v1#S3.SS2)
-
-| 测试类型 | 检查命题 |
-| --- | --- |
-| 正例 $(i,o)$ | $P(i)\land Q(i,o)$ |
-| 无效输入 $i'$ | $\neg P(i')$ |
-| 错误输出 $(i,o')$ | $P(i)\land\neg Q(i,o')$ |
-
-Lean 自动化证明目标或其否定；仅对未决测试使用 LLM judge 指导修复，并分别记录 Lean 与 judge 的结果。失败经测试—需求映射定位到条款，修复后重跑整套测试，并继续生成对抗案例。论文的最终成绩另用未参与内部合成的 VERINA 测试集及官方 harness 评价，报告 pass@1。[论文 §3.2—3.3、§5.1](https://arxiv.org/html/2604.10392v1#S3.SS2)
-
-@@opinion-begin@@
-
-这里需要分清合成反馈与最终评分。需求映射主要帮助回答该修哪条约束；独立评估则检查修复是否只适配了内部案例。judge 的判断可以推动搜索，但不能与 Lean 检查过的证明合并成同一种证据。
-
-@@opinion-end@@
-
-### 4.4 AuXSpec：用可执行对应物提供测试反馈
+### 4.3 AuXSpec：用可执行对应物提供测试反馈
 
 [AuXSpec](https://arxiv.org/abs/2611.21421v1)将声明式后置条件配对为可执行布尔检查器：存在可判定实例时直接构造，否则分别定义并研究对应定理。记两者为 $Q$ 和 $b$，桥接关系在合法输入上要求：
 
@@ -236,7 +224,7 @@ $$
 
 @@opinion-end@@
 
-### 4.5 LeetProof：在代码合成前用性质测试检查规约
+### 4.4 LeetProof：在代码合成前用性质测试检查规约
 
 [LeetProof](https://arxiv.org/abs/2604.16584v1)先生成规约与约十个输入输出例子，进行 Lean 类型检查和 LLM judge 审阅，再用 Plausible 随机性质测试。对每个例子，它检查输入是否满足前置条件、预期输出是否满足后置条件，以及相同输入是否还允许其他输出；最后一项针对预期结果唯一的任务，通过随机采样与类型定向输出变异搜索约束不足。[论文 §3.1、§4.2](https://arxiv.org/html/2604.16584v1#S3.SS1)
 
@@ -248,7 +236,7 @@ $$
 
 @@opinion-end@@
 
-### 4.6 Fulminate：把分离逻辑规约放进真实执行
+### 4.5 Fulminate：把分离逻辑规约放进真实执行
 
 [Fulminate: Testing CN Separation-Logic Specifications in C](https://doi.org/10.1145/3704879)将带 CN 前后置条件的 C 翻译为插入检查的 C。函数调用与返回时执行规约，记录内存所有权及其转移，也可检查内存访问。它用具体堆和记录所有权的 ghost state 解释分离逻辑条件，检查对象包括数据结构和资源归属。[原论文 §2—4](https://api.repository.cam.ac.uk/server/api/core/bitstreams/a210b3f3-a209-4f54-a69d-ef24d9344806/content#page=3)
 
@@ -260,7 +248,7 @@ $$
 
 @@opinion-end@@
 
-### 4.7 Spec-Harness：前置与后置条件分别评分
+### 4.6 Spec-Harness：前置与后置条件分别评分
 
 [Spec-Harness](https://arxiv.org/abs/2604.00280v3)把具体输入输出固定在 harness 中，通过 OpenJML 判断契约，并直接改变输入或输出值探测缺陷。它分别记录后置条件的正确性与完整性、前置条件对合法与无效输入的接纳情况；未知检查不直接当成语义错误。[论文 §5](https://arxiv.org/html/2604.00280v3#S5)
 
@@ -283,7 +271,7 @@ $$
 
 @@opinion-end@@
 
-### 4.8 Contrapuntal Languages：先交叉检查，再评价行为
+### 4.7 Contrapuntal Languages：先交叉检查，再评价行为
 
 [Contrapuntal Languages](https://arxiv.org/abs/2610.30059v1)让模型在两种结构不同的任务专用语言中形式化需求，并用求解器检查等价性。最终评价仍使用参考执行得到的正例与错误实现产生的负例，检查候选是否保留正确行为并排除错误输出。[论文 §2、§6](https://arxiv.org/html/2610.30059v1#S2)
 
@@ -299,7 +287,7 @@ $$
 
 @@opinion-end@@
 
-### 4.9 需求忠实性研究：检查规约是否被错误实现带偏
+### 4.8 需求忠实性研究：检查规约是否被错误实现带偏
 
 [*Are LLM-Generated Formal Specifications Faithful to Their Requirements?*](https://arxiv.org/abs/2610.32053v1)同时提供自然语言需求和正确性未知的实现，在 1,403 个 C 程序上评估 ACSL 生成。它结合 Frama-C 验证与 E-ACSL 运行时检查，观察错误程序是否因过弱或受实现误导的规约而通过。[论文 §3—4](https://arxiv.org/html/2610.32053v1#S3)
 
@@ -311,7 +299,7 @@ $$
 
 @@opinion-end@@
 
-### 4.10 Isomorphism Is Not Enough：先审计参考，再解释等价分数
+### 4.9 Isomorphism Is Not Enough：先审计参考，再解释等价分数
 
 [*Isomorphism Is Not Enough*](https://arxiv.org/abs/2605.23772v2)用三套 agentic 系统审计 CLEVER 的全部 161 项任务，分别保留“生成规约是需求的合理解释”（valid）与“已证明和固定参考等价”（accepted）。等价失败被分成证明未完成、规约错误（issue）与双方都合理但解释不同（mismatch）；后者再检查哪一方向的蕴含成立。作者交叉核对 Lean 与原评估器结果，人工复核解答和轨迹，并将逐项发现交给 CLEVER 作者确认。[论文 §2.2—3.1](https://arxiv.org/html/2605.23772v2#S2.SS2)
 
@@ -323,7 +311,7 @@ $$
 
 @@opinion-end@@
 
-### 4.11 评估方法小结
+### 4.10 评估方法小结
 
 将前述工作按使用的评估环节归纳如下。同一工作可以采用多种方式；各项分数的检查对象和计数单位仍需分别阅读。
 
@@ -331,7 +319,7 @@ $$
 | --- | --- |
 | 实现或系统级验证、程序变异 | [SpecGen](https://doi.org/10.1109/ICSE55347.2025.00129)、[FormalBench](https://aclanthology.org/2025.acl-long.1068/)、[OSVBench](https://arxiv.org/html/2504.20964v2#S3)、[CLEVER 的实现认证](https://arxiv.org/html/2505.13938v4#S2)、[Spec-Harness 的验证与变异分析](https://arxiv.org/html/2604.00280v3#S2.SS2)、[需求忠实性研究](https://arxiv.org/html/2610.32053v1#S3) |
 | 与人工参考规约的关系证明或复核 | [CLEVER](https://arxiv.org/html/2505.13938v4#S2)、[VERINA](https://arxiv.org/html/2505.23135v3#S4.SS1)、[VerinaPlus 沿用的评估器](https://arxiv.org/html/2605.22368v1#S4.SS2)、[LeetProof](https://arxiv.org/html/2604.16584v1#S5.SS1)、[Isomorphism Is Not Enough](https://arxiv.org/html/2605.23772v2#S2) |
-| 行为实例证明、执行或性质测试 | [COINS](https://proceedings.mlr.press/v306/yang26am.html)、[Spec-Harness](https://arxiv.org/html/2604.00280v3#S5)、[VERINA](https://arxiv.org/html/2505.23135v3#S4.SS1)、[VerinaPlus](https://arxiv.org/html/2605.22368v1#S4.SS2)、[VeriSpecGen](https://arxiv.org/html/2604.10392v1#S3.SS2)、[AuXSpec](https://arxiv.org/html/2611.21421v1#S2)、[LeetProof](https://arxiv.org/html/2604.16584v1#S4)、[Contrapuntal Languages](https://arxiv.org/html/2610.30059v1#S6)、[Fulminate 的堆状态与所有权检查](https://doi.org/10.1145/3704879) |
+| 行为实例证明、执行或性质测试 | [COINS](https://proceedings.mlr.press/v306/yang26am.html)、[Spec-Harness](https://arxiv.org/html/2604.00280v3#S5)、[VERINA](https://arxiv.org/html/2505.23135v3#S4.SS1)、[VerinaPlus](https://arxiv.org/html/2605.22368v1#S4.SS2)、[AuXSpec](https://arxiv.org/html/2611.21421v1#S2)、[LeetProof](https://arxiv.org/html/2604.16584v1#S4)、[Contrapuntal Languages](https://arxiv.org/html/2610.30059v1#S6)、[Fulminate 的堆状态与所有权检查](https://doi.org/10.1145/3704879) |
 | 不同表示之间的一致性检查 | [Contrapuntal Languages 的候选等价检查](https://arxiv.org/html/2610.30059v1#S2)、[AuXSpec 的声明式与执行形式对应](https://arxiv.org/html/2611.21421v1#S2) |
-| 需求定向与对抗测试构造 | [VeriSpecGen](https://arxiv.org/html/2604.10392v1#S3)、[VeriScale / VerinaPlus](https://arxiv.org/html/2605.22368v1#S3) |
+| 需求定向与对抗测试构造 | [VeriScale / VerinaPlus](https://arxiv.org/html/2605.22368v1#S3) |
 | 需求与参考规约的人工审核 | [SpecGen](https://liyiweb.com/files/Ma2025SAG.pdf)、[COINS](https://proceedings.mlr.press/v306/yang26am.html)、[CLEVER](https://arxiv.org/html/2505.13938v4#S2)、[Spec-Harness](https://arxiv.org/html/2604.00280v3#S5.SS6)、[需求忠实性研究](https://arxiv.org/html/2610.32053v1#S3)、[AuXSpec](https://arxiv.org/html/2611.21421v1)、[VERINA](https://arxiv.org/html/2505.23135v3#S3.SS2)、[LeetProof](https://arxiv.org/html/2604.16584v1#S5.SS1)、[Isomorphism Is Not Enough](https://arxiv.org/html/2605.23772v2#S2.SS2) |

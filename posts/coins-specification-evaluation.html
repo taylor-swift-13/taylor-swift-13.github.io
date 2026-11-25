@@ -230,47 +230,25 @@ c-1 5-5 9-11 9h-2L532 67 19 159h-2c-5 0-9-4-11-9l-5-22c-1-6 2-12 8-13z"/></svg><
 </tr>
 </tbody>
 </table>
-<p>评估器先尝试证明关系；未完成时，在正例、无效输入和错误输出上实例化检查，必要时用 Lean 的 <code>plausible</code> 对剩余量词作性质测试。它区分证明成立、反例否定、仅测试通过和 unknown，并检查关系及其否定。最终分别报告各分项和整体 sound-and-complete 的 pass@<eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>k</mi></mrow><annotation encoding="application/x-tex">k</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6944em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span></span></span></span></eq>，对 unknown 给出上下界。<a href="https://arxiv.org/html/2505.23135v3#S4.SS1">论文 §4.1、附录 C.5</a></p>
+<p>评估器先尝试证明关系；未完成时，在正例、无效输入和错误输出上实例化检查，先用 Lean 的 <code>decide</code> 求值，不能直接判定时再用 <code>plausible</code> 对剩余量词作性质测试。它区分证明成立、反例否定、仅测试通过和 unknown，并检查关系及其否定。最终分别报告各分项和整体 sound-and-complete 的 pass@<eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>k</mi></mrow><annotation encoding="application/x-tex">k</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6944em;"></span><span class="mord mathnormal" style="margin-right:0.0315em;">k</span></span></span></span></eq>，对 unknown 给出上下界。<a href="https://arxiv.org/html/2505.23135v3#S4.SS1">论文 §4.1、附录 C.5</a></p>
+<p>原文也给出了无法完成实例检查的例子：最长递增子序列的后置条件包含 <code>∀ s : List Int</code>，量化范围覆盖所有整数列表，评估器无法处理该无界量词，最终返回 unknown。<a href="https://arxiv.org/html/2505.23135v3#A5">论文附录 E、图 24</a></p>
 <div class="author-opinion">
-<p>这里前置条件的蕴含方向容易读反。评价的是满足契约的程序集合：允许更多输入，会让实现承担更多义务；因此前置条件与后置条件的强弱方向不同。读分数时，还应保留“关系已经证明”和“测试未找到反例”的区别，避免把混合评估结果全部当成全称认证。</p>
+<p>这套评估仍有三个限制：</p>
+<ol>
+<li><strong>实例化并不保证 <code>decide</code> 可用</strong>。<code>decide</code> 需要可计算的 <code>Decidable</code> 实例；依靠穷举处理量词时，量词域需要有限或显式有界。即使固定程序的输入输出，规约内部仍可能保留无限域量词，使计算检查无法直接完成；转向性质测试，也只能提供测试范围内的证据。<a href="https://lean-lang.org/theorem_proving_in_lean4/Type-Classes/#decidable-propositions">Lean 的可判定命题机制</a></li>
+<li><strong>Lean 的评估流程不能直接迁移到 Rocq</strong>。VERINA 使用 Lean 的 <code>decide</code> 与 <code>plausible</code>，迁移到 Rocq 需要另行实现相应的判定、测试和结果分类。Rocq 支持布尔反射及 <code>vm_compute</code> 等计算机制，但任意声明式规约仍需要适用的决策过程或证明，不能直接套用这一 Lean 评估流程。<a href="https://rocq-prover.org/doc/V9.1.0/refman/proofs/writing-proofs/equality.html">Rocq 的计算与反射机制</a></li>
+<li><strong>仍依赖 GT 规约和等价性目标</strong>。soundness 与 completeness 的参照仍是人工 GT，二者共同要求生成条件与参考条件相匹配。证明未完成时退回测试，降低了检查门槛，却没有改变对 GT 的依赖；GT 的构造成本、正确性，以及全称关系的证明难度，仍会影响评价。<a href="https://arxiv.org/html/2505.23135v3#S4.SS1">VERINA 的指标定义与评估流程</a></li>
+</ol>
 </div>
 <h3>4.2 VerinaPlus：用对抗实现扩充评估测试</h3>
 <p><strong>VerinaPlus</strong> 是 <a href="https://arxiv.org/abs/2605.22368v1">VeriScale</a> 在 VERINA 上构建的增强测试集。它扩充合法输入输出、无效输入与错误输出；输入经参考前置条件分类，合法输入由参考实现标注输出。错误输出来自专门利用候选规约漏洞的对抗实现，保留与参考结果不同、却被候选后置条件接纳的输出。<a href="https://arxiv.org/html/2605.22368v1#S3.SS1">论文 §3.1</a></p>
 <p><a href="../assets/papers/coins-evaluation/veriscale-table-1.png"><img src="../assets/papers/coins-evaluation/veriscale-table-1.png" alt="VeriScale 原论文表 1：VERINA、VerinaPlus 与 VerinaLite 的测试数量"></a></p>
 <p><em>VeriScale 原论文表 1。保留三个测试集的均值、最小值至最大值，以及相对 VERINA 的增长倍数。<a href="https://arxiv.org/pdf/2605.22368v1#page=6">原论文 PDF，第 6 页</a></em></p>
-<p>评估沿用 VERINA 官方 harness，报告 SpecGen 和 CodeGen pass@1，以及规约 unknown 的上下界。VerinaLite 则通过保留边界类型和基于对抗实现杀死集合的约简，减少测试成本。<a href="https://arxiv.org/html/2605.22368v1#S3.SS2">论文 §3.2、§4.2</a></p>
+<p>评估继续使用 VERINA 的官方脚本，分别统计规约生成（SpecGen）和代码生成（CodeGen）单次尝试的成功率（pass@1）。对无法判定（unknown）的规约，计算分数下界时按失败计，上界时按成功计。VerinaLite 则从扩充后的测试集中选出较小的子集，保留重要边界情况和能揭露错误实现的测试，以减少评估耗时。<a href="https://arxiv.org/html/2605.22368v1#S3.SS2">论文 §3.2、§4.2</a></p>
 <div class="author-opinion">
 <p>这条路线提醒我们，指标定义相同，测试集仍可能有很大区别。容易拒绝的随机错误输出，未必能暴露遗漏约束；针对薄弱规约构造的错误行为才可能改变评价结果。因此，测试数量、负例生成方式和保留下来的错误类型应一起报告。</p>
 </div>
-<h3>4.3 VeriSpecGen：把测试结果追溯到需求条款</h3>
-<p><a href="https://arxiv.org/abs/2604.10392v1">VeriSpecGen</a>先分解自然语言需求，再生成正例、负输入和负输出，并用映射记录每个测试针对哪些需求。参考实现只用于标注具体输出。候选规约被实例化为三类 Lean 检查目标。<a href="https://arxiv.org/html/2604.10392v1#S3.SS2">论文 §3.1—3.2</a></p>
-<table>
-<thead>
-<tr>
-<th>测试类型</th>
-<th>检查命题</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>正例 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><mi>i</mi><mo separator="true">,</mo><mi>o</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">(i,o)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord mathnormal">i</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal">o</span><span class="mclose">)</span></span></span></span></eq></td>
-<td><eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>P</mi><mo stretchy="false">(</mo><mi>i</mi><mo stretchy="false">)</mo><mo>∧</mo><mi>Q</mi><mo stretchy="false">(</mo><mi>i</mi><mo separator="true">,</mo><mi>o</mi><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">P(i)\land Q(i,o)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.1389em;">P</span><span class="mopen">(</span><span class="mord mathnormal">i</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∧</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal">Q</span><span class="mopen">(</span><span class="mord mathnormal">i</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord mathnormal">o</span><span class="mclose">)</span></span></span></span></eq></td>
-</tr>
-<tr>
-<td>无效输入 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>i</mi><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msup></mrow><annotation encoding="application/x-tex">i&#x27;</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.7519em;"></span><span class="mord"><span class="mord mathnormal">i</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.7519em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span></span></span></span></eq></td>
-<td><eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">¬</mi><mi>P</mi><mo stretchy="false">(</mo><msup><mi>i</mi><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msup><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">\neg P(i&#x27;)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:1.0019em;vertical-align:-0.25em;"></span><span class="mord">¬</span><span class="mord mathnormal" style="margin-right:0.1389em;">P</span><span class="mopen">(</span><span class="mord"><span class="mord mathnormal">i</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.7519em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span><span class="mclose">)</span></span></span></span></eq></td>
-</tr>
-<tr>
-<td>错误输出 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false">(</mo><mi>i</mi><mo separator="true">,</mo><msup><mi>o</mi><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msup><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">(i,o&#x27;)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:1.0019em;vertical-align:-0.25em;"></span><span class="mopen">(</span><span class="mord mathnormal">i</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord"><span class="mord mathnormal">o</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.7519em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span><span class="mclose">)</span></span></span></span></eq></td>
-<td><eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>P</mi><mo stretchy="false">(</mo><mi>i</mi><mo stretchy="false">)</mo><mo>∧</mo><mi mathvariant="normal">¬</mi><mi>Q</mi><mo stretchy="false">(</mo><mi>i</mi><mo separator="true">,</mo><msup><mi>o</mi><mo mathvariant="normal" lspace="0em" rspace="0em">′</mo></msup><mo stretchy="false">)</mo></mrow><annotation encoding="application/x-tex">P(i)\land\neg Q(i,o&#x27;)</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:1em;vertical-align:-0.25em;"></span><span class="mord mathnormal" style="margin-right:0.1389em;">P</span><span class="mopen">(</span><span class="mord mathnormal">i</span><span class="mclose">)</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">∧</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="katex-base"><span class="katex-strut" style="height:1.0019em;vertical-align:-0.25em;"></span><span class="mord">¬</span><span class="mord mathnormal">Q</span><span class="mopen">(</span><span class="mord mathnormal">i</span><span class="mpunct">,</span><span class="mspace" style="margin-right:0.1667em;"></span><span class="mord"><span class="mord mathnormal">o</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.7519em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="katex-sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">′</span></span></span></span></span></span></span></span></span><span class="mclose">)</span></span></span></span></eq></td>
-</tr>
-</tbody>
-</table>
-<p>Lean 自动化证明目标或其否定；仅对未决测试使用 LLM judge 指导修复，并分别记录 Lean 与 judge 的结果。失败经测试—需求映射定位到条款，修复后重跑整套测试，并继续生成对抗案例。论文的最终成绩另用未参与内部合成的 VERINA 测试集及官方 harness 评价，报告 pass@1。<a href="https://arxiv.org/html/2604.10392v1#S3.SS2">论文 §3.2—3.3、§5.1</a></p>
-<div class="author-opinion">
-<p>这里需要分清合成反馈与最终评分。需求映射主要帮助回答该修哪条约束；独立评估则检查修复是否只适配了内部案例。judge 的判断可以推动搜索，但不能与 Lean 检查过的证明合并成同一种证据。</p>
-</div>
-<h3>4.4 AuXSpec：用可执行对应物提供测试反馈</h3>
+<h3>4.3 AuXSpec：用可执行对应物提供测试反馈</h3>
 <p><a href="https://arxiv.org/abs/2611.21421v1">AuXSpec</a>将声明式后置条件配对为可执行布尔检查器：存在可判定实例时直接构造，否则分别定义并研究对应定理。记两者为 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Q</mi></mrow><annotation encoding="application/x-tex">Q</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.8778em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">Q</span></span></span></span></eq> 和 <eq><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>b</mi></mrow><annotation encoding="application/x-tex">b</annotation></semantics></math></span><span class="katex-html" aria-hidden="true"><span class="katex-base"><span class="katex-strut" style="height:0.6944em;"></span><span class="mord mathnormal">b</span></span></span></span></eq>，桥接关系在合法输入上要求：</p>
 <section><eqn><span class="katex-display"><span class="katex"><span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics><mrow><mi mathvariant="normal">∀</mi><mi>i</mi><mo separator="true">,</mo><mi>o</mi><mo separator="true">,</mo><mspace width="1em"/><mi>P</mi><mo stretchy="false">(</mo><mi>i</mi><mo stretchy="false">)</mo><mo>⇒</mo><mo fence="true" stretchy="true" minsize="1.2em" maxsize="1.2em">(</mo><mi>Q</mi><mo stretchy="false">(</mo><mi>i</mi><mo separator="true">,</mo><mi>o</mi><mo stretchy="false">)</mo><mo>⇔</mo><mi>b</mi><mo stretchy="false">(</mo><mi>i</mi><mo separator="true">,</mo><mi>o</mi><mo stretchy="false">)</mo><mo>=</mo><mrow><mi mathvariant="normal">t</mi><mi mathvariant="normal">r</mi><mi mathvariant="normal">u</mi><mi mathvariant="normal">e</mi></mrow><mo fence="true" stretchy="true" minsize="1.2em" maxsize="1.2em">)</mo><mi mathvariant="normal">.</mi></mrow><annotation encoding="application/x-tex">
 \forall i,o,\quad P(i)\Rightarrow
@@ -279,19 +257,19 @@ c-1 5-5 9-11 9h-2L532 67 19 159h-2c-5 0-9-4-11-9l-5-22c-1-6 2-12 8-13z"/></svg><
 <div class="author-opinion">
 <p>执行形式与声明式条件一致，能够支持重复检查许多实例，却没有独立说明两者都符合自然语言需求。两边共同漏掉一项约束，桥接关系仍可能成立。因此，运行反馈、对应性证明和需求审核应分开阅读；它们分别检查不同的连接。</p>
 </div>
-<h3>4.5 LeetProof：在代码合成前用性质测试检查规约</h3>
+<h3>4.4 LeetProof：在代码合成前用性质测试检查规约</h3>
 <p><a href="https://arxiv.org/abs/2604.16584v1">LeetProof</a>先生成规约与约十个输入输出例子，进行 Lean 类型检查和 LLM judge 审阅，再用 Plausible 随机性质测试。对每个例子，它检查输入是否满足前置条件、预期输出是否满足后置条件，以及相同输入是否还允许其他输出；最后一项针对预期结果唯一的任务，通过随机采样与类型定向输出变异搜索约束不足。<a href="https://arxiv.org/html/2604.16584v1#S3.SS1">论文 §3.1、§4.2</a></p>
 <p>测试未找到反例时，验证守卫会以 <code>sorry</code> 放行；这些守卫不属于最终正确性证书。另在 188 个 VERINA 任务上，论文用 Aristotle 尝试证明参考与生成前置条件等价、前提下后置条件等价，再人工分类未解决的差异。对已有基准直接运行规约级测试，在 CLEVER 中报告 18 项问题：16 项后置条件约束不足、1 项实现问题、1 项可能错误的规约。<a href="https://arxiv.org/html/2604.16584v1#S5">论文 §5.1—5.2、表 1</a></p>
 <div class="author-opinion">
 <p>这里有两套不同证据：合成过程用测试快速筛查，实验用等价证明与人工复核评价生成质量。测试放行不能读成关系已证明；输出唯一性也需要确定性需求作为前提。若任务允许多个合法答案，评价对象应改为允许的结果集合，否则会把合法的其他答案误判为规约漏洞。</p>
 </div>
-<h3>4.6 Fulminate：把分离逻辑规约放进真实执行</h3>
+<h3>4.5 Fulminate：把分离逻辑规约放进真实执行</h3>
 <p><a href="https://doi.org/10.1145/3704879">Fulminate: Testing CN Separation-Logic Specifications in C</a>将带 CN 前后置条件的 C 翻译为插入检查的 C。函数调用与返回时执行规约，记录内存所有权及其转移，也可检查内存访问。它用具体堆和记录所有权的 ghost state 解释分离逻辑条件，检查对象包括数据结构和资源归属。<a href="https://api.repository.cam.ac.uk/server/api/core/bitstreams/a210b3f3-a209-4f54-a69d-ef24d9344806/content#page=3">原论文 §2—4</a></p>
 <p>评估通过队列操作序列、教程程序及 pKVM buddy allocator 的测试执行，检查断言与所有权错误，并向规约或实现注入缺陷。例如，队列谓词重复索取尾节点所有权会触发动态错误；分配器规约遗漏页所有权的限制条件，也能被分配、归还页面的短序列暴露。论文报告错误定位及时间、空间开销；测试用例需另外提供。<a href="https://api.repository.cam.ac.uk/server/api/core/bitstreams/a210b3f3-a209-4f54-a69d-ef24d9344806/content#page=21">原论文 §5</a></p>
 <div class="author-opinion">
 <p>这给有状态规约提供了具体反馈：即使返回值看起来正确，资源被重复占用或转移错误仍可能被检查出来。一次失败暴露的是规约、实现和该次执行之间的冲突；要归因于规约，还需要结合已知行为与错误位置复核。运行通过只覆盖执行到的状态，也不能单独说明规约完整表达了需求。</p>
 </div>
-<h3>4.7 Spec-Harness：前置与后置条件分别评分</h3>
+<h3>4.6 Spec-Harness：前置与后置条件分别评分</h3>
 <p><a href="https://arxiv.org/abs/2604.00280v3">Spec-Harness</a>把具体输入输出固定在 harness 中，通过 OpenJML 判断契约，并直接改变输入或输出值探测缺陷。它分别记录后置条件的正确性与完整性、前置条件对合法与无效输入的接纳情况；未知检查不直接当成语义错误。<a href="https://arxiv.org/html/2604.00280v3#S5">论文 §5</a></p>
 <p><a href="../assets/papers/coins-evaluation/spec-harness-figure-1.png"><img src="../assets/papers/coins-evaluation/spec-harness-figure-1.png" alt="Spec-Harness 原论文图 1：changeCase 的 JML 规约"></a></p>
 <p><em>Spec-Harness 原论文图 1。changeCase 的规约对部分输入约束不足，同时排除了实现能够处理的合法字符。<a href="https://arxiv.org/pdf/2604.00280v3">原论文 PDF，第 4 页</a></em></p>
@@ -325,7 +303,7 @@ c-1 5-5 9-11 9h-2L532 67 19 159h-2c-5 0-9-4-11-9l-5-22c-1-6 2-12 8-13z"/></svg><
 <div class="author-opinion">
 <p>分项指标的价值在于区分修复方向。前置条件过强需要放宽，后置条件过弱需要加强；总分可以比较候选，但只有分项证据才能说明缺陷位于何处。测试范围和无效输入标签的来源仍决定了指标能看见什么。</p>
 </div>
-<h3>4.8 Contrapuntal Languages：先交叉检查，再评价行为</h3>
+<h3>4.7 Contrapuntal Languages：先交叉检查，再评价行为</h3>
 <p><a href="https://arxiv.org/abs/2610.30059v1">Contrapuntal Languages</a>让模型在两种结构不同的任务专用语言中形式化需求，并用求解器检查等价性。最终评价仍使用参考执行得到的正例与错误实现产生的负例，检查候选是否保留正确行为并排除错误输出。<a href="https://arxiv.org/html/2610.30059v1#S2">论文 §2、§6</a></p>
 <p><a href="../assets/papers/coins-evaluation/contrapuntal-figure-1.png"><img src="../assets/papers/coins-evaluation/contrapuntal-figure-1.png" alt="Contrapuntal Languages 原论文图 1：相关错误与候选片段"></a></p>
 <p><em>Contrapuntal Languages 原论文图 1。错误等价类 I 出现 8/30 次，正确等价类 III 出现 5/30 次；按最大等价类投票会选择该例中更常见的错误。<a href="https://arxiv.org/pdf/2610.30059v1">原论文 PDF，第 3 页</a></em></p>
@@ -333,19 +311,19 @@ c-1 5-5 9-11 9h-2L532 67 19 159h-2c-5 0-9-4-11-9l-5-22c-1-6 2-12 8-13z"/></svg><
 <div class="author-opinion">
 <p>交叉检查评价的是两条形式化路径是否一致，行为测试评价的是这种一致能否得到外部案例支持。二者组合可以增加检查信号，但两个候选共享同一个误解时，一致性本身仍无法识别它。</p>
 </div>
-<h3>4.9 需求忠实性研究：检查规约是否被错误实现带偏</h3>
+<h3>4.8 需求忠实性研究：检查规约是否被错误实现带偏</h3>
 <p><a href="https://arxiv.org/abs/2610.32053v1"><em>Are LLM-Generated Formal Specifications Faithful to Their Requirements?</em></a>同时提供自然语言需求和正确性未知的实现，在 1,403 个 C 程序上评估 ACSL 生成。它结合 Frama-C 验证与 E-ACSL 运行时检查，观察错误程序是否因过弱或受实现误导的规约而通过。<a href="https://arxiv.org/html/2610.32053v1#S3">论文 §3—4</a></p>
 <p>评估区分符合需求、错误、受实现误导、过弱和无法判断，并利用错误执行被接受的比例、正确执行被中止的比例、有效检查率与超时率辅助分类。因此，“错误程序验证失败”还要与具体行为检查结合，才能判断规约是否表达了正确需求。<a href="https://arxiv.org/html/2610.32053v1#S3.SS3">论文 §3.3</a></p>
 <div class="author-opinion">
 <p>这类评价增加了生成上下文这一维度。固定需求后替换实现，如果生成规约跟随代码中的错误变化，就需要检查模型是否把实际行为误当成应有行为。只看规约与当前实现是否一致，无法揭示这类需求偏移。</p>
 </div>
-<h3>4.10 Isomorphism Is Not Enough：先审计参考，再解释等价分数</h3>
+<h3>4.9 Isomorphism Is Not Enough：先审计参考，再解释等价分数</h3>
 <p><a href="https://arxiv.org/abs/2605.23772v2"><em>Isomorphism Is Not Enough</em></a>用三套 agentic 系统审计 CLEVER 的全部 161 项任务，分别保留“生成规约是需求的合理解释”（valid）与“已证明和固定参考等价”（accepted）。等价失败被分成证明未完成、规约错误（issue）与双方都合理但解释不同（mismatch）；后者再检查哪一方向的蕴含成立。作者交叉核对 Lean 与原评估器结果，人工复核解答和轨迹，并将逐项发现交给 CLEVER 作者确认。<a href="https://arxiv.org/html/2605.23772v2#S2.SS2">论文 §2.2—3.1</a></p>
 <p>论文报告 <strong>80/161 项参考规约存在问题</strong>，另有 1 项辅助定义错误、13 项合理解释不匹配；这些审计判定据作者报告均获 CLEVER 作者认可。80 项中，48 项涉及 Lean 编码陷阱，包括把蕴含写成合取、运算符优先级错误等。它还发现，不可满足的两份契约可能通过 CLEVER 的整体等价命题，因此建议增加逐点检查，或提供满足双方规约的见证实现。<a href="https://arxiv.org/html/2605.23772v2#S3.SS1">论文 §3.1、§4.2、§4.4</a></p>
 <div class="author-opinion">
 <p>这项工作的重点，是把“没有得到等价证明”重新拆解成可以诊断的原因。参考错误、需求歧义和证明搜索不足需要不同处理，不能统一计入生成规约错误。它也说明参考规约需要接受独立审计；80 项参考问题、13 项解释差异与其他结构问题的统计口径应分开，不能全称为同一种 bug。</p>
 </div>
-<h3>4.11 评估方法小结</h3>
+<h3>4.10 评估方法小结</h3>
 <p>将前述工作按使用的评估环节归纳如下。同一工作可以采用多种方式；各项分数的检查对象和计数单位仍需分别阅读。</p>
 <table>
 <thead>
@@ -365,7 +343,7 @@ c-1 5-5 9-11 9h-2L532 67 19 159h-2c-5 0-9-4-11-9l-5-22c-1-6 2-12 8-13z"/></svg><
 </tr>
 <tr>
 <td>行为实例证明、执行或性质测试</td>
-<td><a href="https://proceedings.mlr.press/v306/yang26am.html">COINS</a>、<a href="https://arxiv.org/html/2604.00280v3#S5">Spec-Harness</a>、<a href="https://arxiv.org/html/2505.23135v3#S4.SS1">VERINA</a>、<a href="https://arxiv.org/html/2605.22368v1#S4.SS2">VerinaPlus</a>、<a href="https://arxiv.org/html/2604.10392v1#S3.SS2">VeriSpecGen</a>、<a href="https://arxiv.org/html/2611.21421v1#S2">AuXSpec</a>、<a href="https://arxiv.org/html/2604.16584v1#S4">LeetProof</a>、<a href="https://arxiv.org/html/2610.30059v1#S6">Contrapuntal Languages</a>、<a href="https://doi.org/10.1145/3704879">Fulminate 的堆状态与所有权检查</a></td>
+<td><a href="https://proceedings.mlr.press/v306/yang26am.html">COINS</a>、<a href="https://arxiv.org/html/2604.00280v3#S5">Spec-Harness</a>、<a href="https://arxiv.org/html/2505.23135v3#S4.SS1">VERINA</a>、<a href="https://arxiv.org/html/2605.22368v1#S4.SS2">VerinaPlus</a>、<a href="https://arxiv.org/html/2611.21421v1#S2">AuXSpec</a>、<a href="https://arxiv.org/html/2604.16584v1#S4">LeetProof</a>、<a href="https://arxiv.org/html/2610.30059v1#S6">Contrapuntal Languages</a>、<a href="https://doi.org/10.1145/3704879">Fulminate 的堆状态与所有权检查</a></td>
 </tr>
 <tr>
 <td>不同表示之间的一致性检查</td>
@@ -373,7 +351,7 @@ c-1 5-5 9-11 9h-2L532 67 19 159h-2c-5 0-9-4-11-9l-5-22c-1-6 2-12 8-13z"/></svg><
 </tr>
 <tr>
 <td>需求定向与对抗测试构造</td>
-<td><a href="https://arxiv.org/html/2604.10392v1#S3">VeriSpecGen</a>、<a href="https://arxiv.org/html/2605.22368v1#S3">VeriScale / VerinaPlus</a></td>
+<td><a href="https://arxiv.org/html/2605.22368v1#S3">VeriScale / VerinaPlus</a></td>
 </tr>
 <tr>
 <td>需求与参考规约的人工审核</td>
