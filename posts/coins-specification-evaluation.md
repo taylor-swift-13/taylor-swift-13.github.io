@@ -1,10 +1,6 @@
 ## 1. 引言：从 CLEVER 到规约评估
 
-### 1.1 三种规约写法与 CLEVER 的认证流程
-
 [CLEVER](https://arxiv.org/abs/2505.13938v4) 是一个面向端到端验证代码生成的 Lean 4 基准，将 HumanEval 中的 161 个编程任务改写为形式验证任务。每题包含自然语言需求、函数签名、人工编写的参考规约，以及规约等价性和实现正确性的待证命题。[论文 §1—2](https://arxiv.org/html/2505.13938v4#S2)
-
-下面并列展示三项工作的原文规约例子，省略导入、实现与证明代码。
 
 **CLEVER：实现函数与输入上的命题。** 原论文图 7 使用“两整数相加”（任务 53），人工参考规约如下：[原文图 7](https://arxiv.org/html/2505.13938v4#S3)
 
@@ -15,42 +11,6 @@ def problem_spec (impl : Int → Int → Int) (x y : Int) :=
 ```
 
 `impl` 是候选函数，`x`、`y` 是程序输入。`problem_spec f 2 3` 要求 `f 2 3 = 5`；认证某个实现 `f` 正确，需要证明 `∀ x y, problem_spec f x y`。加法适用于所有整数输入，因此没有额外的前置条件；有输入限制的任务可在规约内部用蕴含表达前后条件。[原文附录 A.4、图 12](https://arxiv.org/html/2505.13938v4)
-
-**COINS：输入与输出上的命题。** 原论文用 `sort_third` 描述只排序索引能被 3 整除的位置，其余位置保持不变：[原文 §2，第 3 页](https://github.com/taylor-swift-13/Coins_ICML_2026/blob/main/paper/main.pdf#page=3)
-
-```coq
-Definition sort_third_spec
-  (input output : list Z) : Prop :=
-  Permutation input output /\
-  (forall (i : nat),
-    (i < length input)%nat ->
-    (i mod 3 <> 0) ->
-    nth i output 0%Z = nth i input 0%Z) /\
-  (forall (i j : nat),
-    i < length output /\
-    j < length output /\
-    i mod 3 = 0 /\
-    j mod 3 = 0 /\
-    i < j ->
-    (nth i output 0 <= nth j output 0)%Z).
-```
-
-`input` 和 `output` 都是值。三个合取条件分别要求保留排列、保留非目标位置、目标位置非递减。该任务允许任意整数列表，未单列前置条件；评估时直接代入具体输入输出对。
-
-**VERINA：显式分开的前后置条件。** 原论文图 1 的任务是删除数组指定位置的元素，规约分别定义为：[原文图 1](https://arxiv.org/html/2505.23135v3#S1)
-
-```lean
-def removeElement_pre (s : Array Int) (k : Nat) : Prop :=
-  k < s.size
-
-def removeElement_post (s : Array Int) (k : Nat)
-    (res : Array Int) (h_precond : removeElement_pre s k) : Prop :=
-  res.size = s.size - 1 ∧
-  (∀ i, i < k → res[i]! = s[i]!) ∧
-  (∀ i, i < res.size → i ≥ k → res[i]! = s[i + 1]!)
-```
-
-`removeElement_pre` 要求索引合法；`removeElement_post` 要求长度减一、删除位置前的元素不变、之后的元素左移。`h_precond` 是前置条件成立的证明。后置条件接收输入、结果与前提证明，没有实现函数参数。
 
 **CLEVER 的认证流程。** 模型需要完成下面四个步骤。前两步组成**规约认证**，后两步组成**实现认证**。[官方任务说明](https://github.com/trishullab/clever#benchmark-focus)
 
@@ -90,7 +50,26 @@ COINS 将形式规约视为输入与输出上的逻辑命题，刻画正确实�
 
 论文使用 HumanEval 的 `sort_third` 说明规约与实例化检查：给定一个列表，将索引能被 3 整除的位置上的元素按非递减顺序排列，其余位置的元素保持不变。索引从 0 开始。[论文 §2](https://github.com/taylor-swift-13/Coins_ICML_2026/blob/main/paper/main.pdf#page=3)
 
-原文的 Rocq 规约 `sort_third_spec` 包含三个条件：
+原文的 Rocq 规约如下：
+
+```coq
+Definition sort_third_spec
+  (input output : list Z) : Prop :=
+  Permutation input output /\
+  (forall (i : nat),
+    (i < length input)%nat ->
+    (i mod 3 <> 0) ->
+    nth i output 0%Z = nth i input 0%Z) /\
+  (forall (i j : nat),
+    i < length output /\
+    j < length output /\
+    i mod 3 = 0 /\
+    j mod 3 = 0 /\
+    i < j ->
+    (nth i output 0 <= nth j output 0)%Z).
+```
+
+`input` 和 `output` 都是值。该任务允许任意整数列表，未单列前置条件；评估时直接代入具体输入输出对。规约包含三个条件：
 
 1. 输出是输入的一个排列，保留所有元素及其出现次数。
 2. 索引不能被 3 整除的位置，输出元素与输入相同。
@@ -227,6 +206,21 @@ Gemini 3 Pro Preview 的 `PASSall` 最高，为 **50/164（30.49%）**，因此�
 ### 4.1 VERINA
 
 **发表**：[ICLR 2026](https://openreview.net/forum?id=0A4Uf88pog)。
+
+VERINA 将前后置条件分开定义。原论文图 1 的任务是删除数组指定位置的元素，规约分别定义为：[原文图 1](https://arxiv.org/html/2505.23135v3#S1)
+
+```lean
+def removeElement_pre (s : Array Int) (k : Nat) : Prop :=
+  k < s.size
+
+def removeElement_post (s : Array Int) (k : Nat)
+    (res : Array Int) (h_precond : removeElement_pre s k) : Prop :=
+  res.size = s.size - 1 ∧
+  (∀ i, i < k → res[i]! = s[i]!) ∧
+  (∀ i, i < res.size → i ≥ k → res[i]! = s[i + 1]!)
+```
+
+`removeElement_pre` 要求索引合法；`removeElement_post` 要求长度减一、删除位置前的元素不变、之后的元素左移。`h_precond` 是前置条件成立的证明。后置条件接收输入、结果与前提证明，没有实现函数参数。
 
 对照人工 GT，评价前后置条件的 soundness 与 completeness。先尝试证明关系，再通过 `decide` 和 `plausible` 检查正负案例；未决结果单独报告。[评估方法](https://arxiv.org/html/2505.23135v3#S4.SS1)
 
