@@ -212,13 +212,30 @@ $$
 1. **通过 `decide` 构造**：已有可计算的 `Decidable` 实例时直接使用，否则尝试合成实例；检查器与原后置条件构造一致。合成数据中 35.5% 采用这条路径。
 2. **单独生成布尔检查器**：实例合成失败时，另写可执行定义，并声明上述等价定理，之后单独尝试证明。例如，特殊子序列计数的检查器枚举索引子集，参考实现则用三个计数器线性扫描。[原文示例](https://arxiv.org/html/2611.21421v1#A7.SS2.SSS1)
 
-候选接纳要求**编译检查、冻结测试和 LLM judges**通过。Judges 检查需求忠实性、非平凡性和执行检查器的完整性；代码任务还检查终止性与开销。桥接等价和实现正确性定理的证明在生成、训练和评分时可保留为 `sorry`，随后另行审计。因此，执行测试、judge 接纳和已完成的桥接证明是论文分别报告的环节。[论文 §2、附录 H.4](https://arxiv.org/html/2611.21421v1#S2)
+候选接纳要求**编译检查、冻结测试和 LLM judges**通过。Judges 分别检查：
+
+1. **需求忠实性**：声明式后置条件是否准确表达题目要求。
+2. **非算法复述（non-tautology）**：后置条件应描述什么输出是正确的，避免把求解算法搬进规约、直接算出答案。
+3. **检查器完整性**：可执行检查器是否也能接纳未测试输入上的正确输出，并对照已接受的后置条件查找漏接或误接。
+4. **实现质量**：代码任务另检查实现能否在合法输入上终止，以及开销是否适合题目约束。[论文 §2、附录 G.2—G.3](https://arxiv.org/html/2611.21421v1#S2)
+
+题目本身就是指定变换时，可豁免非算法复述检查。枚举候选的规约仍可通过评估，但 RL 奖励为 0.4，低于完全通过的 1；配对的可执行检查器负责实际计算测试结果。[论文附录 G.2](https://arxiv.org/html/2611.21421v1#A7.SS2)、[附录 E.3.1](https://arxiv.org/html/2611.21421v1#A5.SS3.SSS1)
+
+@@opinion-begin@@
+
+例如，需求是“返回非空列表中的最大值”。声明式条件可写为 $m\in xs\land\forall x\in xs,\ x\le m$。只保留后半句，会错误接受列表 `[1; 3]` 的输出 `100`，遗漏了需求中的成员关系；若写成 `m = scanMax xs`，再在 `scanMax` 中实现逐项扫描，则体现了非算法复述检查要排除的做法。
+
+独立的可执行检查器可以遍历列表，检查成员关系与大小关系。若误把 $\le$ 写成 $<$，连正确输出 `3` 都会被拒绝，属于漏接正确答案。这个例子说明，声明式规约不复述求解算法，并不妨碍另设可执行检查器。
+
+@@opinion-end@@
+
+桥接等价和实现正确性定理的证明在生成、训练和评分时可保留为 `sorry`，随后另行审计。因此，执行测试、judge 接纳和已完成的桥接证明是论文分别报告的环节。[论文 §2、附录 H.4](https://arxiv.org/html/2611.21421v1#S2)
 
 ### 4.4 LeetProof
 
 **发表**：[ASE 2026](https://doi.org/10.1145/3832783.3837559)。
 
-在代码合成前，先进行类型检查和 LLM judge 审核，再用输入输出例子与 Plausible 性质测试，检查规约能否接纳正确行为、排除错误输出。实验另以参考规约等价证明和人工复核评价生成质量；SMT 用于后续 Velvet 实现验证。[评估方法](https://vexoben.github.io/files/leetproof-ase2026.pdf#page=4)
+在代码合成前，先进行类型检查和 LLM judge 审核，再用输入输出例子与 Plausible 性质测试，检查规约能否接纳正确行为、排除错误输出。实验另以参考规约等价证明和人工复核评价生成质量。实现验证基于 Velvet——嵌在 Lean 中的命令式程序验证器，结合 SMT 自动证明与交互式证明处理验证条件。[评估方法](https://vexoben.github.io/files/leetproof-ase2026.pdf#page=4)、[Velvet 说明](https://vexoben.github.io/files/leetproof-ase2026.pdf#page=3)
 
 ### 4.5 Fulminate
 
@@ -244,7 +261,15 @@ $$
 
 论文报告 **80 项参考规约问题**，其中 **48 项涉及 Lean 编码陷阱**，例如把蕴含写成合取、误用运算符优先级；另有 **1 项辅助定义错误**和 **13 项合理解释差异**。这几类结果分别计数。[论文 §3.1、§4.2](https://arxiv.org/html/2605.23772v2#S3.SS1)
 
-论文还展示了整体等价命题的空洞成功：两份不可满足的契约也可能被判为等价。因此，作者建议增加逐点检查，或给出满足双方规约的见证实现，并结合其他语义评价，而不只使用参考等价分数。[论文 §4.4](https://arxiv.org/html/2605.23772v2#S4.SS4)
+CLEVER 的规约以实现函数 $f$ 和输入 $x$ 为参数，记为 $S(f,x)$；固定实现后，$\forall x,\ S(f,x)$ 表示它满足整份契约。因此，整体等价认证比较的是“哪些实现满足这份契约”，而非只把某个测试用例代入规约。[CLEVER 的定义](https://arxiv.org/html/2505.13938v4#S2)
+
+论文指出，CLEVER 检查的整体等价命题形如：
+
+$$
+\forall f,\quad\bigl(\forall x,\ S(f,x)\bigr)\Leftrightarrow\bigl(\forall x,\ T(f,x)\bigr).
+$$
+
+若两份契约均无任何实现能满足，则对每个 $f$，两边的全称命题都为假，等价仍成立：两份契约允许的实现集合都是空集。论文在第 67、160 项任务中观察到这种空洞成功。因此，作者建议增加逐点检查，或给出满足双方规约的见证实现，并结合其他语义评价。[论文 §4.4](https://arxiv.org/html/2605.23772v2#S4.SS4)
 
 **评估机制对照**
 
@@ -256,13 +281,11 @@ $$
 | [COINS](https://github.com/taylor-swift-13/Coins_ICML_2026/blob/main/paper/main.pdf#page=4) | 不要求 | 不要求 | 负例拒绝预判断 | 实例证明 |
 | [VERINA](https://arxiv.org/html/2505.23135v3#A3.SS5) | 非硬性要求 | 测试分支用 `decide` / PBT | — | 先尝试关系证明，未决时回退测试 |
 | [VerinaPlus / VeriScale](https://arxiv.org/html/2605.22368v1#S4.SS2) | 沿用 VERINA | 沿用 VERINA 测试评估器 | — | 未新增逐题证明要求 |
-| [AuXSpec](https://arxiv.org/html/2611.21421v1#S2) | 不强制；`decide` 路径可执行 | 独立布尔检查器路径要求可检查 | 候选接纳条件 | 可判定实例构造、事后等价审计 |
+| [AuXSpec](https://arxiv.org/html/2611.21421v1#S2) | 不强制；`decide` 路径可执行 | 独立布尔检查器路径要求可检查 | 需求忠实性、非算法复述、检查器完整性 | 可判定实例构造、事后等价审计 |
 | [LeetProof](https://vexoben.github.io/files/leetproof-ase2026.pdf) | 测试涉及的部分需可计算或可采样 | 规约用 Plausible；实现验证另用 SMT | 规约与例子审核 | 实验中的参考等价审计；实现证明 |
 | [Fulminate](https://doi.org/10.1145/3704879) | 是：CN 的计算片段 | C 运行时检查（不依赖 SMT） | — | — |
 | [Spec-Harness](https://arxiv.org/html/2604.00280v3#S5) | 不要求 | 是：OpenJML / SMT 符号检查 | — | — |
 | [Isomorphism Is Not Enough](https://arxiv.org/html/2605.23772v2#S2.SS2) | 不要求 | 不要求 | agent 语义判读，人工复核 | Lean 等价与实现证明 |
-
-`decide` 执行可计算的 `Decidable` 实例，不等同于 SMT 求解。表中“—”表示该评估环节未使用；实现验证、证明尝试和事后审计已在对应单元格注明。[Lean 官方说明](https://lean-lang.org/doc/reference/latest/Tactic-Proofs/Tactic-Reference/#decision-procedures)
 
 ## 5. 规约评估的困难
 
