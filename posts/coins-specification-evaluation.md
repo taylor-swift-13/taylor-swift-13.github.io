@@ -1,10 +1,12 @@
 ## 1. 引言：从 CLEVER 到规约评估
 
-### 1.1 CLEVER 如何组织端到端验证
+### 1.1 三种规约写法与 CLEVER 的认证流程
 
 [CLEVER](https://arxiv.org/abs/2505.13938v4) 是一个面向端到端验证代码生成的 Lean 4 基准，将 HumanEval 中的 161 个编程任务改写为形式验证任务。每题包含自然语言需求、函数签名、人工编写的参考规约，以及规约等价性和实现正确性的待证命题。[论文 §1—2](https://arxiv.org/html/2505.13938v4#S2)
 
-以原论文图 7 的“两整数相加”（任务 53）为例，人工参考规约如下：[原文图 7](https://arxiv.org/html/2505.13938v4#S3)
+下面并列展示三项工作的原文规约例子，省略导入、实现与证明代码。
+
+**CLEVER：实现函数与输入上的命题。** 原论文图 7 使用“两整数相加”（任务 53），人工参考规约如下：[原文图 7](https://arxiv.org/html/2505.13938v4#S3)
 
 ```lean
 def problem_spec (impl : Int → Int → Int) (x y : Int) :=
@@ -12,9 +14,45 @@ def problem_spec (impl : Int → Int → Int) (x y : Int) :=
   ∃ result, impl x y = result ∧ spec result
 ```
 
-`impl` 是待验证的函数，`x`、`y` 是程序输入。规约要求存在一个结果 `result`，既等于 `impl x y`，又满足 `result - x - y = 0`。认证某个实现 `f` 时，需要证明 `∀ x y, problem_spec f x y`，即它对所有整数输入都满足上述关系。
+`impl` 是候选函数，`x`、`y` 是程序输入。`problem_spec f 2 3` 要求 `f 2 3 = 5`；认证某个实现 `f` 正确，需要证明 `∀ x y, problem_spec f x y`。加法适用于所有整数输入，因此没有额外的前置条件；有输入限制的任务可在规约内部用蕴含表达前后条件。[原文附录 A.4、图 12](https://arxiv.org/html/2505.13938v4)
 
-模型需要完成下面四个步骤。前两步组成**规约认证**，后两步组成**实现认证**。[官方任务说明](https://github.com/trishullab/clever#benchmark-focus)
+**COINS：输入与输出上的命题。** 原论文用 `sort_third` 描述只排序索引能被 3 整除的位置，其余位置保持不变：[原文 §2，第 3 页](https://github.com/taylor-swift-13/Coins_ICML_2026/blob/main/paper/main.pdf#page=3)
+
+```coq
+Definition sort_third_spec
+  (input output : list Z) : Prop :=
+  Permutation input output /\
+  (forall (i : nat),
+    (i < length input)%nat ->
+    (i mod 3 <> 0) ->
+    nth i output 0%Z = nth i input 0%Z) /\
+  (forall (i j : nat),
+    i < length output /\
+    j < length output /\
+    i mod 3 = 0 /\
+    j mod 3 = 0 /\
+    i < j ->
+    (nth i output 0 <= nth j output 0)%Z).
+```
+
+`input` 和 `output` 都是值。三个合取条件分别要求保留排列、保留非目标位置、目标位置非递减。该任务允许任意整数列表，未单列前置条件；评估时直接代入具体输入输出对。
+
+**VERINA：显式分开的前后置条件。** 原论文图 1 的任务是删除数组指定位置的元素，规约分别定义为：[原文图 1](https://arxiv.org/html/2505.23135v3#S1)
+
+```lean
+def removeElement_pre (s : Array Int) (k : Nat) : Prop :=
+  k < s.size
+
+def removeElement_post (s : Array Int) (k : Nat)
+    (res : Array Int) (h_precond : removeElement_pre s k) : Prop :=
+  res.size = s.size - 1 ∧
+  (∀ i, i < k → res[i]! = s[i]!) ∧
+  (∀ i, i < res.size → i ≥ k → res[i]! = s[i + 1]!)
+```
+
+`removeElement_pre` 要求索引合法；`removeElement_post` 要求长度减一、删除位置前的元素不变、之后的元素左移。`h_precond` 是前置条件成立的证明。后置条件接收输入、结果与前提证明，没有实现函数参数。
+
+**CLEVER 的认证流程。** 模型需要完成下面四个步骤。前两步组成**规约认证**，后两步组成**实现认证**。[官方任务说明](https://github.com/trishullab/clever#benchmark-focus)
 
 | 步骤 | 模型需要生成的内容 | 检查目标 |
 | --- | --- | --- |
@@ -24,6 +62,8 @@ def problem_spec (impl : Int → Int → Int) (x y : Int) :=
 | 实现认证 | 生成 $\pi$ 满足 $\psi^*$ 的正确性证明 | 实现符合人工参考规约 |
 
 这里有一个重要设置：实现认证针对的是人工参考规约 $\psi^*$。CLEVER 这样设计，是为了让实现正确性的评价独立于模型能否生成正确规约。端到端成功要求两项认证都完成，相关证明由 Lean 检查。[论文 §2—3](https://arxiv.org/html/2505.13938v4#S2)
+
+规约等价定理中的“任意实现”，要求两份规约对每个候选函数的判断一致。错误实现可以同时不满足两份规约；等价证明并不会认证它正确。某个实现是否正确，仍由单独的实现认证检查。[原文图 7](https://arxiv.org/html/2505.13938v4#S3)
 
 [![CLEVER 原论文图 1：规约认证与实现认证](../assets/papers/coins-evaluation/clever-figure-1.png)](../assets/papers/coins-evaluation/clever-figure-1.png)
 
@@ -226,16 +266,13 @@ $$
 
 1. **需求忠实性**：声明式后置条件是否准确表达题目要求。
 2. **非算法复述（non-tautology）**：后置条件应描述什么输出是正确的，避免把求解算法搬进规约、直接算出答案。
-3. **检查器完整性**：可执行检查器是否也能接纳未测试输入上的正确输出，并对照已接受的后置条件查找漏接或误接。
-4. **实现质量**：代码任务另检查实现能否在合法输入上终止，以及开销是否适合题目约束。[论文 §2、附录 G.2—G.3](https://arxiv.org/html/2611.21421v1#S2)
+3. **检查器完整性**：可执行检查器是否也能接纳未测试输入上的正确输出，并对照已接受的后置条件查找漏接或误接。[论文 §2、附录 G.2](https://arxiv.org/html/2611.21421v1#S2)
 
 题目本身就是指定变换时，可豁免非算法复述检查。枚举候选的规约仍可通过评估，但 RL 奖励为 0.4，低于完全通过的 1；配对的可执行检查器负责实际计算测试结果。[论文附录 G.2](https://arxiv.org/html/2611.21421v1#A7.SS2)、[附录 E.3.1](https://arxiv.org/html/2611.21421v1#A5.SS3.SSS1)
 
 @@opinion-begin@@
 
 例如，需求是“返回非空列表中的最大值”。声明式条件可写为 $m\in xs\land\forall x\in xs,\ x\le m$。只保留后半句，会错误接受列表 `[1; 3]` 的输出 `100`，遗漏了需求中的成员关系；若写成 `m = scanMax xs`，再在 `scanMax` 中实现逐项扫描，则体现了非算法复述检查要排除的做法。
-
-独立的可执行检查器可以遍历列表，检查成员关系与大小关系。若误把 $\le$ 写成 $<$，连正确输出 `3` 都会被拒绝，属于漏接正确答案。这个例子说明，声明式规约不复述求解算法，并不妨碍另设可执行检查器。
 
 @@opinion-end@@
 
