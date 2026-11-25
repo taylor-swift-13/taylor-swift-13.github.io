@@ -245,13 +245,13 @@ c-1 5-5 9-11 9h-2L532 67 19 159h-2c-5 0-9-4-11-9l-5-22c-1-6 2-12 8-13z"/></svg><
 <p>论文报告 <strong>80 项参考规约问题</strong>，其中 <strong>48 项涉及 Lean 编码陷阱</strong>，例如把蕴含写成合取、误用运算符优先级；另有 <strong>1 项辅助定义错误</strong>和 <strong>13 项合理解释差异</strong>。这几类结果分别计数。<a href="https://arxiv.org/html/2605.23772v2#S3.SS1">论文 §3.1、§4.2</a></p>
 <p>论文还展示了整体等价命题的空洞成功：两份不可满足的契约也可能被判为等价。因此，作者建议增加逐点检查，或给出满足双方规约的见证实现，并结合其他语义评价，而不只使用参考等价分数。<a href="https://arxiv.org/html/2605.23772v2#S4.SS4">论文 §4.4</a></p>
 <p><strong>评估机制对照</strong></p>
-<p>规约本身能在实例上求值，记为“可执行”；另有可执行对应物，记为“可检查”。下面分列原规约的执行要求和检查器，并标明 SMT、LLM judge 与大模型写证明的使用环节。检查器指对行为求值的程序，证明内核的证书核验不计入这一列。</p>
+<p>规约本身能在实例上求值，记为“可执行”；通过另一个可运行的检查器判断行为，记为“可检查”。可执行检查器包括布尔检查器、性质测试和 SMT 求解器，因此下表的检查器列与 SMT 列可以同时成立。证明内核的证书核验单独归入证明流程。</p>
 <div class="evaluation-matrix" tabindex="0" aria-label="规约评估机制对照表"><table>
 <thead>
 <tr>
 <th>工作</th>
 <th>原规约须可执行</th>
-<th>可执行检查器</th>
+<th>可执行检查器（含 SMT）</th>
 <th>SMT 检查</th>
 <th>LLM judge</th>
 <th>大模型写证明</th>
@@ -301,7 +301,7 @@ c-1 5-5 9-11 9h-2L532 67 19 159h-2c-5 0-9-4-11-9l-5-22c-1-6 2-12 8-13z"/></svg><
 <tr>
 <td><a href="https://vexoben.github.io/files/leetproof-ase2026.pdf">LeetProof</a></td>
 <td>测试涉及的部分需可计算或可采样</td>
-<td>Plausible 性质测试</td>
+<td>规约用 Plausible；实现验证另用 SMT</td>
 <td>实现验证用；规约筛查主用 PBT</td>
 <td>规约与例子审核</td>
 <td>实验中的参考等价审计；实现证明</td>
@@ -317,7 +317,7 @@ c-1 5-5 9-11 9h-2L532 67 19 159h-2c-5 0-9-4-11-9l-5-22c-1-6 2-12 8-13z"/></svg><
 <tr>
 <td><a href="https://arxiv.org/html/2604.00280v3#S5">Spec-Harness</a></td>
 <td>不要求</td>
-<td>不要求，使用符号验证</td>
+<td>是：OpenJML / SMT 符号检查</td>
 <td>是：OpenJML</td>
 <td>—</td>
 <td>—</td>

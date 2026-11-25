@@ -240,18 +240,18 @@ $$
 
 **评估机制对照**
 
-规约本身能在实例上求值，记为“可执行”；另有可执行对应物，记为“可检查”。下面分列原规约的执行要求和检查器，并标明 SMT、LLM judge 与大模型写证明的使用环节。检查器指对行为求值的程序，证明内核的证书核验不计入这一列。
+规约本身能在实例上求值，记为“可执行”；通过另一个可运行的检查器判断行为，记为“可检查”。可执行检查器包括布尔检查器、性质测试和 SMT 求解器，因此下表的检查器列与 SMT 列可以同时成立。证明内核的证书核验单独归入证明流程。
 
-| 工作 | 原规约须可执行 | 可执行检查器 | SMT 检查 | LLM judge | 大模型写证明 |
+| 工作 | 原规约须可执行 | 可执行检查器（含 SMT） | SMT 检查 | LLM judge | 大模型写证明 |
 | --- | --- | --- | --- | --- | --- |
 | [CLEVER](https://arxiv.org/html/2505.13938v4#S2) | 不要求 | 不要求 | — | — | 参考等价与实现证明 |
 | [COINS](https://github.com/taylor-swift-13/Coins_ICML_2026/blob/main/paper/main.pdf#page=4) | 不要求 | 不要求 | — | 负例拒绝预判断 | 实例证明 |
 | [VERINA](https://arxiv.org/html/2505.23135v3#A3.SS5) | 非硬性要求 | 测试分支用 `decide` / PBT | — | — | 先尝试关系证明，未决时回退测试 |
 | [VerinaPlus / VeriScale](https://arxiv.org/html/2605.22368v1#S4.SS2) | 沿用 VERINA | 沿用 VERINA 测试评估器 | — | — | 未新增逐题证明要求 |
 | [AuXSpec](https://arxiv.org/html/2611.21421v1#S2) | 不强制；`decide` 路径可执行 | 独立布尔检查器路径要求可检查 | — | 候选接纳条件 | 可判定实例构造、事后等价审计 |
-| [LeetProof](https://vexoben.github.io/files/leetproof-ase2026.pdf) | 测试涉及的部分需可计算或可采样 | Plausible 性质测试 | 实现验证用；规约筛查主用 PBT | 规约与例子审核 | 实验中的参考等价审计；实现证明 |
+| [LeetProof](https://vexoben.github.io/files/leetproof-ase2026.pdf) | 测试涉及的部分需可计算或可采样 | 规约用 Plausible；实现验证另用 SMT | 实现验证用；规约筛查主用 PBT | 规约与例子审核 | 实验中的参考等价审计；实现证明 |
 | [Fulminate](https://doi.org/10.1145/3704879) | 是：CN 的计算片段 | 直接编译为 C 运行时检查 | 该运行检查不依赖 | — | — |
-| [Spec-Harness](https://arxiv.org/html/2604.00280v3#S5) | 不要求 | 不要求，使用符号验证 | 是：OpenJML | — | — |
+| [Spec-Harness](https://arxiv.org/html/2604.00280v3#S5) | 不要求 | 是：OpenJML / SMT 符号检查 | 是：OpenJML | — | — |
 | [Isomorphism Is Not Enough](https://arxiv.org/html/2605.23772v2#S2.SS2) | 不要求 | 不要求 | — | agent 语义判读，人工复核 | Lean 等价与实现证明 |
 
 `decide` 执行可计算的 `Decidable` 实例，不等同于 SMT 求解。表中“—”表示该评估环节未使用；实现验证、证明尝试和事后审计已在对应单元格注明。[Lean 官方说明](https://lean-lang.org/doc/reference/latest/Tactic-Proofs/Tactic-Reference/#decision-procedures)
