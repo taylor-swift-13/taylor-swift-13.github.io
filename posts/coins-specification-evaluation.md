@@ -140,7 +140,7 @@ Gemini 3 Pro Preview 的 `PASSall` 最高，为 **50/164（30.49%）**，因此�
 
 *COINS 原论文图 2。分别改变规约来源和证明模型，观察通过率变化。[原论文 PDF，第 6 页](https://github.com/taylor-swift-13/Coins_ICML_2026/blob/main/paper/main.pdf#page=6)*
 
-**验证复杂度的权衡。** 两项干预都影响评估结果。虽然替换人工规约带来的平均提升更大，证明能力在实例检查中仍有显著影响。原文由此强调：证明义务越复杂，就越依赖强证明器，也越容易因证明失败而系统性低估规约质量；即使评价目标本身严格，过难的证明过程仍可能使评分难以反映生成能力。[论文 §4.3](https://github.com/taylor-swift-13/Coins_ICML_2026/blob/main/paper/main.pdf#page=7)
+**验证复杂度的权衡。** 两项干预都影响评估结果。虽然替换人工规约带来的平均提升更大，证明能力在实例检查中仍有显著影响。证明义务越复杂，就越依赖强证明器，也越容易因证明失败而系统性低估规约质量；即使评价目标本身严格，过难的证明过程仍可能使评分难以反映生成能力。[论文 §4.3](https://github.com/taylor-swift-13/Coins_ICML_2026/blob/main/paper/main.pdf#page=7)
 
 ### 3.4 RQ4：允许可执行成分会怎样影响规约与证明
 
@@ -157,6 +157,14 @@ Gemini 3 Pro Preview 的 `PASSall` 最高，为 **50/164（30.49%）**，因此�
 *COINS 原论文图 4。允许 `Fixpoint` 时，`PASSfirst`、`PASSall` 分别为 75.6%、30.5%；禁止后分别降至 61.6%、15.2%。图中百分比保留一位小数，与表 1 的人工基线一致。[原论文 PDF，第 8 页](https://github.com/taylor-swift-13/Coins_ICML_2026/blob/main/paper/main.pdf#page=8)*
 
 **可执行成分很重要。** 用 `Fixpoint` 封装适当的子逻辑，可以降低规约复杂度与验证难度；强制只使用纯关系式表达，会使定义和证明义务更冗长。这也是论文允许规约包含可执行成分的实验依据。[论文 §4.4](https://github.com/taylor-swift-13/Coins_ICML_2026/blob/main/paper/main.pdf#page=8)
+
+@@opinion-begin@@
+
+例如，要求二维列表的每行之和都等于 3。纯关系式写法可先用 `Inductive Sum` 描述一行的求和关系，再用 `Inductive AllRowsSum` 在外层逐行引用它。证明 `[[1; 2]; [3]]` 满足规约时，需要在这两层归纳关系中逐层构造证据。
+
+若把内层求和写成 `Fixpoint sum`，规约可写为 `Forall (fun row => sum row = 3) rows`。外层仍需逐行证明，但 `sum [1; 2] = 3` 和 `sum [3] = 3` 都能直接通过计算化简，无需再逐项构造内层的求和证据。
+
+@@opinion-end@@
 
 ### 3.5 补充实验：实例筛选之后，等价证明仍有多难
 
