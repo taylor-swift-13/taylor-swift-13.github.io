@@ -92,20 +92,15 @@ COINS 依次执行 `SYNTAX`、`PASSfirst`、`PASSall` 和 `REJECTall`，逐步�
 
 ### 3.1 RQ1：先用人工规约选择证明模型
 
-为了减少规约质量与证明能力相互影响带来的不确定性，论文先固定经过人工编写与审核的规约，比较各模型完成实例证明的能力，再选取表现最好的模型评价后续生成规约。表 1 的任务总数为 164，下表按原表列出通过任务数。[论文 §4.1、表 1](https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf#page=5)
+为了减少规约质量与证明能力相互影响带来的不确定性，论文先固定经过人工编写与审核的规约，比较各模型完成实例证明的能力，再选取表现最好的模型评价后续生成规约。下方直接使用原论文表 1，保留原表的百分比和通过任务数，任务总数为 164。[论文 §4.1、表 1](https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf#page=5)
 
-| 证明模型 | `PASSfirst` | `PASSall` |
-| --- | --- | --- |
-| GPT-4o | 61 | 12 |
-| Claude 3.7 Sonnet | 50 | 6 |
-| GPT-5 | 100 | 27 |
-| DeepSeek-V3.1 | 77 | 0 |
-| Claude 4.5 Opus | 119 | 32 |
-| Gemini 3 Pro Preview | 122 | 49 |
+[![COINS 原论文表 1：不同模型在人工规约上的证明表现](../assets/papers/coins-evaluation/coins-table-1.png)](../assets/papers/coins-evaluation/coins-table-1.png)
+
+*COINS 原论文表 1。比较各证明模型的 `PASSfirst` 与 `PASSall`，括号中为通过任务数。[原论文 PDF，第 5 页](https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf#page=5)*
 
 Gemini 3 Pro Preview 的 `PASSall` 最高，为 **49/164（29.88%）**，因此被选为后续实验的主要证明模型。论文同时指出，即使使用人工规约，完成全部实例证明仍然困难。[论文 §4.1](https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf#page=5)
 
-**原文 Finding：评估对偶性。** 规约未能通过验证时，错误可能来自规约，也可能来自证明器；更强的证明器有助于识别规约质量，更可靠的规约也有助于评价证明能力。人工规约在这里作为相对可靠的参照，原文没有将其宣称为绝对正确的真值。[论文 §4.1](https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf#page=5)
+**评估对偶性。** 规约未能通过验证时，错误可能来自规约，也可能来自证明器；更强的证明器有助于识别规约质量，更可靠的规约也有助于评价证明能力。人工规约在这里作为相对可靠的参照，原文没有将其宣称为绝对正确的真值。[论文 §4.1](https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf#page=5)
 
 @@opinion-begin@@
 
@@ -115,18 +110,19 @@ Gemini 3 Pro Preview 的 `PASSall` 最高，为 **49/164（29.88%）**，因此�
 
 ### 3.2 RQ2：统一证明模型后，规约生成表现如何
 
-这一实验由六个模型分别生成规约，统一使用 Gemini 3 Pro Preview 生成证明。下表摘录表 2 的语法检查与后两阶段结果；阶段列为通过任务数，最终筛选率以 164 个任务为分母。[论文 §4.2、表 2](https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf#page=7)
+这一实验由六个模型分别生成规约，主要比较统一使用 Gemini 3 Pro Preview 生成证明的结果，同时报告各模型自验证的表现。下方直接使用原论文表 2，保留全部阶段和两种证明设置；百分比以 164 个任务为分母，括号中为通过任务数。[论文 §4.2、表 2](https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf#page=7)
 
-| 规约生成模型 | `SYNTAX` | `PASSall` | `REJECTall` | 最终筛选率 |
-| --- | --- | --- | --- | --- |
-| GPT-4o | 24 | 7 | 7 | 4.27% |
-| DeepSeek-V3.1 | 13 | 2 | 2 | 1.22% |
-| Claude 3.7 Sonnet | 32 | 3 | 3 | 1.83% |
-| Claude 4.5 Opus | 98 | 24 | 24 | 14.63% |
-| GPT-5 | 110 | 25 | 25 | 15.24% |
-| Gemini 3 Pro Preview | 128 | 46 | 46 | 28.05% |
+[![COINS 原论文表 2：规约生成与自验证的完整实验结果](../assets/papers/coins-evaluation/coins-table-2.png)](../assets/papers/coins-evaluation/coins-table-2.png)
 
-**原文 Finding：语法是第一道瓶颈。** 六个模型的语法通过率从 7.93% 到 78.05%，大量候选在行为评估之前就因无效语法或类型构造被淘汰。原文在 HumanEval 和该测试协议的范围内，将这类形式表达错误归纳为主要失败来源。[论文 §4.2](https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf#page=6)
+*COINS 原论文表 2。`Generate Model` 为规约生成模型，`Verify Model` 为证明模型，后续各列对应四阶段评估。[原论文 PDF，第 7 页](https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf#page=7)*
+
+**语法是第一道瓶颈。** 六个模型的语法通过率从 7.93% 到 78.05%，大量候选在行为评估之前就因无效语法或类型构造被淘汰。原文在 HumanEval 和该测试协议的范围内，将这类形式表达错误归纳为主要失败来源。[论文 §4.2](https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf#page=6)
+
+@@opinion-begin@@
+
+语法问题主要体现在 pass@1 的单次生成设置中；在现在采用编译器反馈、允许多轮修正的 Agent 流程中，这类问题基本不再构成障碍。
+
+@@opinion-end@@
 
 论文还报告了三项观察：
 
@@ -138,19 +134,13 @@ Gemini 3 Pro Preview 的 `PASSall` 最高，为 **49/164（29.88%）**，因此�
 
 ### 3.3 RQ3：规约质量与证明能力分别贡献多少
 
-论文以“模型生成规约，并由自身证明”为基线，分别更换规约来源或证明模型，进行两项受控干预。原文报告的平均提升如下；这里用百分点表示通过率的差值。[论文 §4.3、图 2](https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf#page=6)
-
-| 配置 | 相对基线改变的因素 | 原文报告的平均提升 |
-| --- | --- | --- |
-| Self-Verify + Self Spec | 基线：自生成、自验证 | — |
-| Self-Verify + Human Spec | 保留证明模型，将规约替换为人工规约 | +5.01 个百分点 |
-| Gemini-Verify + Self Spec | 保留生成规约，将证明模型替换为 Gemini | +3.05 个百分点 |
+论文以“模型生成规约，并由自身证明”（Self-Verify + Self Spec）为基线，分别更换规约来源或证明模型，进行两项受控干预。保留证明模型、将规约替换为人工规约（Self-Verify + Human Spec），原文报告平均提升 **5.01 个百分点**；保留生成规约、将证明模型替换为 Gemini（Gemini-Verify + Self Spec），平均提升 **3.05 个百分点**。各模型的结果见原论文图 2。[论文 §4.3、图 2](https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf#page=6)
 
 [![COINS 原论文图 2：规约质量与证明能力的消融](../assets/papers/coins-evaluation/coins-figure-2.png)](../assets/papers/coins-evaluation/coins-figure-2.png)
 
 *COINS 原论文图 2。分别改变规约来源和证明模型，观察通过率变化。[原论文 PDF，第 6 页](https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf#page=6)*
 
-**原文 Finding：验证复杂度的权衡。** 两项干预都影响评估结果。虽然替换人工规约带来的平均提升更大，证明能力在实例检查中仍有显著影响。原文由此强调：证明义务越复杂，就越依赖强证明器，也越容易因证明失败而系统性低估规约质量；即使评价目标本身严格，过难的证明过程仍可能使评分难以反映生成能力。[论文 §4.3](https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf#page=7)
+**验证复杂度的权衡。** 两项干预都影响评估结果。虽然替换人工规约带来的平均提升更大，证明能力在实例检查中仍有显著影响。原文由此强调：证明义务越复杂，就越依赖强证明器，也越容易因证明失败而系统性低估规约质量；即使评价目标本身严格，过难的证明过程仍可能使评分难以反映生成能力。[论文 §4.3](https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf#page=7)
 
 ### 3.4 RQ4：允许可执行成分会怎样影响规约与证明
 
@@ -166,17 +156,11 @@ Gemini 3 Pro Preview 的 `PASSall` 最高，为 **49/164（29.88%）**，因此�
 
 *COINS 原论文图 4。图中允许组的 `PASSfirst`、`PASSall` 分别标为 75.6%、30.5%，禁止组分别标为 61.6%、15.2%。这些允许组标注与表 1 的人工基线 74.39%、29.88% 存在出入；此处保留原图，图与表分别按原文引用。[原论文 PDF，第 8 页](https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf#page=8)*
 
-**原文 Finding：可执行成分很重要。** 用 `Fixpoint` 封装适当的子逻辑，可以降低规约复杂度与验证难度；强制只使用纯关系式表达，会使定义和证明义务更冗长。这也是论文允许规约包含可执行成分的实验依据。[论文 §4.4](https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf#page=8)
+**可执行成分很重要。** 用 `Fixpoint` 封装适当的子逻辑，可以降低规约复杂度与验证难度；强制只使用纯关系式表达，会使定义和证明义务更冗长。这也是论文允许规约包含可执行成分的实验依据。[论文 §4.4](https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf#page=8)
 
 ### 3.5 补充实验：实例筛选之后，等价证明仍有多难
 
-附录 E 进一步比较通过筛选的人工与模型规约。在双方都通过筛选的 29 个任务上，原文报告的等价证明结果如下。[论文附录 E](https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf#page=22)
-
-| 等价证明结果 | 任务数 |
-| --- | --- |
-| 两个蕴含方向均证明成功 | 9 |
-| 只有一个方向证明成功 | 3 |
-| 两个方向都未完成证明 | 17 |
+附录 E 进一步比较通过筛选的人工与模型规约。在双方都通过筛选的 29 个任务上，**9 个**任务的两个蕴含方向均证明成功，**3 个**只有一个方向证明成功，另有 **17 个**两个方向都未完成证明。[论文附录 E](https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf#page=22)
 
 论文人工复核了三个单向成功的案例，并认为它们实际语义等价，缺失方向来自证明能力限制。因此，原文把这组结果作为等价证明可能低估规约质量的进一步证据，认为它不适合作为主要质量指标。[论文附录 E](https://lcs.ios.ac.cn/~znj/papers/papers/ICML2026-15287_How_Powerful_are_LLMs_in.pdf#page=22)
 
@@ -205,13 +189,11 @@ Gemini 3 Pro Preview 的 `PASSall` 最高，为 **49/164（29.88%）**，因此�
 
 **VerinaPlus** 是 [VeriScale](https://arxiv.org/abs/2605.22368v1) 在 VERINA 上构建的增强测试集。它扩充合法输入输出、无效输入与错误输出；输入经参考前置条件分类，合法输入由参考实现标注输出。错误输出来自专门利用候选规约漏洞的对抗实现，保留与参考结果不同、却被候选后置条件接纳的输出。[论文 §3.1](https://arxiv.org/html/2605.22368v1#S3.SS1)
 
-| 每题平均测试数量 | VERINA | VerinaPlus |
-| --- | --- | --- |
-| 合法输入输出对 | 5.89 | 370.07 |
-| 错误输出 | 12.69 | 1114.01 |
-| 无效输入 | 0.65 | 119.00 |
+[![VeriScale 原论文表 1：VERINA、VerinaPlus 与 VerinaLite 的测试数量](../assets/papers/coins-evaluation/veriscale-table-1.png)](../assets/papers/coins-evaluation/veriscale-table-1.png)
 
-数量取自论文表 1。评估沿用 VERINA 官方 harness，报告 SpecGen 和 CodeGen pass@1，以及规约 unknown 的上下界。VerinaLite 则通过保留边界类型和基于对抗实现杀死集合的约简，减少测试成本。[论文 §3.2、§4.2](https://arxiv.org/html/2605.22368v1#S3.SS2)
+*VeriScale 原论文表 1。保留三个测试集的均值、最小值至最大值，以及相对 VERINA 的增长倍数。[原论文 PDF，第 6 页](https://arxiv.org/pdf/2605.22368v1#page=6)*
+
+评估沿用 VERINA 官方 harness，报告 SpecGen 和 CodeGen pass@1，以及规约 unknown 的上下界。VerinaLite 则通过保留边界类型和基于对抗实现杀死集合的约简，减少测试成本。[论文 §3.2、§4.2](https://arxiv.org/html/2605.22368v1#S3.SS2)
 
 @@opinion-begin@@
 
