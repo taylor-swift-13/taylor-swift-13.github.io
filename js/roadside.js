@@ -16,42 +16,15 @@
     uniform vec2 resolution;
     uniform float time;
     varying vec2 uv;
-    float sea(vec2 p) {
-      float t = time * .65;
-      return sin(dot(p, vec2(.7,.65)) - t) * .28
-        + sin(dot(p, vec2(-1.1,.8)) + t * .85) * .16
-        + sin(dot(p, vec2(2.5,1.4)) - t * 1.3) * .06
-        + sin(dot(p, vec2(-3.5,4.7)) + t * 1.6) * .025;
-    }
     void main() {
-      vec2 screen = uv * 2. - 1.;
-      vec3 ray = normalize(vec3(screen.x * resolution.x / resolution.y * .65, screen.y * .7 - .6, -1.5));
-      vec3 sky = mix(vec3(.58,.024,.072), vec3(.19,.003,.025), smoothstep(.6,1.,uv.y));
-      vec3 color = sky;
-      if (ray.y < -.012) {
-        vec3 origin = vec3(0.,3.4,5.);
-        float distance = min(100.,-origin.y / ray.y);
-        for (int i=0; i<4; i++) {
-          vec3 point = origin + ray * distance;
-          distance = clamp((sea(point.xz)-origin.y) / ray.y,0.,100.);
-        }
-        vec3 point = origin + ray * distance;
-        float h = sea(point.xz);
-        float dx = (sea(point.xz+vec2(.035,0.))-h)/.035;
-        float dz = (sea(point.xz+vec2(0.,.035))-h)/.035;
-        vec3 normal = normalize(vec3(-dx,1.,-dz));
-        vec3 light = normalize(vec3(-.4,.65,-.6));
-        float diffuse = max(dot(normal,light),0.);
-        float reflection = pow(1.-max(dot(normal,-ray),0.),3.);
-        float shine = pow(max(dot(reflect(ray,normal),light),0.),42.);
-        color = mix(vec3(.17,.002,.023),vec3(.72,.018,.065),diffuse*.8);
-        color += vec3(.42,.035,.065)*reflection;
-        color += vec3(1.,.3,.32)*shine*.72;
-        color += vec3(.35,.09,.1)*smoothstep(.30,.48,h)*.15;
-        color = mix(color,sky,1.-exp(-distance*.025));
-      }
-      float grain = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898,78.233))) * 43758.5453);
-      color += (grain - .5) * .014;
+      vec2 p = (uv-.5)*vec2(min(resolution.x/resolution.y,2.),1.);
+      float t = time*.12;
+      vec2 lightOffset = p-vec2(-.35+sin(t)*.14,.12+cos(t*.8)*.08);
+      vec2 shadeOffset = p-vec2(.38+cos(t*.7)*.12,-.17+sin(t*.9)*.10);
+      float light = exp(-dot(lightOffset,lightOffset)*3.);
+      float shadow = exp(-dot(shadeOffset,shadeOffset)*3.5);
+      float brightness = 1.+.028*light-.035*shadow;
+      vec3 color = vec3(200.,16.,46.)/255.*brightness;
       gl_FragColor = vec4(color, 1.);
     }
   `;
