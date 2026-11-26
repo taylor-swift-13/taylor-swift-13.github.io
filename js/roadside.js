@@ -170,7 +170,14 @@
   });
   closeButton.addEventListener('click', close);
   document.addEventListener('fullscreenchange', () => {
-    if (nativeFullscreen && document.fullscreenElement !== view) finishClose();
+    if (nativeFullscreen && document.fullscreenElement !== view) {
+      nativeFullscreen = false;
+      // Embedded browsers can revoke native fullscreen; keep the viewport overlay open.
+      if (opened) closeButton.focus({preventScroll:true});
+    }
+  });
+  document.addEventListener('keyup', event => {
+    if (opened && event.key === 'Escape') close();
   });
   view.addEventListener('keydown', event => {
     if (event.key === 'Escape') {event.preventDefault(); close();}
