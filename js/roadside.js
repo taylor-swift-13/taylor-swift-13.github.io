@@ -12,31 +12,44 @@
   const inertState = new Map();
 
   const fragment = `
-    precision mediump float;
+    precision highp float;
     uniform vec2 resolution;
     uniform float time;
     varying vec2 uv;
-    float fabric(vec2 p) {
-      float t = time * .22;
-      float bend = sin(p.y * 2.1 + t) * .48 + sin(p.x * 1.3 - t * .7) * .3;
-      float fold = p.x * 2.8 + p.y * 1.9 + bend;
-      return sin(fold + t) * .48
-        + sin(fold * 2.1 - t * .6 + sin(p.y * 2.0 + t)) * .18
-        + sin(p.y * 3.8 - p.x * 1.1 + t * .8) * .16;
+    float sea(vec2 p) {
+      float t = time * .65;
+      return sin(dot(p, vec2(.7,.65)) - t) * .28
+        + sin(dot(p, vec2(-1.1,.8)) + t * .85) * .16
+        + sin(dot(p, vec2(2.5,1.4)) - t * 1.3) * .06
+        + sin(dot(p, vec2(-3.5,4.7)) + t * 1.6) * .025;
     }
     void main() {
-      vec2 p = (uv - .5) * vec2(resolution.x / resolution.y, 1.0) * 2.4;
-      float h = fabric(p);
-      float dx = (fabric(p + vec2(.015, 0.)) - h) / .015;
-      float dy = (fabric(p + vec2(0., .015)) - h) / .015;
-      vec3 normal = normalize(vec3(-dx * .75, -dy * .75, 1.));
-      vec3 light = normalize(vec3(-.6, .8, 1.5));
-      float diffuse = max(dot(normal, light), 0.);
-      float shine = pow(max(dot(reflect(-light, normal), vec3(0., 0., 1.)), 0.), 18.);
-      vec3 dark = vec3(.24, .003, .035);
-      vec3 red = vec3(.86, .027, .12);
-      vec3 color = mix(dark, red, .23 + diffuse * .7 + h * .12);
-      color += vec3(1., .19, .23) * shine * .24;
+      vec2 screen = uv * 2. - 1.;
+      vec3 ray = normalize(vec3(screen.x * resolution.x / resolution.y * .65, screen.y * .7 - .6, -1.5));
+      vec3 sky = mix(vec3(.58,.024,.072), vec3(.19,.003,.025), smoothstep(.6,1.,uv.y));
+      vec3 color = sky;
+      if (ray.y < -.012) {
+        vec3 origin = vec3(0.,3.4,5.);
+        float distance = min(100.,-origin.y / ray.y);
+        for (int i=0; i<4; i++) {
+          vec3 point = origin + ray * distance;
+          distance = clamp((sea(point.xz)-origin.y) / ray.y,0.,100.);
+        }
+        vec3 point = origin + ray * distance;
+        float h = sea(point.xz);
+        float dx = (sea(point.xz+vec2(.035,0.))-h)/.035;
+        float dz = (sea(point.xz+vec2(0.,.035))-h)/.035;
+        vec3 normal = normalize(vec3(-dx,1.,-dz));
+        vec3 light = normalize(vec3(-.4,.65,-.6));
+        float diffuse = max(dot(normal,light),0.);
+        float reflection = pow(1.-max(dot(normal,-ray),0.),3.);
+        float shine = pow(max(dot(reflect(ray,normal),light),0.),42.);
+        color = mix(vec3(.17,.002,.023),vec3(.72,.018,.065),diffuse*.8);
+        color += vec3(.42,.035,.065)*reflection;
+        color += vec3(1.,.3,.32)*shine*.72;
+        color += vec3(.35,.09,.1)*smoothstep(.30,.48,h)*.15;
+        color = mix(color,sky,1.-exp(-distance*.025));
+      }
       float grain = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898,78.233))) * 43758.5453);
       color += (grain - .5) * .014;
       gl_FragColor = vec4(color, 1.);
@@ -81,7 +94,7 @@
       return seconds => {
         if (lost) return;
         const rect = canvas.getBoundingClientRect();
-        const ratio = Math.min(window.devicePixelRatio || 1, 1.5, 1800 / Math.max(rect.width, 1));
+        const ratio = Math.min(window.devicePixelRatio || 1, 1.25, 1400 / Math.max(rect.width, 1));
         const width = Math.max(1, Math.round(rect.width * ratio));
         const height = Math.max(1, Math.round(rect.height * ratio));
         if (canvas.width !== width || canvas.height !== height) {canvas.width=width; canvas.height=height;}
@@ -105,7 +118,7 @@
   let lastFrame = 0;
   let stillFrame = false;
   function frame(now) {
-    if (!document.hidden && (opened || previewVisible) && now-lastFrame >= (opened ? 16 : 33)) {
+    if (!document.hidden && (opened || previewVisible) && now-lastFrame >= (opened ? 33 : 50)) {
       if (!reducedMotion.matches || !stillFrame) {
         (opened ? fullSurface : previewSurface)?.(now / 1000);
         stillFrame = true;
