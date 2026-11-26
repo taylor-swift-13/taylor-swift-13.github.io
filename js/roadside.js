@@ -27,7 +27,7 @@
       float shadow = exp(-dot(shadeOffset,shadeOffset)*3.5);
       vec2 depthOffset = (uv-.5-pointer*vec2(.08,.06))*vec2(1.1,1.5);
       float depth = exp(-dot(depthOffset,depthOffset)*5.);
-      float brightness = .82+.17*depth+.07*light-.055*shadow;
+      float brightness = .93+.13*depth+.08*light-.045*shadow;
       vec3 color = vec3(200.,16.,46.)/255.*brightness;
       gl_FragColor = vec4(color, 1.);
     }
