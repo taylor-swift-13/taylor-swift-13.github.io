@@ -85,16 +85,14 @@ idnode = node - delta = p
 <p>转换成 <code>char *</code> 是为了按字节计算偏移。偏移由结构体布局决定，可能包含对齐填充。原宏的零地址表达式是依赖编译器支持的字段偏移写法。</p>
 <p>接下来执行 <code>idnode-&gt;id</code> 时，代码已经从链表结构访问进入了业务字段访问。<code>CONTAINER_OF</code> 本身不会检查 <code>node</code> 是否确实来自一个有效的 <code>IdNode.link</code>，也不会提供读取 ID 字段所需的资源。这些条件需要由规范保证。</p>
 <h2>3. store_idnode 怎样支持这两步访问</h2>
-<p>本例将业务资源描述为：</p>
+<p>当前验证中，<code>IdNodeAbs</code> 用 <code>idnode_addr</code> 记录宿主地址，用 <code>idnode_id</code> 记录 ID 值；<code>idnode_link node</code> 表示该宿主的 <code>link</code> 字段地址。业务资源定义为：</p>
 <pre><code class="language-coq">Definition store_idnode
-  (node_storeA : addr -&gt; Z -&gt; Prop)
-  (link : addr) (id : Z) : Assertion :=
-  EX p : addr,
-    “ link = &amp;(p # &quot;IdNode&quot; -&gt;ₛ &quot;link&quot;) ” &amp;&amp;
-    “ node_storeA p id ” &amp;&amp;
-    &amp;(p # &quot;IdNode&quot; -&gt;ₛ &quot;id&quot;) # UShort |-&gt; id.
+  (link : addr) (node : IdNodeAbs) : Assertion :=
+  let p := node.(idnode_addr) in
+  “ p &lt;&gt; 0 /\ link = idnode_link node ” &amp;&amp;
+  &amp;(p # &quot;IdNode&quot; -&gt;ₛ &quot;id&quot;) # UShort |-&gt; node.(idnode_id).
 </code></pre>
-<p>这个断言以链表节点地址 <code>link</code> 为入口，给出宿主地址 <code>p</code>、业务关系，以及 ID 字段资源。它与 C 代码的对应关系是：</p>
+<p>这个断言记录链表节点地址 <code>link</code> 与宿主地址 <code>p</code> 的关系，并拥有宿主的 ID 字段资源。它与 C 代码的对应关系是：</p>
 <table>
 <thead>
 <tr>
@@ -109,11 +107,11 @@ idnode = node - delta = p
 </tr>
 <tr>
 <td><code>idnode-&gt;id</code></td>
-<td>持有 <code>p-&gt;id</code> 字段，且其中存储逻辑值 <code>id</code></td>
+<td>持有 <code>p-&gt;id</code> 字段，且其中存储逻辑记录中的 ID 值</td>
 </tr>
 </tbody>
 </table>
-<p><code>node_storeA p id</code> 是返回 <code>Prop</code> 的纯关系；<code>UShort |-&gt; id</code> 才提供实际字段的堆资源。因此，仅有“对象对应这个 ID”的纯命题，不足以支持 C 字段读取。</p>
+<p><code>p &lt;&gt; 0</code> 和 <code>link = idnode_link node</code> 是纯条件；<code>UShort |-&gt; node.(idnode_id)</code> 才提供实际字段的堆资源。因此，仅有“对象对应这个 ID”的纯命题，不足以支持 C 字段读取。</p>
 <p>证明遍历代码时，需要展开或拆分链表谓词，暴露当前节点的这份断言，再分别证明地址计算和字段读取。<strong><code>CONTAINER_OF</code> 计算地址，<code>store_idnode</code> 描述地址对应的对象及可用资源。</strong> 两者通过 <code>node = &amp;p-&gt;link</code> 衔接。</p>
 <h2>4. 为什么把它抽象成 storeA</h2>
 <p>通用链表库不应写死 <code>IdNode</code> 的布局。其他业务可能使用不同宿主类型、不同数据字段和不同位置的内嵌节点，因此把业务部分抽象成一个参数：</p>
@@ -134,17 +132,82 @@ idnode = node - delta = p
 ** 剩余链表
 </code></pre>
 <p>这里 <code>**</code> 是分离合取，表示各部分使用互不重叠的堆资源。完整的 <code>store_dll storeA head nodes</code> 因而同时保留节点顺序、链接结构与逐节点业务资源。</p>
-<p>在 <code>IdNode</code> 例子中，业务侧选择 <code>A = Z</code>、<code>storeA = store_idnode node_storeA</code>。链表库统一验证结构操作，业务代码需要恢复宿主并读取 ID 时，再展开具体的 <code>store_idnode</code>。</p>
+<p>在当前 ID 验证中，业务侧选择 <code>A = IdNodeAbs</code>、<code>storeA = store_idnode</code>。链表库统一验证结构操作，业务代码需要恢复宿主并读取 ID 时，再展开具体的 <code>store_idnode</code>。</p>
 <p>删除规范体现了这个接口的收益。若 <code>nodes = prefix ++ [removed] ++ suffix</code> 且 <code>getPtr removed = x</code>，删除后返回：</p>
 <pre><code class="language-text">store_dll storeA head (prefix ++ suffix)
-** xizi_dll_detached x
+** store_self_linked x
 ** storeA x (getData removed)
 </code></pre>
-<p>剩余节点的业务资源继续封装在链表中，被摘除节点的链接字段和业务资源交还调用者。<code>xizi_dll_detached x</code> 表示两个链接字段均指回 <code>x</code>。插入是相反的方向：调用者交出新节点的链接字段和业务资源，将它们一起封装进链表。</p>
-<p>这样，业务侧不必在每次结构操作后，重新维护一套独立的“节点地址对应哪份业务资源”的关系。同一套结构证明可以用于不同的 <code>storeA</code> 实例。</p>
+<p>剩余节点的业务资源继续封装在链表中，被摘除节点的链接字段和业务资源交还调用者。<code>store_self_linked x</code> 只拥有两个指回 <code>x</code> 的链接字段，业务资源由旁边的 <code>storeA x (getData removed)</code> 单独描述。插入是相反的方向：调用者提供新节点的链接字段和业务资源，将它们一起封装进链表谓词。</p>
+<p>这样，节点地址与业务资源的对应关系被纳入链表谓词，减少了业务侧单独维护这份关联的工作。同一套结构证明可以用于不同的 <code>storeA</code> 实例。</p>
 <h2>5. storeA 的资源边界</h2>
 <p>链表谓词已经持有 <code>next/prev</code> 字段，业务实例不能再次包含它们的独占所有权。对于 <code>IdNode</code>，链表负责 <code>link.node_next/link.node_prev</code>，<code>store_idnode</code> 负责 <code>id</code> 字段。它们虽然位于同一个对象中，仍是不同的内存位置。</p>
-<p>业务资源也可以放在链表断言之外，通过 frame rule 保留；<code>storeA</code> 的收益是把逐节点的数据与资源对应关系组织成可复用的接口。只关心链接结构时，可以取 <code>A = unit</code>、<code>storeA = fun _ _ =&gt; emp</code>。因此，使用非空 <code>storeA</code> 的动机来自业务验证的需要，而非内嵌链表结构本身。</p>
+<p>业务资源也可以放在链表断言之外。只关心链接结构时，可以取 <code>A = unit</code>、<code>storeA = fun _ _ =&gt; emp</code>，由调用者单独持有业务字段。因此，使用非空 <code>storeA</code> 的动机来自业务验证的需要，而非内嵌链表结构本身。</p>
+<h2>6. 插入调用中的内存权限</h2>
+<p>CRTOS 的 <code>InsertObj</code> 先根据 ID 选择哈希桶，再把节点插入桶中的链表：</p>
+<pre><code class="language-c">static void InsertObj(struct IdManager *manager, struct IdNode *idnode)
+{
+    NULL_PARAM_CHECK(manager);
+    NULL_PARAM_CHECK(idnode);
+
+    DoubleLinklistType *head =
+        &amp;manager-&gt;htable[idnode-&gt;id % manager-&gt;hoffset];
+
+    if (head-&gt;node_prev == NONE)
+        InitDoubleLinkList(head);
+
+    DoubleLinkListInsertNodeAfter(head, &amp;idnode-&gt;link);
+}
+</code></pre>
+<p>计算 <code>head</code> 的这一行读取了 <code>idnode-&gt;id</code>。因此，<strong>验证整个 <code>InsertObj</code> 时，前条件必须提供这个字段的访问权限。</strong></p>
+<p>再看最后一行调用的底层函数。它的实际函数体只有四次赋值：</p>
+<pre><code class="language-c">void DoubleLinkListInsertNodeAfter(
+    DoubleLinklistType *linklist,
+    DoubleLinklistType *linklist_node)
+{
+    linklist-&gt;node_next-&gt;node_prev = linklist_node;
+    linklist_node-&gt;node_next = linklist-&gt;node_next;
+
+    linklist-&gt;node_next = linklist_node;
+    linklist_node-&gt;node_prev = linklist;
+}
+</code></pre>
+<p>这四行只访问 <code>node_next/node_prev</code>，没有读取或修改 <code>id</code>。所以，在 <code>InsertObj</code> 调用这个函数时，可以选择只要求链接资源的规约，把 <code>id</code> 字段留在 <code>InsertObj</code> 手里。假设该字段的值为 7，资源变化可示意为：</p>
+<pre><code class="language-text">调用前：原链表链接 ** 新节点链接 ** idnode-&gt;id ↦ 7
+调用后：更新后的链表链接       ** idnode-&gt;id ↦ 7
+</code></pre>
+<p>这里 <code>idnode-&gt;id ↦ 7</code> 表示拥有该字段的内存资源，并且其中存着 7。它没有用于满足底层插入函数的前条件，而是通过 frame 在这次调用前后保留下来。所谓“留在调用者手里”，指的是证明中的资源划分，不会改变 C 函数的参数或搬运内存。</p>
+<p><strong>同一个 <code>id</code> 字段，对整个 <code>InsertObj</code> 是需要提供的资源；对其中调用的 <code>DoubleLinkListInsertNodeAfter</code>，则可以作为 frame 保留。</strong> 是否可以 frame，需要看当前证明的是哪一次调用。</p>
+<h2>7. 两种资源组织对后续访问的影响</h2>
+<p>同一次链表插入，可以把业务资源独立保留，也可以用 <code>storeA</code> 将它封装进链表。两种写法不改变 C 程序，但会影响 caller 下一步怎样取得字段资源。</p>
+<p>先看一个已知节点的调用示例。假设调用前已拥有合法的链表、新节点链接，以及值为 7 的 <code>id</code> 字段；下面在插入之后增加一行读取：</p>
+<pre><code class="language-c">DoubleLinkListInsertNodeAfter(head, &amp;idnode-&gt;link);
+int value = idnode-&gt;id;
+</code></pre>
+<p>如果采用仅描述链接的规约，<code>id</code> 字段可以按上一节的方法通过 frame 保留。调用后的断言中直接有：</p>
+<pre><code class="language-text">更新后的链表链接 ** idnode-&gt;id ↦ 7
+</code></pre>
+<p>第二行读取直接使用右侧的字段资源，就能证明 <code>value == 7</code>。</p>
+<p>如果采用携带业务资源的 <code>storeA</code>，插入后 <code>id</code> 字段会被收进链表谓词。它描述的资源可以示意为：</p>
+<pre><code class="language-text">更新后的链表谓词
+  ├─ 第一个节点的链接 + 对应的 id 字段
+  ├─ 第二个节点的链接 + 对应的 id 字段
+  └─ ……
+</code></pre>
+<p>此时 <code>idnode-&gt;id</code> 的资源仍然存在，只是封装在链表谓词内部。证明第二行读取时，需要展开或拆分谓词，取出对应的字段资源；读取后，再根据后续规约需要恢复表示。<strong>对于“已知节点，插入后立即读它”的调用，独立保留字段资源更直接。</strong></p>
+<p>当前项目的 <code>InsertObj</code> 验证选择将 ID 资源封装进链表。这种组织方式的好处，可以从 <code>GetObj</code> 的实际遍历代码看出来：</p>
+<pre><code class="language-c">DOUBLE_LINKLIST_FOR_EACH(node, head) {
+    idnode = CONTAINER_OF(node, struct IdNode, link);
+    if (idnode-&gt;id == id)
+        break;
+    idnode = NONE;
+}
+</code></pre>
+<p>每一轮访问的对象都由当前 <code>node</code> 决定。使用 <code>storeA</code> 时，展开当前链表节点，可以同时取得它的链接和对应业务资源；再展开具体业务谓词，得到宿主地址以及该对象的 <code>id</code> 字段资源。这样就能依次证明 <code>CONTAINER_OF</code> 的地址计算和 <code>idnode-&gt;id</code> 的读取。</p>
+<p>如果业务资源独立存放，也能证明这段遍历，但每一轮都需要从独立资源集合中提取当前节点对应的 <code>id</code> 字段。<strong>frame 能保留这些资源，不会自动找到当前节点对应的那一份。</strong> 无论采用哪种组织方式，<code>GetObj</code> 的前条件都必须提供它内部读取业务字段所需的权限。</p>
+<p>因此，已知业务对象、调用后直接使用它的字段时，独立保留资源通常更方便；沿链表逐个查找并访问业务字段时，使用 <code>storeA</code> 通常更方便。底层插入函数在两种情况下都只修改链接，业务字段都保持不变。</p>
+<p><code>storeA</code> 与 frame 可以配合使用：前者组织业务资源，后者保证未访问的资源在调用期间保持不变，即使这些资源原先封装在链表中，展开后也可以通过 frame 保留。库中已有 <code>store_dll_decompose</code> 和 <code>store_dll_compose</code>，支持将携带业务资源的链表拆成“仅含链接的链表与独立业务资源集合”，并重新组合。</p>
+<p>callee 自身会访问哪些字段，可以从函数体确定；后条件把资源单独交还还是封装进数据结构，则需要结合 caller 后续的使用方式设计。缺少具体 caller 时，可以验证 callee 的行为，但还不能确认资源的组织方式是否方便后续业务使用。</p>
     </article>
     <div class="article-end"><a class="back-link" href="../index.html#writing">← 返回文章列表</a></div>
   </main>
